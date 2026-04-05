@@ -65,8 +65,8 @@ git log --stat --oneline <last_synced_commit>..HEAD
 4. **识别需要同步的修改**（保留以下类型）：
    - `feat:` 新功能
    - `feat(xxx):` 带模块的新功能
-   - 涉及新系统目录的创建（如 `systems/xxx/`）
-   - 涉及新组件的创建（如 `components/XxxModal.tsx`）
+   - 涉及新模块/系统目录的创建
+   - 涉及新组件/实体文件的创建
    - 大量代码变更（>200 行新增）
 
 ### 阶段 2：理解代码实现
@@ -89,7 +89,7 @@ git log --stat --oneline <last_synced_commit>..HEAD
 
 2. 检查相关设计文档是否已存在：
    ```bash
-   ls <设计文档目录>/系统设计文档/
+   ls <设计文档目录>/
    ```
 
 3. 读取相关文档，确认哪些内容缺失
