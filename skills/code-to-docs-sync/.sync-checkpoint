@@ -1,0 +1,17 @@
+# Code-to-Docs Sync Checkpoint
+# 此文件记录代码到文档同步的检查点，供增量扫描使用
+
+# 最后同步的 commit hash
+last_synced_commit: 0fbcbfda2d006dc81f7bbe66d01d5dcd1cdd9d83
+
+# 同步日期
+last_sync_date: 2026-02-06
+
+# 同步时的提交总数
+total_commits_at_sync: 321
+
+# 同步时的 feat 提交数
+feat_commits_at_sync: 136
+
+# 下次扫描命令
+# git log --oneline 0fbcbfd..HEAD | grep -E "^[a-f0-9]+ feat"
