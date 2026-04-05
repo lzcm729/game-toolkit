@@ -1,5 +1,5 @@
 ---
-name: gap-analysis
+name: sync-docs-ahead
 description: >
   Full design-document vs code gap analysis. Compares all design docs against
   actual code to identify implemented, partial, missing, and divergent features.

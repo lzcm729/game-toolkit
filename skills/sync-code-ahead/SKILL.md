@@ -1,5 +1,5 @@
 ---
-name: code-to-docs-sync
+name: sync-code-ahead
 description: |
   将代码修改同步到设计文档。扫描 git 提交历史，识别未记录到设计文档的功能修改，生成或更新设计文档。
 

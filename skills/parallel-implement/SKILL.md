@@ -52,7 +52,7 @@ description: |
 Phase 0: 生成实现清单
 Phase 1: 基础变更（main 分支）
 Phase 2: 创建 Worktrees
-Phase 3: 并行实现（单 Team + fw/ui 直接通信）
+Phase 3: 并行实现（单 Team + 角色间直接通信）
 Phase 4: 顺序合并（merge → tsc → commit）
 Phase 5: 清理（worktree + branch + Team）
 ```
