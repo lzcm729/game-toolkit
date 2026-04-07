@@ -25,8 +25,11 @@ description: |
 
 首先检查是否有上次同步的检查点文件：
 
+Checkpoint 路径从 CLAUDE.md 读取（查找 "sync-checkpoint" 相关配置）。
+如果未定义，默认使用 `.claude/.sync-checkpoint`。
+
 ```bash
-cat .claude/skills/code-to-docs-sync/.sync-checkpoint
+cat <checkpoint-path>
 ```
 
 **如果存在检查点：** 使用增量扫描
@@ -217,7 +220,7 @@ git log --stat --oneline <last_synced_commit>..HEAD
 
 ### 阶段 7：更新检查点
 
-同步完成后，更新检查点文件 `.claude/skills/code-to-docs-sync/.sync-checkpoint`：
+同步完成后，更新检查点文件（路径同阶段 0）：
 
 ```
 # Code-to-Docs Sync Checkpoint
