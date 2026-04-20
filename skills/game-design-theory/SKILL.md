@@ -1,23 +1,27 @@
 ---
 name: game-design-theory
 description: >
-  Game design consulting based on three foundational books:
+  Game design consulting based on four foundational books:
   (1) Richard Rouse III's "Game Design: Theory & Practice" - player psychology, gameplay systems, non-linear design, playtesting
   (2) Tynan Sylvester's "Designing Games: A Guide to Engineering Experiences" - elegance, emergence, skill depth, decisions, motivation, iteration
   (3) Jesse Schell's "The Art of Game Design: A Book of Lenses" - 113+ design lenses, interest curves, experience design, game mechanics, prototyping
+  (4) Donella H. Meadows' "Thinking in Systems: A Primer" - stocks & flows, feedback loops, system traps & leverage points (foundational systems thinking — not originally a game design book, bridged here to game systems)
   Use when helping with game design decisions, player psychology, gameplay systems,
   storytelling, playtesting, evaluating fun, balancing depth and accessibility,
   designing reinforcement schedules, pacing and interest curves, character design,
-  iterative prototyping, or analyzing decision-making in games.
+  iterative prototyping, analyzing decision-making in games, diagnosing system
+  problems (economy inflation, balance escalation, player retention spirals), or
+  choosing what to change for maximum leverage in a game system.
   NOT for coding or programming - focused on design philosophy and player experience.
 ---
 
 # Game Design Theory Skill
 
-A design consulting framework based on three foundational game design books:
+A design consulting framework based on four foundational books:
 - **Richard Rouse III** - "Game Design: Theory & Practice"
 - **Tynan Sylvester** - "Designing Games: A Guide to Engineering Experiences"
 - **Jesse Schell** - "The Art of Game Design: A Book of Lenses" (3rd Edition)
+- **Donella H. Meadows** - "Thinking in Systems: A Primer" *(systems thinking — not a game design book; bridged to game systems by this skill's maintainers)*
 
 ## When to Use This Skill
 
@@ -29,6 +33,9 @@ A design consulting framework based on three foundational game design books:
 - Integrating story with gameplay
 - Planning and conducting playtesting
 - Making design trade-off decisions
+- Diagnosing economy inflation, power creep, player retention spirals (Meadows)
+- Choosing **what to change** for maximum leverage in a game system (Meadows)
+- Identifying which of the 8 system traps a broken game mechanic falls into
 
 ## Core Philosophy
 
@@ -167,6 +174,72 @@ Interest
 - "Quick and dirty, not slow and beautiful." (prototyping)
 - "The player is always right about their experience. They're often wrong about why."
 
+## Quick Reference: Meadows
+
+> **Note**: Meadows' *Thinking in Systems* is not a game design book — examples are about banks, populations, oil, fisheries. The `meadows-*` references below layer a **"Game Design Application"** section onto each concept, clearly marked as non-original bridging content.
+
+### The Three-Part System
+```
+Elements → Interconnections → Function / Purpose
+(visible)   (critical)          (most hidden, most powerful)
+```
+Changing elements = weakest lever. Changing purpose = strongest. The purpose is inferred from behavior, not stated aims.
+
+### Stocks & Flows (Bathtub Law)
+- **Stock** = cumulative quantity (HP, gold, XP, inventory, reputation)
+- **Flow** = rate of change (damage, drops, consumption, growth)
+- **Inflows > outflows** → stock rises; reversed → falls; equal → dynamic equilibrium
+- Most "resource inflation" is actually a **missing sink** (outflow), not excess tap
+
+### The Two Feedback Loop Types
+| Loop | Role | Game Example |
+|---|---|---|
+| **Balancing (B)** | Goal-seeking, stabilizing | HP regen, price equilibrium, rubber-banding |
+| **Reinforcing (R)** | Self-amplifying, exponential | Snowball kills, compound interest, network effects |
+
+### The 12 Leverage Points (weak → strong)
+```
+12. Numbers (parameters)        ← 90% of designers spend time here
+11. Buffers (pool sizes)
+10. Stock-and-flow structure
+ 9. Delays (cooldowns, queues)
+ 8. Balancing loops
+ 7. Reinforcing loops           ← slowing growth > strengthening brakes
+ 6. Information flows           ← Dutch electric-meter lesson
+ 5. Rules (mechanics, laws)
+ 4. Self-organization (UGC, emergent play)
+ 3. Goals (what the system tries to do)
+ 2. Paradigm (team's "what is a good game")
+ 1. Transcending paradigms
+```
+**Counter-intuitive rule**: change happens faster at higher levels but resistance is stronger.
+
+### The 8 System Traps
+| # | Trap | Recognizer | Antidote |
+|---|---|---|---|
+| 1 | Policy Resistance | Every fix triggers counter-pull | Find a shared larger goal |
+| 2 | Tragedy of the Commons | Shared resource depleted | Privatize or regulate |
+| 3 | Drift to Low Performance | Standards quietly slip ("比上次不差") | Anchor to best historical performance |
+| 4 | Escalation | Exponential one-upmanship | Unilateral disarm or negotiate |
+| 5 | Success to the Successful | Winner takes all | Reset periodically (seasons, leagues) |
+| 6 | Shifting the Burden (Addiction) | Intervention erodes self-healing | Restore intrinsic capacity |
+| 7 | Rule Beating | Letter vs spirit gamed | Read as feedback, redesign rules |
+| 8 | Seeking the Wrong Goal | System faithful to wrong metric | Redefine what to measure |
+
+### 3 System Characteristics (what makes systems work)
+- **Resilience** — absorbs shocks; lost for short-term optimization
+- **Self-organization** — evolves new structure; crushed by over-control
+- **Hierarchy** — modular nesting; fails via sub-optimization or over-centralization
+
+### Key Mantras (Meadows)
+- "Before you disturb the system in any way, watch how it behaves."
+- "**System structure is the source of system behavior. System behavior reveals itself as a series of events over time.**"
+- "Slowing the reinforcing loop is a more powerful lever than strengthening the balancing one."
+- "Missing information is the single most common cause of system malfunction."
+- "Systems can't be controlled, but they can be designed and redesigned."
+- "We can't surge forward with certainty into a world of no surprises, but we can expect surprises and learn from them and even profit from them."
+- "**Dance with the system.**"
+
 ## Detailed References
 
 ### Richard Rouse III (Player-Centric Design)
@@ -201,6 +274,17 @@ Interest
 - **Iteration & Prototyping**: See [references/schell-iteration.md](references/schell-iteration.md) for Rule of the Loop, 10 prototyping tips, risk mitigation, 50% Rule
 - **Playtesting**: See [references/schell-playtesting.md](references/schell-playtesting.md) for 6 key questions (Why, Who, When, Where, What, How), WUBALEW, observation/interview methods
 
+### Donella H. Meadows (Systems Thinking)
+
+> Each file preserves the original book's framework, then adds a clearly-marked **"游戏设计应用（非原书内容，后加）"** section bridging Meadows' concepts to game systems. The bridge is the maintainers' contribution, not original Meadows material.
+
+- **Fundamentals**: See [references/meadows-fundamentals.md](references/meadows-fundamentals.md) for stocks & flows, balancing/reinforcing loops, bathtub law, 5 basic system structures (thermostat, population/economy, inventory delays, nonrenewable resource limits, renewable resource dynamics)
+- **3 Characteristics**: See [references/meadows-characteristics.md](references/meadows-characteristics.md) for resilience, self-organization, hierarchy — and the common failure modes: over-optimization kills resilience, over-control kills self-organization, sub-optimization kills hierarchy
+- **6 Obstacles**: See [references/meadows-obstacles.md](references/meadows-obstacles.md) for the 6 reasons systems surprise us: event-layer thinking, linear bias in nonlinear world, boundary errors, limiting factor blindness, pervasive time delays, bounded rationality
+- **8 Traps & Antidotes**: See [references/meadows-traps.md](references/meadows-traps.md) for policy resistance, tragedy of the commons, drift to low performance, escalation, success-to-the-successful, shifting the burden (addiction), rule beating, seeking the wrong goal — each mapped to common game design disasters
+- **12 Leverage Points**: See [references/meadows-leverage.md](references/meadows-leverage.md) for the ranked list of where to intervene in a system, from parameters (weakest) to paradigms (strongest) — includes the "where designers spend 90% of time vs where leverage actually is" gap
+- **15 Dancing Principles**: See [references/meadows-dancing.md](references/meadows-dancing.md) for the systems-designer's mindset: observe first, expose mental models, respect information, use language carefully, value what's important over what's measurable, embrace complexity, extend time horizon, "don't erode the good"
+
 ## Design Evaluation Framework
 
 When evaluating a game design, ask:
@@ -215,6 +299,9 @@ When evaluating a game design, ask:
 8. **Interest Curve**: Does the experience have a hook, rising action, climax, and satisfying resolution?
 9. **Elemental Tetrad**: Do Mechanics, Story, Aesthetics, and Technology support each other?
 10. **Essential Experience**: What single experience do you want the player to have? Does every element serve it?
+11. **System Structure (Meadows)**: What are the stocks, flows, and feedback loops? Are reinforcing loops bounded by balancing loops with appropriate strength and timing?
+12. **Leverage Point Selection (Meadows)**: Am I changing parameters (low leverage) when I should change rules, information flows, or goals (high leverage)?
+13. **Trap Recognition (Meadows)**: Does this problem fit one of the 8 system traps? If so, apply the corresponding antidote.
 
 ## Common Design Pitfalls
 
@@ -228,6 +315,11 @@ When evaluating a game design, ask:
 | Hidden Information | Players fail without knowing why | Provide clear feedback |
 | Designer's Ego | "Players will adjust" | Playtest with fresh eyes |
 | Difficulty Blindness | "It's not that hard" | Your game is too hard. Always. |
+| Parameter Tweaking (Meadows #12) | Keep adjusting numbers, problem persists | Look for higher leverage (rules, information, goals) |
+| Unchecked Reinforcing Loop (Meadows) | Snowball / power creep / winner-takes-all | Slow the loop, don't just strengthen its brake |
+| Missing Sink (Meadows) | Economy inflation despite tweaking drops | Design new drain mechanics, not reduce source |
+| KPI-Driven Hollowing (Meadows #8) | Metrics up, players unhappy | Question whether the metric captures actual value |
+| Eroding Standards (Meadows #3) | "Just as good as last version" | Anchor to best historical baseline, not recent past |
 
 ## Key Mantras
 
@@ -236,3 +328,6 @@ When evaluating a game design, ask:
 - **"Less is more."** Every control added must justify its complexity cost.
 - **"Players want to do, not watch."** Minimize non-interactive sequences.
 - **"The player's story matters most."** Let their choices shape the experience.
+- **"Watch the system first."** (Meadows) Before any intervention, study its historical behavior.
+- **"Structure drives behavior."** (Meadows) Don't fix events — fix the structure that produces them.
+- **"Dance with the system."** (Meadows) You cannot control complex systems, but you can design, redesign, and learn from them.

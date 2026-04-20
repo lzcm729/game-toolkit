@@ -1,6 +1,6 @@
 # game-toolkit
 
-Claude Code 插件源码仓库。当前版本 v1.4.0，面向 Web 游戏项目的通用开发/设计工具箱。
+Claude Code 插件源码仓库。当前版本 v1.5.0，面向 Web 游戏项目的通用开发/设计工具箱。
 
 **GitHub**: https://github.com/lzcm729/game-toolkit
 **作者**: lzcm729
