@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Shared game development toolkit - skills, agents, and commands for Web game projects",
-    "version": "1.3.0"
+    "version": "1.4.0"
   },
   "plugins": [
     {
       "name": "game-toolkit",
       "source": "./",
       "description": "Game development skills (design theory, UI, assets, story validation), review agents, and common commands",
-      "version": "1.3.0",
+      "version": "1.4.0",
       "author": {
         "name": "lzcm729"
       },
