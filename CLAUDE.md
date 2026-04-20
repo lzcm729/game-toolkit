@@ -40,7 +40,8 @@ skills/                       # 11 个 skill（每个一个子目录，含 SKILL
 ### agents/（按功能分组）
 
 - **分层实现三件套**：`framework.md`（业务逻辑/系统设计）、`content.md`（数据/叙事/数值）、`interaction.md`（UI/样式/交互）——职责边界明确，别交叉
-- **规划/评审**：`architect.md`、`planner.md`、`code-reviewer.md`、`pragmatic-code-review-subagent.md`、`design-review-agent.md`、`security-reviewer.md`、`frontend-performance-reviewer.md`
+- **规划/评审**：`planner.md`、`pragmatic-code-review-subagent.md`、`design-review-agent.md`、`security-reviewer.md`、`frontend-performance-reviewer.md`
+  - 架构设计与通用代码评审已移除（与官方 `feature-dev:code-architect` / `pr-review-toolkit:code-reviewer` 重复），请直接使用官方版本
 - **工具/维护**：`build-error-resolver.md`、`refactor-cleaner.md`、`doc-updater.md`、`tdd-guide.md`、`e2e-runner.md`、`visual-debugger.md`
 - **设计理论**：`game-designer.md`（整合 game-design-theory skill）
 

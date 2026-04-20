@@ -461,7 +461,7 @@ Parameter 'market' implicitly has an 'any' type.
 
 **DON'T USE when:**
 - Code needs refactoring (use refactor-cleaner)
-- Architectural changes needed (use architect)
+- Architectural changes needed (use feature-dev:code-architect)
 - New features required (use planner)
 - Tests failing (use tdd-guide)
 - Security issues found (use security-reviewer)

@@ -12,7 +12,7 @@ This workflow establishes a comprehensive methodology for automated design revie
 - **Standards-Based Evaluation**: Follows rigorous design principles inspired by top-tier companies (Stripe, Airbnb, Linear), covering visual hierarchy, accessibility (WCAG AA+), responsive design, and interaction patterns
 
 **Implementation Features:**
-- **Claude Code Subagents**: Deploy specialized design review agents with pre-configured tools and prompts for consistent, thorough reviews, by taging `@agent-code-reviewer`
+- **Claude Code Subagents**: Deploy specialized design review agents with pre-configured tools and prompts for consistent, thorough reviews, by tagging `@agent-design-review-agent`
 - **Slash Commands**: Enable instant design reviews with `/design-review` that automatically analyzes git diffs and provides structured feedback
 - **CLAUDE.md Memory Integration**: Store design principles and brand guidelines in your project's CLAUDE.md file, ensuring Claude Code always references your specific design system
 - **Multi-Phase Review Process**: Systematic evaluation covering interaction flows, responsiveness, visual polish, accessibility, robustness testing, and code health
