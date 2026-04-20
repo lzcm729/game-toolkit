@@ -1,0 +1,10 @@
+# Claude Code 插件孤立标记（由 Claude Code 自己写入，不该入库）
+.orphaned_at
+
+# OS / 编辑器
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.idea/
+.vscode/
