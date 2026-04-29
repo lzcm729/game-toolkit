@@ -1,0 +1,127 @@
+# MilkTeaDefense (Godot) — asset-config 示例
+#
+# 5 category：customers / ingredients / recipes / buildings / backgrounds
+# 风格：Q 版 chibi（caramel + cream 暖色板）
+#
+# 用法（在 milk-tea-defense-godot 项目根）：
+#   python ~/.claude/skills/generate-assets/scripts/generate_assets.py all --dry-run
+#   python ~/.claude/skills/generate-assets/scripts/generate_assets.py customers
+#   python ~/.claude/skills/generate-assets/scripts/generate_assets.py recipes --names cup_pearl,cup_taro
+
+$schema_version: 1
+
+# 全局风格（5 category 共享，backgrounds 单独 skip）
+style:
+  prompt_prefix: |
+    Cute chibi sticker style, single isolated subject centered on transparent
+    background, bold thick black outlines, 2-tone flat shading, no gradients.
+  prompt_suffix: |
+    Warm caramel + cream palette anchored on #c8956c (caramel), #f5e6d3 (cream),
+    #3a2d20 (deep cocoa background card). High readability at thumbnail size.
+  reference_paths:
+    - "_style/chibi-anchor.png"   # 相对 output_root；首次跑前可不存在（image-gen 容忍）
+  chain: default
+
+output_root: "res://art"
+
+categories:
+
+  # ---- 6 顾客（P0）----
+  customers:
+    desc: "6 顾客（学生 / 大胃王 / 白领 / 外卖员 / 博主 / 挑剔客）"
+    aspect_ratio: "2:3"
+    output_subdir: "customers"
+    seed: 42
+    data_source:
+      type: json_dict
+      path: "docs/migration/machine-extract/enemy-stats.json"
+    extra_fields:
+      visual:
+        student:    "young student with backpack and headphones, sneakers"
+        bigEater:   "round chubby gourmand with stuffed cheeks, holding fork"
+        whiteCollar: "office worker in slim navy suit holding leather briefcase"
+        rider:      "delivery rider with helmet, square food box on back"
+        blogger:    "trendy blogger holding ring-light phone, ribbon hairband"
+        picky:      "fussy customer with crossed arms, judgmental side-eye"
+    prompt_template: |
+      Customer '{label}' ({id}): {visual}.
+      Body proportions: 1.5-head chibi. Accent color {color}.
+
+  # ---- 5 配料（inline，色板内嵌）----
+  ingredients:
+    desc: "5 基础配料 (pearl / taro / coconut / chili / ice)"
+    aspect_ratio: "1:1"
+    output_subdir: "ingredients"
+    data_source:
+      type: inline
+      items:
+        pearl:
+          visual: "glossy black tapioca pearls clustered into a small mound"
+          main: "#1e1b4b"
+          accent: "#6366f1"
+        taro:
+          visual: "diced lavender taro chunks with creamy interior"
+          main: "#4a1942"
+          accent: "#c084fc"
+        coconut:
+          visual: "translucent coconut jelly cubes with shredded coconut flake"
+          main: "#064e3b"
+          accent: "#34d399"
+        chili:
+          visual: "tiny red chili flakes scattered with one whole pepper"
+          main: "#7f1d1d"
+          accent: "#f87171"
+        ice:
+          visual: "stack of crystal-clear ice cubes with subtle highlight"
+          main: "#164e63"
+          accent: "#22d3ee"
+    prompt_template: |
+      Ingredient icon '{id}': {visual}.
+      Main hue {main}, accent {accent}. Square thumbnail, single subject.
+
+  # ---- 单料杯（json_list + filter + derived）----
+  recipes:
+    desc: "单料杯（toppings 长度为 1 的奶茶杯，~5 杯）"
+    aspect_ratio: "4:5"
+    output_subdir: "recipes"
+    data_source:
+      type: json_list
+      path: "docs/migration/machine-extract/recipe-defs.json"
+      filter:
+        toppings_len: 1
+    derived_fields:
+      toppings_str: 'join(toppings, ", ")'
+    prompt_template: |
+      Milk tea cup '{label}' ({id}): clear plastic cup with rounded body color
+      {color}, sealed lid, contains {toppings_str} visible inside the drink.
+
+  # ---- 建筑（inline，1 个）----
+  buildings:
+    desc: "中央奶茶店建筑"
+    aspect_ratio: "1:1"
+    output_subdir: "buildings"
+    data_source:
+      type: inline
+      items:
+        shop_center:
+          visual: |
+            cozy chibi milk-tea shop kiosk with rounded wooden counter,
+            steaming kettle on top, hanging menu board, awning with stripe pattern
+    prompt_template: |
+      Building '{id}': {visual}. Centered on transparent background, top-down 3/4 view.
+
+  # ---- 背景（独立 prompt，跳全局风格）----
+  backgrounds:
+    desc: "战场背景（暖色街道）"
+    aspect_ratio: "9:16"
+    output_subdir: "backgrounds"
+    skip_global_style: true
+    data_source:
+      type: inline
+      items:
+        battlefield_warm:
+          prompt_full: |
+            Warm hand-painted oriental street ground tile for top-down tower
+            defense game, cobblestone path with caramel + cream tones,
+            soft shadows, no characters, no text, looped tileable.
+    prompt_template: "{prompt_full}"
