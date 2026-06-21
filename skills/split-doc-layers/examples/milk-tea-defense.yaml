@@ -1,0 +1,42 @@
+# MilkTeaDefense (Godot) — split-doc-layers 配置示例
+#
+# 奶茶塔防游戏的设计文档三层拆分配置。
+# Framework 层：GDD（docs/GDD/*.md），机制算法/设计意图 SSOT
+# Content 层：HTML 图鉴（docs/design/*-menu.html），实例清单+身份摘要
+# Interface 层：UI mockup（docs/design/mockups/），颜色规格/动效
+#
+# 用法（在项目根）：
+#   调用 split-doc-layers skill 时，skill 会自动读本文件作为项目配置。
+
+$schema_version: 1
+
+# 精确数值真值锚：Godot .tres 数据文件（如 data/ingredients/*.tres / data/enemies/*.tres）
+# 精确数值（hp / 速度 / 倍率 / 冷却时间等）不进内容目录，查这里
+data_ssot: "data/**/*.tres"
+
+# Framework 文档路径：13 份 GDD v2（设计师定性 SSOT）
+# Phase 5 Framework 瘦身时，只对这里的文件加内容目录指针
+framework_docs: "docs/GDD/*.md"
+
+# 内容目录位置 + 形态：HTML 图鉴（并列实例型，卡片式布局）
+# 已有试点：customer-menu.html（12 张顾客卡片）
+# 推广目标：weather-menu.html / ingredient-menu.html / loot-menu.html 等
+content_dir: "docs/design/*-menu.html"
+
+# 现成语义字段：.tres schema 里的 behavior_description 字段
+# 逐字搬，不提炼不改写——避免"人脑提炼"引入漂移风险
+# 次优 fallback：description / desc 字段
+semantic_field: "behavior_description, description, desc"
+
+# 内容目录目标读者：设计师（设计阶段产物，内部评审用，非玩家前端）
+# 因此可含实施细节（signal 名/机制思路）和功能组合参考；精确数值仍不进
+reader: designer
+
+# 双向指针两端位置：
+# - 内容目录端：图鉴 HTML footer「📐 层次」段（说明"机制在哪 / 数值在哪"）
+# - Framework 端：GDD「实施细节速查」段（加一行"内容图鉴 → *-menu.html"）
+pointer_loc: "图鉴 footer「📐层次」段 ↔ GDD「实施细节速查」段"
+
+# 防回退正则（标注用，暂不接 lint）
+# Phase 3 手动过滤：内容目录里不应出现小数/乘数/百分比精确数值
+forbid_pattern: "[0-9]+\\.[0-9]+|×[0-9]|[0-9]+%"
