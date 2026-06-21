@@ -1,0 +1,41 @@
+# project-egg — split-doc-layers 配置示例
+#
+# 养鸡养成游戏。本示例覆盖 milk-tea-defense.yaml 之外的常见场景：
+#   - 数据层是 CSV（非 .tres）
+#   - 双层 SSOT：实体数据与数值/校准数据分属不同源（用 data_ssot 列表表达）
+#   - 无现成语义字段（semantic_field: none），身份摘要需从 GDD 提炼
+#
+# 三层：Framework = GDD（docs/design/gdd/*.md）/ Content = 动物图鉴（并列实例型）/ Interface 暂未分离
+
+$schema_version: 1
+
+# 精确数值真值锚 —— 双层 SSOT，用列表表达（见 README「数据分层处理」方式 A）
+# 实体数据（种类/名称/阶段/场景路径）在 CSV；数值校准（成长 R / 稀有度概率 / 成本）在 sim JSON
+# 内容目录里的数值指针应指向数值层（sim JSON），而非实体层
+data_ssot:
+  - "content/**/*.csv"                   # 实体层（动物/蛋/稀有度/升级/成就等）
+  - "docs/design/sim/saved_params.json"  # 数值校准层
+
+# Framework 文档：7 份系统 GDD（animal/egg/breeding/farm/feeding/hatchery/upgrade）
+framework_docs: "docs/design/gdd/*.md"
+
+# 内容目录位置 + 形态：并列实例型，拟建 HTML 动物图鉴（当前待建）
+content_dir: "docs/design/*-gallery.html"
+
+# 现成语义字段：none
+# CSV 字段全是技术字段（type/name/stage/base_value/scene_path…），无面向读者的自然语言描述：
+#   - name = 中文名"小鸡"，不是身份摘要句
+#   - note = 工程备注，多数行为空
+# 不拿离题字段（name/id/path）充数 → 填 none，Phase 3 走提炼路径：
+#   从 framework_docs 的 §1.2 体验设计段提炼一句话身份摘要 + 标漂移风险注释
+semantic_field: none
+
+# 内容目录目标读者：设计师（设计阶段内部评审）
+reader: designer
+
+# 双向指针两端（导航闭环即够，不要第三件）
+pointer_loc: "图鉴 HTML footer「层次」段 ↔ GDD「实施细节速查」段"
+
+# 防回退精确数值正则（标注用，暂不接 lint）
+# 养鸡游戏含稀有度概率%，比 milk-tea 多一条 [0-9]+%
+forbid_pattern: "[0-9]+\\.[0-9]+|×[0-9]|[0-9]+%"

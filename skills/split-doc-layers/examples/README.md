@@ -28,15 +28,31 @@ forbid_pattern: "..."    # 防回退精确数值正则（标注用）
 
 ### `data_ssot`
 
-精确数值的真值锚（数据层 SSOT）。内容目录里不手写精确数值，要查去这里查。
+精确数值的真值锚（数据层 SSOT）。内容目录里不手写精确数值，要查去这里查。它表示"精确数值不进内容目录时，读者应去哪查"——任何格式的路径模式均可填写。
 
 - Godot 项目：`data/**/*.tres`
 - JSON 数据：`data/**/*.json`
 - 数据库：`db/schema.sql`（或说明"PostgreSQL production DB"）
+- CSV 数据驱动项目：`content/**/*.csv`
 
 ```yaml
 data_ssot: "data/**/*.tres"
 ```
+
+**数据分层处理**：若项目实体数据与数值/校准数据分属不同源（如"动物种类/名称在 CSV"，"成长速率/稀有度概率在 sim JSON"），`data_ssot` 可写多条（YAML 列表），或填主实体层并在注释中说明数值层位置：
+
+```yaml
+# 方式 A：列表（两层都作为 SSOT）
+data_ssot:
+  - "content/animal/*.csv"       # 实体层（种类/名称/场景路径）
+  - "docs/design/sim/saved_params.json"  # 数值层（成长参数/概率校准）
+
+# 方式 B：单值填主实体层 + 注释标数值层
+data_ssot: "content/animal/*.csv"
+# ⚠ 数值层（精确校准参数）→ docs/design/sim/saved_params.json
+```
+
+内容目录里指向数值的指针，应指向数值层路径（而非实体层）。
 
 ### `framework_docs`
 
@@ -66,7 +82,11 @@ semantic_field: "behavior_description"               # 单字段
 semantic_field: "behavior_description, description"  # 多字段，按顺序 fallback
 ```
 
-没有现成语义字段时填 `none`，Phase 3 会提示需要手动提炼并标高风险点。
+没有现成语义字段时填 `none`，Phase 3 会走手动提炼路径（从 `framework_docs` 设计意图段提炼 + 标漂移风险注释）。
+
+**填 `none` 的场景**：数据 schema 里没有面向读者的自然语言描述字段。例如 CSV 字段全是 `type, name, stage, base_value, scene_path` 这类技术/工程字段——它们不是语义字段。
+
+**不要用离题字段充数**：`name`（中文名"小鸡"）、`id`、`scene_path`、`egg_scene_path` 等字段**不是**语义描述字段，不能逐字搬做身份摘要。填了也无法在 Phase 3 直接使用，反而造成配置和实际操作的歧义。这种情况应填 `semantic_field: none`，走提炼路径。
 
 ### `reader`
 
@@ -123,4 +143,5 @@ forbid_pattern: "[0-9]+\\.[0-9]+"
 
 ## 完整示例
 
-见 `milk-tea-defense.yaml`（Godot 奶茶塔防项目配置实例）。
+- `milk-tea-defense.yaml` — Godot 奶茶塔防项目（`.tres` 数据驱动 + `behavior_description` 语义字段）
+- `project-egg.yaml` — 养鸡养成游戏（CSV + 双层 SSOT + 无语义字段，`semantic_field: none` 场景）
