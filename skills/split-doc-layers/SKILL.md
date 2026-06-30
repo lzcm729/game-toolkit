@@ -23,6 +23,8 @@ Content 层（里面有什么）与 Framework 和 Interface 耦合最低，最�
 **核心定位**：读项目配置 → Phase 0 判断该不该拆 → Phase 1-5 执行拆分 → 沉淀 lessons。
 项目特化（数据路径、读者设定、指针位置等）全部收在 `split-doc-layers.config.yaml`，本 skill 零硬编码。
 
+> **层覆盖**：Phase 1-5 针对 **Content 层**（拆出独立目录，最适合起步）。**Interaction 层**（怎么呈现）走**不同路径**——它常已有 SSOT（mockup / 设计系统 / spec / 实现），动作是索引化而非建目录，见 Phase 5 后专节《Interface/Interaction 层》。
+
 ---
 
 ## 启用前置：读项目配置
@@ -193,6 +195,54 @@ Content 层（里面有什么）与 Framework 和 Interface 耦合最低，最�
 - 全数值表 → 加指针到 `{{data_ssot}}`
 
 实践中若 Framework 文档本就不含完整清单，"瘦身"主要就是加指针，改动极轻。
+
+---
+
+## Interface/Interaction 层：与 Content 不对称，多是「索引化」非「建目录」
+
+> 上面 Phase 1-5 是 **Content 层**的拆分管线。Interaction 层（怎么呈现）**不走同一套**——照搬会造双 SOT。
+
+**关键不对称**：Content 值得拆出独立目录，前提是**拆前无独立家**（语义字段散在 `{{data_ssot}}`、无人类可读投影）。Interaction 层往往**相反**——它早有自己的 SSOT 群，只是不在 `{{framework_docs}}` 里：
+
+- 视觉稿（mockup / 设计图）
+- 设计系统规范（色 / 字 / 层级 / 动效 token，单份）
+- 单屏蓝图（per-screen spec）
+- **实现本身**（代码建的 UI，其布局即 SSOT）
+
+→ **Interaction 的"拆分"多半是"用一个索引把已有的家串起来 + 确认 `{{framework_docs}}` 只留意图（WHY）"，不是新建一份目录。** 给已有家的内容再建 catalog = 第 N+1 个 SSOT = 双 SOT。复用 Phase 0 判据：对每个候选 interaction 产物问"拆前有没有独立家"——有家则只索引、不新建；确实无家且同质并列（罕见）才考虑 content 式目录。
+
+> ⚠️ 实战教训：覆盖审计常把"没有 spec 文件的 UI"误报为"待补盲区"，但它的设计意图可能记在别处（决策档 / 实施 plan / 代码头注释），布局真值就在实现里。**写新 spec 前必先核实它是否已有家**——否则写出的就是违规重复 SOT。
+
+**形式：异质多件套，不是单一目录。** Content 同质（实例 → 单一卡片目录）；Interaction 异质，每种内容有最适形式：
+
+| interaction 内容 | 最适形式 |
+|---|---|
+| 视觉外观 | 视觉稿（图像 / mockup 文件）|
+| 跨屏共通规则（色 / 字 / 层级 / 动效）| 设计系统规范（单份 token 化 markdown）|
+| 单屏布局 / 交互 / 数据接线 | per-screen 蓝图 spec |
+| code-built UI 的布局真值 | **实现即 SSOT**（代码文件本身）|
+
+用一个**入口索引**（UI → 它的 spec / 规范 / 实现在哪 + 覆盖状态）把这几件串起来，而非把内容复制进一份大文档。
+
+**content 注入接缝：运行时「是」，文档「否」。** Interaction 是容器 / 结构，Content 是填充，两层在"注入"接缝相遇——方向相反：
+
+- **运行时：应注入，三层正交的健康标志。** UI 容器运行时读 `{{data_ssot}}` 填自己（容器只定义"结构 + 交互行为"，填什么由 Content 层运行时给）。
+- **文档：禁止硬拷贝，只能指针。** Interaction 文档**不得**把 content 值抄进去（spec 里不列实例名 / 数值）——抄即双 SOT（值的 SSOT 在 `{{data_ssot}}`，抄进必漂）。正确是**接线指针**（"网格按 `{{data_ssot}}` 实例序填"）。per-screen spec 的"数据接线 / Logic→View"段记的就是这个接缝。
+
+**三层接缝心智模型**：
+
+```
+Framework   = 怎么运转（机制意图；UI 反馈的 WHY 留 {{framework_docs}}）
+Content     = 里面有什么（数据实例 → 内容目录）
+Interaction = 容器 / 呈现（视觉稿 + token 规范 + 单屏蓝图 + 实现）
+
+运行时：content ──注入──▶ interaction 容器   （代码读 {{data_ssot}} 填 UI）
+文档  ：三层互相只──指针──不复制              （spec 写"由 X 填"，不写实例值）
+```
+
+**配置注意**：interaction 索引化**不需要新 config 项**——它复用已有 spec / 规范 / 实现，动作是判断 + 串索引，不是 content 式提取。**不要**为它在 `split-doc-layers.config.yaml` 加 `interaction_docs` 之类的键（那会诱导走 content 式建目录，方向错）。
+
+一句话：**Content 拆"出来"（建目录），Interaction 多半拆"清楚"（索引已有的家）；content 注入是运行时的事，文档层只留指针——嵌 content 即破"不双 SOT"红线。**
 
 ---
 
