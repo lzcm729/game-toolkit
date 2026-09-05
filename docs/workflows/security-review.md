@@ -24,8 +24,7 @@ This approach ensures that security is built into the development process from t
 ## Resources
 
 ### Templates & Examples
-- [Security Review Slash Command](./security-review-slash-command.md) - Default security review command from Anthropic (source: [claude-code-security-review](https://github.com/anthropics/claude-code-security-review))
-- [Security YAML](./security.yml) - GitHub Action configuration for automated security scanning
+- [Security Review Slash Command](../../commands/security-review/security-review-slash-command.md) - Default security review command from Anthropic (source: [claude-code-security-review](https://github.com/anthropics/claude-code-security-review))
 
 ### Video Tutorial
 For a detailed walkthrough of this workflow, watch the [comprehensive tutorial on YouTube](https://www.youtube.com/watch?v=nItsfXwujjg).

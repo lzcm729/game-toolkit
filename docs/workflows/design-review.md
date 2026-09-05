@@ -23,9 +23,9 @@ This approach transforms design reviews from manual, subjective processes into a
 
 ### Templates & Examples
 - [Design Principles Example](./design-principles-example.md) - Sample design principles document for guiding automated reviews
-- [Design Review Agent](./design-review-agent.md) - Agent configuration for automated design reviews
+- [Design Review Agent](../../agents/design-review-agent.md) - Agent configuration for automated design reviews
 - [Claude.md Snippet](./design-review-claude-md-snippet.md) - Claude.md configuration snippet for design review integration
-- [Slash Command](./design-review-slash-command.md) - Custom slash command implementation for on-demand design reviews
+- [Slash Command](../../commands/design-review/design-review-slash-command.md) - Custom slash command implementation for on-demand design reviews
 
 ### Video Tutorial
 For a detailed walkthrough of this workflow, watch the comprehensive tutorial on YouTube: [Patrick Ellis' Channel](https://www.youtube.com/watch?v=xOO8Wt_i72s)
