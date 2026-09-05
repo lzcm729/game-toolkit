@@ -19,11 +19,18 @@ Claude Code 插件源码仓库。当前版本 v2.0.0，游戏开发/设计工具
 
 ```
 1. 在此目录修改 agents/ skills/ commands/
-2. 更新 .claude-plugin/plugin.json 的 version（遵循 semver）
-3. git commit + push（commit message 参考 git log 风格：feat/fix/chore 前缀）
-4. 在 marketplace 目录 git pull：
-     git -C "C:/Users/lzcm7/.claude/plugins/marketplaces/game-toolkit" pull
-5. 重启 Claude Code 或运行 /plugin update game-toolkit 让新版本生效
+2. 更新 version（遵循 semver）——plugin.json 一处 + marketplace.json 两处，三处要一起改
+3. 补 CHANGELOG.md 条目
+4. git commit + push（commit message 参考 git log 风格：feat/fix/chore 前缀）
+     git tag -a vX.Y.Z -m "..." && git push origin main --follow-tags
+5. 把 marketplace 镜像对齐到 origin/main：
+     M=C:/Users/lzcm7/.claude/plugins/marketplaces/game-toolkit
+     git -C "$M" fetch origin main && git -C "$M" reset --hard origin/main
+   直接 git pull 会报 refusing to merge unrelated histories——这个镜像是
+   shallow clone，拉不到共同祖先。首次可先 git -C "$M" fetch --unshallow。
+   镜像没有本地改动，reset --hard 安全。
+6. 重启 Claude Code 或运行 /plugin update game-toolkit 让新版本生效
+   ——运行时缓存按 version 号建目录，不改 version 就不会重装
 ```
 
 发版节奏上，git 历史里的约定是：功能性改动用 `feat:` / `fix:`，版本号单独一条 `chore: bump version to X.Y.Z`。
