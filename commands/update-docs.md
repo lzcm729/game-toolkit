@@ -1,3 +1,7 @@
+---
+description: Regenerate docs/CONTRIB.md and docs/RUNBOOK.md from package.json scripts and .env.example, and flag documentation untouched for 90+ days.
+---
+
 # Update Documentation
 
 Sync documentation from source-of-truth:

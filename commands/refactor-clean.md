@@ -1,3 +1,7 @@
+---
+description: Find dead code in npm/TypeScript projects with knip/depcheck/ts-prune, classify findings by deletion risk, and remove only the safe ones with a test run before and after each deletion.
+---
+
 # Refactor Clean
 
 Safely identify and remove dead code with test verification:

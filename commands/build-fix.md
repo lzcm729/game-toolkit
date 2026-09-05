@@ -1,3 +1,7 @@
+---
+description: Incrementally fix build and TypeScript errors in npm/pnpm projects, one error at a time, re-running the build after each fix and stopping if a fix introduces new ones.
+---
+
 # Build and Fix
 
 Incrementally fix TypeScript and build errors:

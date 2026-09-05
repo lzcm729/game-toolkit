@@ -1,3 +1,7 @@
+---
+description: Scan imports and exports to regenerate the architecture/backend/frontend/data codemaps, stamping freshness and asking for approval when the diff exceeds 30%.
+---
+
 # Update Codemaps
 
 Analyze the codebase structure and update architecture documentation:

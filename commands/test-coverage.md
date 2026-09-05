@@ -1,3 +1,7 @@
+---
+description: Run the npm/pnpm test suite with coverage, find files below the 80% threshold, generate the missing unit/integration/E2E tests, and report before/after coverage.
+---
+
 # Test Coverage
 
 Analyze test coverage and generate missing tests:
