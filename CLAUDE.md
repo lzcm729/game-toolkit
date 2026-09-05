@@ -1,6 +1,6 @@
 # game-toolkit
 
-Claude Code 插件源码仓库。当前版本 v1.5.0，面向 Web 游戏项目的通用开发/设计工具箱。
+Claude Code 插件源码仓库。当前版本 v2.0.0，游戏开发/设计工具箱：设计文档工作流、资源管线、评审。
 
 **GitHub**: https://github.com/lzcm729/game-toolkit
 **作者**: lzcm729
@@ -31,10 +31,13 @@ Claude Code 插件源码仓库。当前版本 v1.5.0，面向 Web 游戏项目�
 ## 目录结构
 
 ```
-.claude-plugin/plugin.json    # 插件清单（name/version/description/author）
-agents/                       # 17 个 sub-agent（.md，frontmatter + 系统提示词）
-commands/                     # 17 个 slash command（部分嵌套：code-review/ design-review/ security-review/）
-skills/                       # 11 个 skill（每个一个子目录，含 SKILL.md 和资源）
+.claude-plugin/plugin.json      # 插件清单（name/version/description/author）
+.claude-plugin/marketplace.json # marketplace 清单（两处 version 要和 plugin.json 一起改）
+agents/                         # 15 个 sub-agent（.md，frontmatter + 系统提示词）
+commands/                       # 11 个 slash command（部分嵌套：code-review/ design-review/ security-review/）
+skills/                         # 12 个 skill（每个一个子目录，含 SKILL.md 和资源）
+docs/workflows/                 # 三套评审 workflow 的说明与模板（非命令，别放回 commands/）
+CHANGELOG.md                    # 版本记录，每次 bump 同步补条目
 ```
 
 ### agents/（按功能分组）
@@ -47,23 +50,23 @@ skills/                       # 11 个 skill（每个一个子目录，含 SKILL
 
 ### skills/
 
-- **设计流程**：`design-discuss/`（讨论+收录）、`design-iterate/`（多视角评审迭代）、`doc-consistency-check/`（文档矛盾检查）
-- **知识/理论**：`game-design-theory/`（三本设计书知识库）、`game-ui-design/`、`react-game-ui/`、`book-to-reference/`
+- **设计流程**：`design-discuss/`（讨论+收录）、`design-iterate/`（多视角评审迭代）、`doc-consistency-check/`（文档矛盾检查）、`split-doc-layers/`（Framework/Content/Interface 三层拆分）
+- **知识/理论**：`game-design-theory/`（四本设计书知识库）、`game-ui-design/`、`react-game-ui/`、`book-to-reference/`
 - **代码/文档同步**：`sync-code-ahead/`（代码→文档）、`sync-docs-ahead/`（文档→代码 gap 分析）
-- **实现执行**：`parallel-implement/`（git worktree 并行实现）、`generate-assets/`（Gemini 图片资源）
+- **实现执行**：`parallel-implement/`（git worktree 并行实现）、`generate-assets/`（Godot schema-driven 资源管线）
 
 ### commands/
 
-- **脚手架**：`new-website.md`、`new-backend.md`、`new-fullstack.md`、`new-valdi.md`、`project-setup.md`
 - **工作流**：`plan.md`、`tdd.md`、`build-fix.md`、`refactor-clean.md`、`test-coverage.md`、`e2e.md`
-- **评审**（有 README）：`code-review/`、`design-review/`、`security-review/`
+- **评审**：`code-review/`、`design-review/`、`security-review/`——各一个 slash command，配套说明与模板在 `docs/workflows/`
 - **文档维护**：`update-codemaps.md`、`update-docs.md`
+- Web/Node 脚手架（`new-website` 等 5 个）与通用 `code-review.md` 已在 2.0.0 移除：前者与游戏工具箱定位无关，后者和 Claude Code 官方 `/code-review` 重复且与 `code-review/` 目录撞名
 
 ## 插件组件编写约定
 
 - **agent** 文件：前置 YAML frontmatter（`name`、`description`、`tools`），正文是系统提示词。description 必须讲清楚何时触发、何时不用
 - **skill** 目录：一个 `SKILL.md` 作为入口（frontmatter 同 agent），可挂脚本/模板/参考资料到同级文件
-- **slash command**：单 markdown 文件，YAML frontmatter 定义参数与行为
+- **slash command**：单 markdown 文件，YAML frontmatter 定义参数与行为。**`description` 必填**——缺了它命令不进列表，Claude 不会主动挑到；`commands/` 下只放命令，说明文档去 `docs/`
 - 需要脚手架或规范时直接调用官方 `plugin-dev` 插件的 skill（`plugin-dev:agent-development` / `skill-development` / `command-development`）
 
 ## 协作注意事项

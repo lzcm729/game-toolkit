@@ -1,7 +1,7 @@
 {
   "name": "game-toolkit",
-  "version": "1.8.1",
-  "description": "Shared game development skills, agents, and commands for Web game projects",
+  "version": "2.0.0",
+  "description": "Game development toolkit: design-doc workflows, asset pipeline, and review agents",
   "author": {
     "name": "lzcm729"
   }

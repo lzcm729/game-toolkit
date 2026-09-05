@@ -2,6 +2,75 @@
 
 `game-toolkit` Claude Code plugin — shared game development skills, agents, and commands for game projects.
 
+## 2.0.0 (2026-09-05)
+
+### breaking
+
+- **移除 5 个 Web/Node 脚手架命令**：`new-website` / `new-backend` / `new-fullstack` / `new-valdi` / `project-setup`——全仓库零引用，内容只是跑几条 npx，与游戏工具箱定位无关
+- **移除 `commands/code-review.md`**：与 `commands/code-review/` 目录撞名，且与 Claude Code 官方 `/code-review` 重复。`e2e.md` / `plan.md` / `tdd.md` 里的 `/code-review` 引用自此落到官方命令上
+
+### fix
+
+- **11 个 slash command 全部可被发现**：`build-fix` / `refactor-clean` / `test-coverage` / `update-codemaps` / `update-docs` 此前无 `description` frontmatter，不进命令列表
+- **`design-iterate` 入口改回 `SKILL.md`**：此前是小写 `skill.md`，Windows 上大小写不敏感所以一直能加载，Linux / macOS 上该 skill 会静默消失
+- **修 5 处死链**：3 个 `.yml`（`claude-code-review.yml` / `claude-code-review-custom.yml` / `security.yml`）从未进过本仓库，2 个 `.md` 实际在 `agents/` 下
+
+### refactor
+
+- **`commands/` 只放命令**：3 个 `README.md` + `design-principles-example.md` + `design-review-claude-md-snippet.md` 移到 `docs/workflows/`
+- **定位去 Web 化**：`plugin.json` / `marketplace.json` 的 description 与 keywords 改为反映实际（设计文档工作流 / Godot 资源管线 / 评审）
+
+Commits: `41d6a4d`, `804dd23`, `407fc92`
+
+## 1.8.1 (2026-06-30)
+
+### feat
+
+- **`split-doc-layers`** 补 Interface / Interaction 层处理专节
+
+### chore
+
+- `marketplace.json` 版本与 `plugin.json` 对齐（1.6.0 → 1.8.1）
+
+Commits: `7068925`, `d455f46`
+
+## 1.8.0 (2026-06-22)
+
+### feat
+
+- **`split-doc-layers`** 补 auto-dump 落地指引：引擎无关 4 步 pipeline + 文本中介统一引擎差异 + 数值进目录的边界 + 指向 `generate-assets`
+
+Commits: `6e82e53`
+
+## 1.7.2 (2026-06-22)
+
+### fix
+
+- **`split-doc-layers`** Phase 3 补「先定实例单位」步——verify 暴露了多维系统的实例边界盲区（如物种 x 稀有度）
+
+Commits: `922ea69`
+
+## 1.7.1 (2026-06-22)
+
+### fix
+
+- **`split-doc-layers`** 修 reviewer findings：试点分支 / 读者值对齐 / `semantic_field=none` / auto-dump 跳过 / 防双维护等
+- **`split-doc-layers`** 修第二个项目 dogfood 暴露的 3 个盲区：`semantic_field=none` 的提炼路径、`data_ssot` 双层 SSOT、DriftPredictor fallback；新增 `project-egg` 示例
+
+Commits: `326cc9d`, `d581fbb`
+
+## 1.7.0 (2026-06-22)
+
+### feat
+
+- **`split-doc-layers`**（新 skill）设计文档三层拆分，配置驱动。识别文档里混写的 Framework（怎么运转）/ Content（有什么）/ Interface（怎么呈现），以最独立的 Content 层为起点建独立内容目录 + 双向指针，消除实例清单与精确数值混写导致的文档漂移
+
+### docs
+
+- 补 `CHANGELOG.md`，回溯记录 1.0.0 -> 1.6.0
+
+Commits: `f112944`, `12bd151`
+
 ## 1.6.0 (2026-04-30)
 
 ### feat
@@ -107,13 +176,15 @@ Commits: `6cee947`
 
 ---
 
-## 当前状态（2026-05-03）
+## 当前状态（2026-09-05）
 
 | 类别 | 数量 | 列表 |
 |---|---|---|
-| Skills | 11 | book-to-reference / design-discuss / design-iterate / doc-consistency-check / game-design-theory / game-ui-design / generate-assets / parallel-implement / react-game-ui / sync-code-ahead / sync-docs-ahead |
+| Skills | 12 | book-to-reference / design-discuss / design-iterate / doc-consistency-check / game-design-theory / game-ui-design / generate-assets / parallel-implement / react-game-ui / split-doc-layers / sync-code-ahead / sync-docs-ahead |
 | Agents | 15 | build-error-resolver / content / design-review-agent / doc-updater / e2e-runner / framework / frontend-performance-reviewer / game-designer / interaction / planner / pragmatic-code-review-subagent / refactor-cleaner / security-reviewer / tdd-guide / visual-debugger |
-| Commands | 17 | build-fix / code-review (+ subdir) / design-review (+ subdir) / e2e / new-backend / new-fullstack / new-valdi / new-website / plan / project-setup / refactor-clean / security-review (+ subdir) / tdd / test-coverage / update-codemaps / update-docs |
+| Commands | 11 | build-fix / e2e / plan / refactor-clean / tdd / test-coverage / update-codemaps / update-docs + 三个嵌套评审命令（code-review/ design-review/ security-review/） |
+
+三类组件的 `description` 都必填：缺了它不进列表，Claude 不会主动挑到。
 
 ## 命名约定
 

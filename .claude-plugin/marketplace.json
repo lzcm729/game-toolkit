@@ -5,23 +5,23 @@
     "name": "lzcm729"
   },
   "metadata": {
-    "description": "Shared game development toolkit - skills, agents, and commands for Web game projects",
-    "version": "1.8.1"
+    "description": "Game development toolkit - design-doc workflows, asset pipeline, and review agents",
+    "version": "2.0.0"
   },
   "plugins": [
     {
       "name": "game-toolkit",
       "source": "./",
-      "description": "Game development skills (design theory, UI, assets, story validation), review agents, and common commands",
-      "version": "1.8.1",
+      "description": "Design-doc workflows (layering, iteration, consistency), game design theory reference, Godot asset pipeline, and review agents",
+      "version": "2.0.0",
       "author": {
         "name": "lzcm729"
       },
       "keywords": [
         "game-dev",
-        "design",
-        "story",
-        "ui",
+        "design-docs",
+        "godot",
+        "asset-pipeline",
         "review"
       ],
       "category": "development",
