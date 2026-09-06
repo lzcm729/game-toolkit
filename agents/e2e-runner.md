@@ -545,26 +545,31 @@ await page.locator('[data-testid="chart"]').screenshot({
 
 ### Trace Collection
 ```typescript
-// Start trace
-await browser.startTracing(page, {
-  path: 'artifacts/trace.json',
-  screenshots: true,
-  snapshots: true,
-})
+// Playwright Trace Viewer 的 trace 开在 BrowserContext 上。
+// browser.startTracing() 是 Chromium CDP tracing —— 产出 chrome://tracing 格式，
+// 没有 DOM snapshot，Trace Viewer 打不开，且只在 Chromium 可用；它也不接受
+// snapshots 选项。用错这个 API 拿不到承诺的 trace 工件。
+await context.tracing.start({ screenshots: true, snapshots: true })
 
 // ... test actions ...
 
-// Stop trace
-await browser.stopTracing()
+await context.tracing.stop({ path: 'artifacts/trace.zip' })
+```
+
+也可以交给配置自动收集，无需手写：
+```typescript
+// playwright.config.ts
+use: { trace: 'retain-on-failure' }
 ```
 
 ### Video Recording
 ```typescript
-// Configured in playwright.config.ts
+// playwright.config.ts
 use: {
   video: 'retain-on-failure', // Only save video if test fails
-  videosPath: 'artifacts/videos/'
-}
+},
+// videosPath 不是 Playwright Test 的配置项。视频、trace、截图都落在 outputDir 下。
+outputDir: 'artifacts/'
 ```
 
 ## CI/CD Integration

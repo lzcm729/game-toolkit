@@ -62,14 +62,32 @@ mcp__playwright__browser_wait_for({
 // Capture performance metrics
 const metrics = mcp__playwright__browser_evaluate({
   script: `
-    JSON.stringify({
-      fcp: performance.getEntriesByName('first-contentful-paint')[0]?.startTime || 0,
-      lcp: performance.getEntriesByType('largest-contentful-paint')[0]?.startTime || 0,
-      cls: performance.getEntriesByType('layout-shift')
-        .reduce((sum, entry) => sum + entry.value, 0),
-      tti: performance.timing.domInteractive - performance.timing.navigationStart,
-      totalBlocking: performance.getEntriesByType('longtask')
-        .reduce((sum, entry) => sum + entry.duration, 0)
+    // LCP / layout-shift / longtask 取不到 getEntriesByType —— 它对这三类通常
+    // 返回空数组，而空数组 reduce 出 0，会让一个很慢的页面得到 LCP=0、CLS=0、
+    // TBT=0 的满分假象。必须用 PerformanceObserver，并加 buffered: true 才能
+    // 拿到 observer 注册之前已经发生的条目。
+    new Promise((resolve) => {
+      const out = { fcp: 0, lcp: 0, cls: 0, tbt: 0, domInteractive: 0 };
+
+      out.fcp = performance.getEntriesByName('first-contentful-paint')[0]?.startTime ?? 0;
+      // domInteractive 不是 TTI，只是 DOM 可交互的时间点。当作粗略下界报告，
+      // 需要真 TTI 请用 Lighthouse。
+      out.domInteractive = performance.timing.domInteractive - performance.timing.navigationStart;
+
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries()) out.lcp = e.startTime;   // 取最后一个
+      }).observe({ type: 'largest-contentful-paint', buffered: true });
+
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries()) if (!e.hadRecentInput) out.cls += e.value;
+      }).observe({ type: 'layout-shift', buffered: true });
+
+      // TBT 是各 long task 中**超过 50ms 的部分**之和，不是 duration 直接相加
+      new PerformanceObserver((l) => {
+        for (const e of l.getEntries()) out.tbt += Math.max(0, e.duration - 50);
+      }).observe({ type: 'longtask', buffered: true });
+
+      setTimeout(() => resolve(JSON.stringify(out)), 3000);
     })
   `
 })

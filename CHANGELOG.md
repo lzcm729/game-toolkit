@@ -2,6 +2,66 @@
 
 `game-toolkit` Claude Code plugin — shared game development skills, agents, and commands for game projects.
 
+## Unreleased
+
+一轮完整评审（自审 + codex 独立第三方评审）后的修复。**尚未发版**，版本号仍为
+2.0.0，待本地验证后再决定 bump 到哪个版本。
+
+### fix
+
+- **死引用与安装后失效的路径** — `qa-tester` / `programmer` / `game-system-review`
+  三个 agent 和 `/build-and-fix` / `tdd-workflow` 都不存在却被引用；11 处
+  `.claude/skills/...` 在插件安装后指向不存在的位置。理论与 UI 参考统一改为用
+  Skill 工具调用对应 skill，并给 `framework` / `game-designer` 补 Skill 权限。
+- **`generate-assets`** — `res://` 解析把 `output_root` 当项目根，参考图路径拼成
+  `art/art/...` 静默失效；全局 `style.chain` 被忽略（README 已承诺透传）；
+  一个 category 全失败会让成功的图片拿不到 `.import` 提示。补 5 个测试，115 → 120。
+- **`game-ui-design`** — 22 条 regex 规则里 7 条与自带用例矛盾（`16px` 判过小、
+  `"Press A"` 检测不到、已有 `navigation` 仍报缺失等），全部修正；新增
+  `scripts/check_validations.py` 回归 harness，49 个用例现在全通过。
+- **`sync-code-ahead`** — 检查点用单个 `last_synced_commit` 同时表示「扫描到哪里」
+  和「全部处理完」，部分同步后暂缓项永久丢失。拆成 `scan` + `pending` 两段，
+  改用 tree 比较（rebase / squash 安全），去掉 `feat:` 前缀过滤和 `git log --all`。
+- **`sync-docs-ahead`** — 未声明架构时只搜 `.ts/.tsx/.py/.js`，Godot / Unity 项目
+  会把已实现的功能全报成 missing。改为按项目技术栈确定范围。
+- **`parallel-implement`** — 后半段写死 `tsc`，非 TS 项目会被卡住；中断恢复
+  「有未提交变更就 commit 再 merge」会把半成品送进主分支。
+- **`e2e-runner`** — `browser.startTracing` 是 Chromium CDP tracing 而非 Playwright
+  Trace Viewer，`videosPath` 不是合法配置项。
+- **`frontend-performance-reviewer`** — LCP / CLS / longtask 用 `getEntriesByType`
+  取不到，空数组 reduce 成 0，慢页面会得到满分假象；TBT 定义也错了。
+- **codemap 双产物** — `/update-codemaps` 写 `codemaps/`、`doc-updater` 写
+  `docs/CODEMAPS/`，交替使用会产生两套地图。统一到后者。
+- **Schell 透镜编号** — 速查表说 #9 Unification，references 里 #9 是 Elemental
+  Tetrad、#11 才是 Unification。以 references 为准修正 3 处。
+- **知识库数量漂移** — `game-designer` 仍称「三本书 / 23 个参考文件」，实际四本 29 个。
+
+### refactor
+
+- **去项目耦合** — `design-iterate` 的愿景判据原先写死「典当行经营外壳＋道德困境
+  内核」，任何项目跑评审都会拿它当尺子。改为主流程解析一次「项目愿景上下文」
+  （resolved / missing / conflicting 三态），委派时传绝对路径；找不到愿景时降级为
+  「目标明确性检查」，不得推断「项目没有愿景」，也不得因无法证明符合就判定偏离。
+  `theory-framework` 的 5 组示例表格、`idea-format` 的作者机器绝对路径一并中性化。
+- **路由边界** — `design-discuss` 与 `game-designer` 的 description 原本争抢同一批
+  请求。改为按交互方式划分：主对话协作走 skill，边界明确的独立委派走 agent；
+  `game-designer` 补执行契约（review 不问采纳、只写指定输出文件、不自建目录）。
+- **删空承诺** — `framework` / `interaction` 声称完成后 orchestrator 会启动
+  `qa-tester` 并自动提交，该编排并不存在。改为如实描述信号语义。
+- **常驻成本** — 砍掉 `game-designer` description 里的三个 example 块，
+  收紧 `game-ui-design` 过宽的触发词（`console` / `accessibility` 等裸关键词）。
+
+### chore
+
+- 删除误入库的 `skills/sync-code-ahead/.sync-checkpoint`（带着作者项目的 commit
+  hash），并加进 `.gitignore`。
+
+### 评审中未采纳的一条
+
+codex 认为「多 category 总退码取最大」违反 0/1/2 语义。核对后不改 ——
+`examples/README.md:174` 与 `SKILL.md:152` 都明确写着取最大，且
+`test_exit_code_max_across_categories` 锁定该行为，是有意设计而非实现漂移。
+
 ## 2.0.0 (2026-09-05)
 
 ### breaking
