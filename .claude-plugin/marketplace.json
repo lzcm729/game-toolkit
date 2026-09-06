@@ -6,14 +6,14 @@
   },
   "metadata": {
     "description": "Game development toolkit - design-doc workflows, asset pipeline, and review agents",
-    "version": "2.0.0"
+    "version": "2.1.0"
   },
   "plugins": [
     {
       "name": "game-toolkit",
       "source": "./",
       "description": "Design-doc workflows (layering, iteration, consistency), game design theory reference, Godot asset pipeline, and review agents",
-      "version": "2.0.0",
+      "version": "2.1.0",
       "author": {
         "name": "lzcm729"
       },

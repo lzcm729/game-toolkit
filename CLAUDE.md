@@ -1,6 +1,6 @@
 # game-toolkit
 
-Claude Code 插件源码仓库。当前版本 v2.0.0，游戏开发/设计工具箱：设计文档工作流、资源管线、评审。
+Claude Code 插件源码仓库。当前版本 v2.1.0，游戏开发/设计工具箱：设计文档工作流、资源管线、评审。
 
 **GitHub**: https://github.com/lzcm729/game-toolkit
 **作者**: lzcm729
@@ -42,7 +42,7 @@ Claude Code 插件源码仓库。当前版本 v2.0.0，游戏开发/设计工具
 .claude-plugin/marketplace.json # marketplace 清单（两处 version 要和 plugin.json 一起改）
 agents/                         # 15 个 sub-agent（.md，frontmatter + 系统提示词）
 commands/                       # 11 个 slash command（部分嵌套：code-review/ design-review/ security-review/）
-skills/                         # 12 个 skill（每个一个子目录，含 SKILL.md 和资源）
+skills/                         # 13 个 skill（每个一个子目录，含 SKILL.md 和资源）
 docs/workflows/                 # 三套评审 workflow 的说明与模板（非命令，别放回 commands/）
 CHANGELOG.md                    # 版本记录，每次 bump 同步补条目
 ```
@@ -57,6 +57,7 @@ CHANGELOG.md                    # 版本记录，每次 bump 同步补条目
 
 ### skills/
 
+- **共享定义**：`layer-contracts/`（三件套与 split-doc-layers 共用的分层定义与 A 层契约门槛，不直接面向用户）
 - **设计流程**：`design-discuss/`（讨论+收录）、`design-iterate/`（多视角评审迭代）、`doc-consistency-check/`（文档矛盾检查）、`split-doc-layers/`（Framework/Content/Interface 三层拆分）
 - **知识/理论**：`game-design-theory/`（四本设计书知识库）、`game-ui-design/`、`react-game-ui/`、`book-to-reference/`
 - **代码/文档同步**：`sync-code-ahead/`（代码→文档）、`sync-docs-ahead/`（文档→代码 gap 分析）

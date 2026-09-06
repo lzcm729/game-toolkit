@@ -2,10 +2,11 @@
 
 `game-toolkit` Claude Code plugin — shared game development skills, agents, and commands for game projects.
 
-## Unreleased
+## 2.1.0 (2026-09-06)
 
-一轮完整评审（自审 + codex 独立第三方评审）后的修复。**尚未发版**，版本号仍为
-2.0.0，待本地验证后再决定 bump 到哪个版本。
+两轮独立评审（自审 + codex 第三方评审 + codex 复审）后的修复，外加三件套的
+职责契约改写。没有删除组件、没有改变调用方式；`sync-code-ahead` 的检查点格式
+从 YAML 单水位换成 JSON scan+pending，读到旧格式会先做一次全量对账再迁移。
 
 ### fix
 
