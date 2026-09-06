@@ -52,22 +52,21 @@ Execute comprehensive performance measurement:
 // Navigate to application
 mcp__playwright__browser_navigate({ url: "http://localhost:3000" })
 
-// Wait for page to be interactive
-mcp__playwright__browser_wait_for({
-  selector: "body",
-  state: "attached",
-  timeout: 10000
-})
+// browser_wait_for 只接受 text / textGone / time（秒）——
+// 没有 selector / state / timeout，传了会在采集之前就失败
+mcp__playwright__browser_wait_for({ time: 3 })
 
-// Capture performance metrics
+// browser_evaluate 的参数名是 function（不是 script），值必须是 () => {...} 形式
 const metrics = mcp__playwright__browser_evaluate({
-  script: `
+  function: `async () => {
     // LCP / layout-shift / longtask 取不到 getEntriesByType —— 它对这三类通常
     // 返回空数组，而空数组 reduce 出 0，会让一个很慢的页面得到 LCP=0、CLS=0、
     // TBT=0 的满分假象。必须用 PerformanceObserver，并加 buffered: true 才能
     // 拿到 observer 注册之前已经发生的条目。
     new Promise((resolve) => {
-      const out = { fcp: 0, lcp: 0, cls: 0, tbt: 0, domInteractive: 0 };
+      // 初值用 null 而不是 0：没测到和「值为 0」必须能区分开，
+      // 否则不支持 longtask 的浏览器会让慢页面得到一份满分报告
+      const out = { fcp: null, lcp: null, cls: null, tbt: null, domInteractive: null };
 
       out.fcp = performance.getEntriesByName('first-contentful-paint')[0]?.startTime ?? 0;
       // domInteractive 不是 TTI，只是 DOM 可交互的时间点。当作粗略下界报告，
@@ -79,19 +78,28 @@ const metrics = mcp__playwright__browser_evaluate({
       }).observe({ type: 'largest-contentful-paint', buffered: true });
 
       new PerformanceObserver((l) => {
-        for (const e of l.getEntries()) if (!e.hadRecentInput) out.cls += e.value;
+        for (const e of l.getEntries()) if (!e.hadRecentInput) out.cls = (out.cls ?? 0) + e.value;
       }).observe({ type: 'layout-shift', buffered: true });
 
       // TBT 是各 long task 中**超过 50ms 的部分**之和，不是 duration 直接相加
       new PerformanceObserver((l) => {
-        for (const e of l.getEntries()) out.tbt += Math.max(0, e.duration - 50);
+        for (const e of l.getEntries()) out.tbt = (out.tbt ?? 0) + Math.max(0, e.duration - 50);
       }).observe({ type: 'longtask', buffered: true });
 
-      setTimeout(() => resolve(JSON.stringify(out)), 3000);
-    })
-  `
+      await new Promise((r) => setTimeout(r, 3000));
+      return out;
+    }`
 })
 ```
+
+**读数注意：**
+- `lcp` / `cls` / `tbt` 为 `null` 表示**没测到**（浏览器不支持该 entry 类型，或
+  窗口内没有相应事件），不是「表现完美」。报告里必须写「未测到」，不能填 0。
+- `cls` 是窗口内所有非交互 shift 的累加，**不是** Core Web Vitals 定义的
+  session-window 最大值；`tbt` 也只统计上面这 3 秒窗口。两者都只能横向对比同一
+  页面的前后变化，不能直接对标 Lighthouse 阈值。
+- `domInteractive` 不是 TTI，只是 DOM 可交互的时间点，作为粗略下界。
+  需要可对标的 TTI / LCP / CLS，跑 Lighthouse。
 
 **Bundle Size Analysis:**
 ```bash
@@ -143,7 +151,7 @@ Compare measurements against targets:
 | FCP | <1.8s | 1.8-3.0s | >3.0s |
 | LCP | <2.5s | 2.5-4.0s | >4.0s |
 | CLS | <0.1 | 0.1-0.25 | >0.25 |
-| TTI | <3.8s | 3.8-7.3s | >7.3s |
+| domInteractive（TTI 粗略下界） | <3.8s | 3.8-7.3s | >7.3s |
 | Bundle (initial) | <500KB | 500KB-1MB | >1MB |
 
 Identify top 3-5 issues by **measured impact** (not guesses).
@@ -166,7 +174,7 @@ Use this template:
 | FCP | [X]s | <1.8s | [✅/❌] |
 | LCP | [X]s | <2.5s | [✅/❌] |
 | CLS | [X] | <0.1 | [✅/❌] |
-| TTI | [X]s | <3.8s | [✅/❌] |
+| domInteractive | [X]s 或「未测到」 | <3.8s（仅供参考，非 TTI） | [✅/❌] |
 | Bundle Size | [X]KB | <500KB | [✅/❌] |
 
 ## Issues Found

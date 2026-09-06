@@ -66,10 +66,14 @@ Phase 5: 清理（worktree + branch + Team）
 后续 Phase 2/4 的验证都用它，**不假设任何技术栈**。按顺序确定：
 
 1. 项目 CLAUDE.md 里声明的构建/类型检查命令
-2. 从项目根探测：`package.json` 的 scripts → 对应命令；`project.godot` →
-   `godot --headless --check-only`（或项目声明的导出检查）；`*.csproj`/`*.sln` →
+2. 从项目根探测：`package.json` 的 scripts → 对应命令；`*.csproj`/`*.sln` →
    `dotnet build`；`Cargo.toml` → `cargo check`；`pyproject.toml` → 项目声明的
    lint/typecheck
+   - `project.godot` → **用项目自己的验证入口**（GUT / gdUnit4 测试、导出检查脚本）。
+     注意 `godot --headless --check-only` 必须配 `--script <文件>` 才生效
+     （`--help` 原文：Only parse for errors and quit, use with --script），
+     它只能逐脚本解析、不做导入与依赖检查，**不能当项目级构建检查**。
+     若确实要用逐脚本解析，须明确文件集合、导入准备和失败判定
 3. 都确定不了 → **问用户**，不要默认成 `tsc`
 
 若该项目没有可自动运行的构建检查，明确记录「本轮无构建验证」，

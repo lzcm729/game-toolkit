@@ -58,6 +58,45 @@
 - 删除误入库的 `skills/sync-code-ahead/.sync-checkpoint`（带着作者项目的 commit
   hash），并加进 `.gitignore`。
 
+### 复审（codex 第二轮 + 自查）后的第二批修复
+
+第一批修完后又做了一轮独立复审，重点看「修复本身有没有引入回归」。结论：有两处。
+
+- **`generate-assets` 的 res:// 修复弄坏了裸相对路径** —— 两种相对路径的基准不同
+  （`res://` 相对项目根，裸路径相对 `output_root`），原代码共用一个 root 导致前者错，
+  我改传 `project_root` 后变成后者错。已拆成 `_resolve_reference()` 分别处理。
+  这条 codex 判了「已解决」，是自查发现的。
+- **`.import` 提示漏掉「全部 skipped」** —— 图片已存在时 `success=0`，但那些 PNG
+  同样可能还没被 Godot 导入。codex 实测复现。
+- **`validations` 的 focus 规则扩大匹配范围后产生新漏报** —— `button { outline: none; }
+  input:focus-visible {...}` 不再命中。回到同规则块内查找，宁可多报。
+- **Phase 0 恢复不经过新增的 Phase 2 前置** —— 旧批次直接恢复到 Phase 3.5 时，
+  Teams 模板会去读一个不存在的愿景上下文文件。
+
+其余复审发现：
+
+- `parallel-implement` 里我新写的 `godot --headless --check-only` **不成立**
+  —— 该选项必须配 `--script <文件>`，只能逐脚本解析，不能当项目级构建检查
+- `frontend-performance-reviewer` 换了 Observer 采集，但外层 MCP 调用参数仍是错的
+  （`browser_wait_for` 传 `selector/state/timeout`、`browser_evaluate` 传 `script`，
+  实际 schema 是 `text/textGone/time` 和 `function`），按模板执行会在采集前就失败；
+  指标未测到时仍返回 0 会呈现「满分假象」，改为 `null` 并写明 CLS/TBT 的口径限制
+- `sync-code-ahead` 固定了扫描快照 H/T，读源码却仍用普通 Read —— 工作区里未提交的
+  撤销会让 `pending` 被误删且再也扫不到。改为从 `git show <H>:<path>` 读
+- `sync-code-ahead` 存在两套执行顺序（阶段 4→5 先确认后写 vs 阶段 7 先落盘后选），
+  合并为一套；`pending` 的 `id` 明确为首次发现时分配、此后不变
+- Teams 恢复拿整合评估的**全部**议题比对，会把用户跳过的议题判成缺失待补跑；
+  改为对照评审计划里回写的用户确认清单
+- 评审文件完整性从「>5KB」改为「含必需结构」—— 发现数量已改成按证据决定，
+  按大小判会让一份完整的短报告被无谓补跑
+- `validations` 10 条无用例规则里，实测出 **7 条必然误报**（已有 text-shadow /
+  已加 CanvasScaler / 已设 raycastTarget=false / 同文件已 connect 的正确代码统统命中）。
+  它们判的是跨作用域条件，正则表达不了，改标为 `heuristic` 并写明「命中只说明
+  值得看一眼，不构成缺陷判定」；余下 3 条补齐用例
+
+现状：15 条 regex 规则全部有用例覆盖（66 个用例，0 不符）+ 7 条 heuristic；
+generate-assets 124 passed；组件引用 lint 0 问题。
+
 ### 评审中未采纳的一条
 
 codex 认为「多 category 总退码取最大」违反 0/1/2 语义。核对后不改 ——
