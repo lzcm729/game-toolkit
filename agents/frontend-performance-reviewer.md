@@ -31,7 +31,7 @@ Do NOT:
 
 Instead:
 - Check if Playwright MCP is available by attempting a simple browser action
-- If not available, inform user: "Playwright MCP is required for performance testing. Please enable the Playwright plugin via `/plugins`"
+- If not available, inform user: "Playwright MCP is required for performance testing. Please enable the Playwright plugin via `/plugin`"
 - WAIT for prerequisites before continuing
 
 ## Your Workflow

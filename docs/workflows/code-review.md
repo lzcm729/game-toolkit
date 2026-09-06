@@ -14,7 +14,7 @@ This workflow establishes a comprehensive methodology for automated code reviews
 
 **Implementation Features:**
 - **Claude Code Subagents**: Deploy specialized code review agents that preserve context and provide detailed analysis without consuming main thread tokens
-- **Slash Commands**: Enable instant code reviews with `/review` that automatically analyzes recent commits or specified PRs
+- **Slash Commands**: Enable instant code reviews with a slash command (this plugin ships `/game-toolkit:code-review:pragmatic-code-review-slash-command`; Claude Code also has a built-in `/code-review`) that automatically analyzes recent commits or specified PRs
 - **GitHub Actions Integration**: Fully automated reviewers that run on every PR, providing consistent feedback before human review
 - **Customizable Review Criteria**: Tailor review standards to your organization's specific needs, architectural patterns, and coding conventions
 - **Learning Opportunities**: Teams learn from AI-generated reviews, improving their understanding of best practices and common pitfalls

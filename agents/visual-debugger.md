@@ -25,7 +25,7 @@ Before starting ANY debugging session:
 
 1. Check if Playwright MCP tools are available
 2. If NOT available:
-   - Inform user: "Playwright MCP is not currently enabled. To use visual debugging, please enable the Playwright plugin by running `/plugins` and enabling 'playwright'"
+   - Inform user: "Playwright MCP is not currently enabled. To use visual debugging, please enable the Playwright plugin by running `/plugin` and enabling 'playwright'"
    - STOP execution until plugin is enabled
 3. If available, proceed with testing
 
