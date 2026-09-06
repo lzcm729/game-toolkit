@@ -430,3 +430,71 @@ def test_extra_fields_must_be_dict(tmp_project, mock_subprocess_run, capsys):
     }))
     rc = ga.main(["broken", "--config", str(cfg)])
     assert rc == 1
+
+# -------------------- reference_paths 的 res:// 解析 --------------------
+
+def _batch_of(calls):
+    return json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+
+
+def test_global_reference_res_path_resolves_from_project_root(tmp_project, mock_subprocess_run):
+    """res:// 等价于项目根，不是 output_root —— 否则会拼出 art/art/。"""
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_project / "asset-config.yaml"
+    config = _minimal_config()
+    config["style"]["reference_paths"] = ["res://art/_style/anchor.png"]
+    _write_yaml(cfg, config)
+    ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+    resolved = Path(_batch_of(calls)["defaults"]["reference_paths"][0])
+    assert resolved == (tmp_project / "art" / "_style" / "anchor.png").resolve()
+
+
+def test_category_reference_res_path_resolves_from_project_root(tmp_project, mock_subprocess_run):
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_project / "asset-config.yaml"
+    config = _minimal_config()
+    config["categories"]["ingredients"]["reference_paths"] = ["res://art/_style/cat.png"]
+    _write_yaml(cfg, config)
+    ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+    resolved = Path(_batch_of(calls)["defaults"]["reference_paths"][0])
+    assert resolved == (tmp_project / "art" / "_style" / "cat.png").resolve()
+
+
+# -------------------- 全局 style.chain --------------------
+
+def test_global_style_chain_passed_to_defaults(tmp_project, mock_subprocess_run):
+    """examples/README 承诺 style.chain 透传到 defaults.chain。"""
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_project / "asset-config.yaml"
+    config = _minimal_config()
+    config["style"]["chain"] = "default"
+    _write_yaml(cfg, config)
+    ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+    assert _batch_of(calls)["defaults"]["chain"] == "default"
+
+
+def test_category_chain_overrides_global_chain(tmp_project, mock_subprocess_run):
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_project / "asset-config.yaml"
+    config = _minimal_config()
+    config["style"]["chain"] = "default"
+    config["categories"]["ingredients"]["chain"] = "laozhang_only"
+    _write_yaml(cfg, config)
+    ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+    assert _batch_of(calls)["defaults"]["chain"] == "laozhang_only"
+
+
+def test_skip_global_style_also_skips_global_chain(tmp_project, mock_subprocess_run):
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_project / "asset-config.yaml"
+    config = _minimal_config()
+    config["style"]["chain"] = "default"
+    config["categories"]["ingredients"]["skip_global_style"] = True
+    _write_yaml(cfg, config)
+    ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+    assert "chain" not in _batch_of(calls)["defaults"]

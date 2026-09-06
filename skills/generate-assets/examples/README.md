@@ -68,7 +68,7 @@ output_root: "assets/art"  # = <project_root>/assets/art
 | `derived_fields` | dict | `{new_field: dsl_expr}` 见下方"derived DSL" |
 | `prompt_template` | string | `str.format` 模板，占位符引用 item 字段 |
 | `skip_global_style` | bool | true → 不拼全局 prefix/suffix |
-| `seed` / `chain` / `preset` | misc | 透传到 image-gen `defaults` |
+| `seed` / `chain` / `preset` | misc | 透传到 image-gen `defaults`；`chain` / `preset` 未设时继承 `style` 段的同名字段（`skip_global_style: true` 则不继承） |
 | `reference_paths` | list | 覆盖 global style 的内容层 ref（可选） |
 
 ## 数据源 type（v1）

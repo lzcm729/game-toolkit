@@ -152,7 +152,10 @@ def main(argv: list[str] | None = None) -> int:
     overall_code = max((r.exit_code for r in results), default=0)
     _print_summary(results)
 
-    if not args.dry_run and overall_code != 1:
+    # 只要有成功产出就给 .import 提示：总退码取最大，一个 category 全失败会把
+    # overall_code 抬到 1，但另一个 category 成功生成的图片仍然需要导入
+    any_success = any((r.summary or {}).get("success", 0) > 0 for r in results)
+    if not args.dry_run and any_success:
         scan = scan_imports(output_root)
         print(scan.render_hint())
 
@@ -300,6 +303,7 @@ def _run_category(
             items=items,
             global_style=global_style,
             output_root=output_root,
+            project_root=project_root,
         )
     except Exception as e:
         msg = f"batch JSON 构造失败：{e}"
@@ -373,6 +377,7 @@ def _build_batch_json(
     items: list[dict],
     global_style: dict,
     output_root: Path,
+    project_root: Path,
 ) -> dict:
     template = cat_spec.get("prompt_template")
     if not template:
@@ -383,8 +388,12 @@ def _build_batch_json(
     global_prefix = (global_style.get("prompt_prefix") or "") if not skip_global else ""
     global_suffix = (global_style.get("prompt_suffix") or "") if not skip_global else ""
 
-    # defaults：把 category-level 字段透传到 image-gen defaults
+    # defaults：global style 提供默认（skip_global_style 时不继承），category 覆盖
     defaults: dict[str, Any] = {}
+    if not skip_global:
+        for key in ("chain", "preset"):
+            if global_style.get(key) is not None:
+                defaults[key] = global_style[key]
     if "aspect_ratio" in cat_spec:
         defaults["aspect_ratio"] = cat_spec["aspect_ratio"]
     if "seed" in cat_spec:
@@ -400,7 +409,7 @@ def _build_batch_json(
         if refs:
             # ref 也接受 res:// → 解析为绝对路径
             resolved_refs = [
-                str(resolve_res_path(r, output_root)) if not Path(r).is_absolute() else r
+                str(resolve_res_path(r, project_root)) if not Path(r).is_absolute() else r
                 for r in refs
             ]
             defaults["reference_paths"] = resolved_refs
@@ -409,7 +418,7 @@ def _build_batch_json(
     if "reference_paths" in cat_spec:
         cat_refs = cat_spec["reference_paths"] or []
         defaults["reference_paths"] = [
-            str(resolve_res_path(r, output_root)) if not Path(r).is_absolute() else r
+            str(resolve_res_path(r, project_root)) if not Path(r).is_absolute() else r
             for r in cat_refs
         ]
 
