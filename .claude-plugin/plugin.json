@@ -1,7 +1,7 @@
 {
   "name": "game-toolkit",
-  "version": "3.0.0",
-  "description": "Game design toolkit: layered design contracts, design-doc workflows, and a Godot asset pipeline",
+  "version": "3.0.1",
+  "description": "Game design and implementation-contract toolkit: layered contracts, design-doc workflows, worktree orchestration, and an explicit Godot asset adapter",
   "author": {
     "name": "lzcm729"
   }

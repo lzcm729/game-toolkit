@@ -1,6 +1,6 @@
 # game-toolkit
 
-Claude Code 插件源码仓库。当前版本 v3.0.0，游戏设计文档工具箱：分层契约、设计文档工作流、Godot 资源管线。
+Claude Code 插件源码仓库。当前版本 v3.0.1，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、明确列出的技术适配（Godot 资源管线）。
 
 **GitHub**: https://github.com/lzcm729/game-toolkit
 **作者**: lzcm729
@@ -18,7 +18,7 @@ Claude Code 插件源码仓库。当前版本 v3.0.0，游戏设计文档工具�
 ## 开发回路
 
 ```
-1. 在此目录修改 agents/ skills/ commands/
+1. 在此目录修改 agents/ skills/（3.0.0 起没有 commands/）
 2. 更新 version（遵循 semver）——plugin.json 一处 + marketplace.json 两处，三处要一起改
 3. 补 CHANGELOG.md 条目
 4. git commit + push（commit message 参考 git log 风格：feat/fix/chore 前缀）
@@ -84,7 +84,7 @@ CHANGELOG.md                    # 版本记录，每次 bump 同步补条目
 
 - **agent** 文件：前置 YAML frontmatter（`name`、`description`、`tools`），正文是系统提示词。description 必须讲清楚何时触发、何时不用
 - **skill** 目录：一个 `SKILL.md` 作为入口（frontmatter 同 agent），可挂脚本/模板/参考资料到同级文件
-- **slash command**：单 markdown 文件，YAML frontmatter 定义参数与行为。**`description` 必填**——缺了它命令不进列表，Claude 不会主动挑到；`commands/` 下只放命令，说明文档去 `docs/`
+- **slash command**：本插件 3.0.0 起不再提供。若将来再加，`description` 必填——缺了它命令不进列表，Claude 不会主动挑到
 - 需要脚手架或规范时直接调用官方 `plugin-dev` 插件的 skill（`plugin-dev:agent-development` / `skill-development` / `command-development`）
 
 ## 协作注意事项

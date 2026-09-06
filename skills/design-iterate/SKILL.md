@@ -415,7 +415,7 @@ Teams 讨论结果与 Phase 3 的优化方向清单**合并**后一起进入 Pha
    - `代码影响`: `framework` / `interaction` / `content` / `framework+interaction` / `无(纯文档)` — parallel-implement 据此分配任务层
    - `设计文档章节`: 具体章节号，parallel-implement 的 agent 直接定位阅读
 
-   **注意**：如果本轮采纳项全部是纯文档调整（无代码影响），则在索引顶部标注 `**代码影响: 无**`，Phase 5 衔接时跳过 parallel-implement 询问。
+   **注意**：如果本轮采纳项全部是纯文档调整（无代码影响），则在索引顶部标注 `**代码影响: 无**`，Phase 4 第 6 步衔接时跳过 parallel-implement 询问。
 
 4. **记录延后项与保留点子**
    - **延后项**写入 `docs/design-reviews/{目录}/待定与下轮处理.md`

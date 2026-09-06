@@ -1,6 +1,58 @@
 # Changelog
 
-`game-toolkit` Claude Code plugin — shared game development skills, agents, and commands for game projects.
+`game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
+（3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
+
+## 3.0.1 (2026-09-06)
+
+codex 对 3.0.0 做的独立复核（第三轮）。它确认删除本身清理干净、剩余 16 个组件
+无断链，但找出两个真问题、一处误判和四处收尾没做完。
+
+### fix
+
+- **检查点模板不是合法 JSON** —— 2.1.0 引入的回归。`sync-code-ahead/SKILL.md:42`
+  的 `"id"` 后加了 `// 首次发现时分配` 注释，标准 JSON 不允许注释，codex 实测
+  `json.loads` 抛 `JSONDecodeError`。按模板落盘后普通 JSON 读取会失败。注释移出代码块。
+- **worktree 依赖准备无条件执行 Windows/Node 命令** —— `parallel-implement`
+  的 Phase 2 让每个 worktree 都跑 `cmd //c "mklink /J …node_modules…"`，没有操作系统
+  或项目类型条件。macOS / Linux 找不到 `cmd`，纯 Godot 项目也会建一个没用的链接。
+  这是 3.0.0 保留下来的既有问题，不是删除造成的。改为按项目实际情况分支，
+  并写明判据是「worktree 能不能跑起构建检查命令」。
+
+### refactor
+
+- **2.1.0 的契约门槛没进并行实现入口** —— 三件套被直接调用时必须给出契约场景与
+  验证证据，但走 `design-iterate → parallel-implement` 时启动的是 `general-purpose`，
+  模板只注入目录白名单和构建命令，只凭编译通过就能标记完成并进入合并。
+  **单项实现与批量实现的验收标准不一致。** 模板现在要求：先读 `layer-contracts`、
+  注入本任务契约、逐条核对验收场景并给证据、契约缺口交回主流程不得自行补造规则。
+  （沿用 `general-purpose` 而非换成三件套 —— 后者没声明团队流程需要的
+  `SendMessage` / `TaskUpdate`。）
+- **代码范围从「目录白名单」改为「语义所有权」** —— 原模板按目录禁止跨界，
+  与 `layer-contracts` 明确允许的「实现可共处一个文件、按语义所有权划分」冲突。
+  Godot 里一个脚本同时承载规则与呈现很常见，按目录划会让人要么越界要么拒做本职工作。
+
+### docs
+
+3.0.0 的删除判据说得比实际保留边界更绝对，逐条修正：
+
+- 第一类「整体来自另一个项目」：成立的是**默认上下文被那个 dApp 污染**，
+  不是「这些内容毫无游戏开发价值」。TDD 方法、最小化修复、测试稳定性、codemap
+  思路仍可复用，`update-codemaps` 这轮也已改成按项目探测语言，并非全部未经修改。
+- 第二类「绑死浏览器」：**浏览器也是游戏平台**，这条只说明不适合放核心。
+  尤其 **`react-game-ui` 是误判** —— 它是 React 游戏 UI 的实现模式（资源条、
+  动态数值反馈、卡牌、奖励弹出、HUD 布局、读屏播报），测试类工具替代不了，
+  `game-ui-design` 也明确只管原则不管实现。迁移表补上：**没有等价替代入口**，
+  需要时从 `83dbce7:skills/react-game-ui/SKILL.md` 取回重整。
+- 第三类「与官方重复」：改为「这类通用能力可以外包」，不再声称官方必然更成熟。
+
+定位描述同步改为「游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、
+明确列出的技术适配」—— 原来的「只留设计文档工具」解释不了三件套的代码实现职责
+和 worktree 合并。
+
+另修四处收尾：CLAUDE.md 开发回路仍要求改 `commands/`、command 编写约定未标注废弃、
+CHANGELOG 介绍仍写包含 commands、`sync-code-ahead` 内部引用「阶段 7」应为「阶段 8」、
+`design-iterate` 写「Phase 5 衔接」实际入口在 Phase 4 第 6 步。
 
 ## 3.0.0 (2026-09-06)
 
@@ -22,21 +74,36 @@
 它们的示例是 `searchMarkets('election')`、`.from('markets')`、`HeaderWallet`、
 `app/markets/`、「Solana wallet integration」「Market trading logic」、
 MetaMask / Phantom 钱包连接、place buy order —— 一个预测市场 dApp 的真实代码，
-从那个项目的 `.claude/` 整体搬来，示例一行没改。`e2e-runner` 里这类内容有 135 处、
-整段占约 160 行。这不是「偏 Web 需要去 Web 化」，是根本不是为游戏写的。
+从那个项目的 `.claude/` 整体搬来。`e2e-runner` 里这类内容有 135 处、整段占约 160 行。
+
+**成立的是「默认上下文被那个项目污染」，不是「这些内容毫无游戏开发价值」。**
+TDD 方法、最小化修复策略、测试稳定性处理、codemap 生成思路本身仍可复用；
+`update-codemaps` 这轮也已改成按项目探测语言，并非全部未经修改。
+移除的判断基于：清理污染的成本高于这些方法的边际价值，且外部已有成熟替代。
 
 **二、绑死浏览器技术栈（5 个组件 / 1340 行）**
 
 `visual-debugger`（Web 命中密度 0.41，全插件最高）、`frontend-performance-reviewer`、
 `design-review-agent` + `design-review` 命令、`react-game-ui`。
 Playwright 只能测浏览器，Godot 用 GUT / gdUnit4、UE 用 Automation，都不走这条路；
-且与已装的 `example-skills:webapp-testing`、`browser-use`、playwright MCP 重复。
+调试、性能、视觉评审这三项与已装的 `example-skills:webapp-testing`、`browser-use`、
+playwright MCP 重复。
+
+**但浏览器也是游戏平台，这条判据只说明「不适合放在核心」，不说明「无价值」。**
+`react-game-ui` 尤其要单独看 —— 它是 React 游戏 UI 的**实现模式**
+（资源条、动态数值反馈、卡牌、奖励弹出动画、HUD 布局、读屏播报），
+测试类工具替代不了它，保留下来的 `game-ui-design` 也明确只管原则不管实现。
+移除它是「移出核心」，**目前没有等价替代入口**；将来若做 Web 小游戏，
+宜整理成独立的可选 React 适配 skill，而不是原样恢复那 448 行
+（旧文里还带着 `MetaPotPanel` 这类项目特化示例）。
 
 **三、与官方重复（6 个组件 / 1097 行）**
 
 `security-reviewer` + 命令、`pragmatic-code-review-subagent` + 命令、`planner` + 命令。
-官方 `/security-review`、`/code-review`、`Plan` agent 都更成熟。
-这条判断本插件 2.x 就做过（「架构设计与通用代码评审已移除，与官方重复」），
+官方 `/security-review`、`/code-review`、`Plan` agent 提供同类能力。
+理由是「这类通用能力可以外包，不必由游戏插件承载」——
+回读也确认这三个包装层没有必须由本插件持有的独有契约。
+这条判断本插件 2.x 就写过（「架构设计与通用代码评审已移除，与官方重复」），
 只是当时没执行完 —— 这次执行完了。
 
 配套的 `docs/workflows/`（5 个说明与模板文件）随之移除。
@@ -47,6 +114,9 @@ Playwright 只能测浏览器，Godot 用 GUT / gdUnit4、UE 用 Automation，�
 - TDD → `superpowers:test-driven-development`、`mattpocock-skills:tdd`
 - 代码评审 / 安全评审 / 计划 → 官方 `/code-review`、`/security-review`、`Plan` agent
 - 构建修复、死代码清理、codemap → 官方 `/simplify` 覆盖一部分；其余按项目自身工具链处理
+- **React 游戏 UI 实现模式（`react-game-ui`）→ 没有等价替代入口。** 已装的 `frontend-design`
+  管的是通用视觉方向，`game-ui-design` 管的是引擎无关的 UI 原则，都不覆盖 React 组件实现。
+  需要时从 git 历史 `83dbce7:skills/react-game-ui/SKILL.md` 取回并重整
 
 ### 保留
 

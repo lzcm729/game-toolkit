@@ -5,15 +5,15 @@
     "name": "lzcm729"
   },
   "metadata": {
-    "description": "Game design toolkit - layered design contracts, design-doc workflows, and a Godot asset pipeline",
-    "version": "3.0.0"
+    "description": "Game design and implementation-contract toolkit - layered contracts, design-doc workflows, orchestration, and an explicit Godot asset adapter",
+    "version": "3.0.1"
   },
   "plugins": [
     {
       "name": "game-toolkit",
       "source": "./",
       "description": "Layered design contracts (Framework / Content / Interface), design-doc workflows (layering, iteration, consistency), a four-book game design theory reference, and a Godot asset pipeline",
-      "version": "3.0.0",
+      "version": "3.0.1",
       "author": {
         "name": "lzcm729"
       },
