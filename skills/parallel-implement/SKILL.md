@@ -53,13 +53,28 @@ Phase 0: 生成实现清单
 Phase 1: 基础变更（main 分支）
 Phase 2: 创建 Worktrees
 Phase 3: 并行实现（单 Team + 角色间直接通信）
-Phase 4: 顺序合并（merge → tsc → commit）
+Phase 4: 顺序合并（merge → 构建检查 → commit）
 Phase 5: 清理（worktree + branch + Team）
 ```
 
 ---
 
 ## Phase 0: 生成实现清单
+
+### 先确定 `{构建检查命令}`
+
+后续 Phase 2/4 的验证都用它，**不假设任何技术栈**。按顺序确定：
+
+1. 项目 CLAUDE.md 里声明的构建/类型检查命令
+2. 从项目根探测：`package.json` 的 scripts → 对应命令；`project.godot` →
+   `godot --headless --check-only`（或项目声明的导出检查）；`*.csproj`/`*.sln` →
+   `dotnet build`；`Cargo.toml` → `cargo check`；`pyproject.toml` → 项目声明的
+   lint/typecheck
+3. 都确定不了 → **问用户**，不要默认成 `tsc`
+
+若该项目没有可自动运行的构建检查，明确记录「本轮无构建验证」，
+在合并前改用人工确认，**不要跳过这一步却当作验证通过**。
+
 
 **输入**：设计评审目录路径（含 `采纳索引.md` + `整合评估.md`）或 gap analysis WORKPLAN
 
@@ -91,7 +106,7 @@ Phase 5: 清理（worktree + branch + Team）
 执行步骤：
 1. 从清单中提取所有标记为"基础变更"的任务
 2. 启动 general-purpose agent 实现（或 CLAUDE.md 指定的角色）
-3. `tsc --noEmit` 验证
+3. 运行 `{构建检查命令}` 验证
 4. 提交到当前分支
 
 ---
@@ -109,7 +124,7 @@ git worktree add ../wt-{系统名} {分支名}
   ```bash
   cd {主项目上级目录} && cmd //c "mklink /J wt-{系统名}\node_modules {主项目目录名}\node_modules"
   ```
-- 验证构建：`cd wt-{系统名} && node ./node_modules/typescript/bin/tsc --noEmit`（TypeScript 项目）或项目对应的构建检查命令
+- 验证构建：`cd wt-{系统名} && {构建检查命令}`（该命令在 Phase 0 确定）
 
 **重要**：向用户确认 worktree 路径。
 
@@ -226,7 +241,7 @@ cd {worktree} && git add -A && git commit -m "feat: implement {系统名} gaps �
 
 # 回到主项目 merge
 cd {主项目} && git merge {分支名} --no-edit
-node ./node_modules/typescript/bin/tsc --noEmit
+{构建检查命令}
 ```
 
 - **构建通过** → 继续下一个
@@ -250,7 +265,7 @@ git worktree prune
 git branch -d {分支名}
 ```
 
-最终 `tsc --noEmit` 验证。
+最终运行 `{构建检查命令}` 验证。
 
 ---
 
@@ -269,9 +284,13 @@ git branch -d {分支名}
 2. `git worktree list` 检查现有 worktrees
 3. 对每个 worktree `git log --oneline -5` 和 `git status --short` 了解状态
 4. 检查活跃 Team（`~/.claude/teams/`）
-5. 从中断点继续：
+5. 从中断点继续。**「有变更」不等于「任务已完成」** —— agent 写到一半被中断时，
+   worktree 里同样有未提交变更，直接 commit 再 merge 会把半成品送进主分支：
    - worktree 已存在但无 commit → 从 Phase 3 开始
-   - 有未提交变更 → 先 commit 再 merge
+   - 有未提交变更 → 先对照清单确认该任务的验收项是否已满足：
+     - 已完成 → commit 后进入 Phase 4
+     - 未完成或无法判断 → **不要 merge**，重新 spawn agent 接着做完，
+       或与用户确认后放弃该分支。能编译不等于功能完成。
    - 部分 merged → 继续 Phase 4 合并剩余
 
 ---
@@ -297,4 +316,4 @@ git branch -d {分支名}
 - 每个角色只修改自己被允许的目录，不越界
 - agent 只操作自己的 worktree，不触碰主项目或其他 worktree
 - merge 只由主对话（我）执行，agent 不做 merge
-- worktree 中 `npx` 和 `npm run build` 可能不可用（Windows junction 导致 .bin shim 失效），需直接调用可执行文件（如 `node ./node_modules/typescript/bin/tsc --noEmit`）
+- （Node/TypeScript 项目）worktree 中 `npx` 和 `npm run build` 可能不可用（Windows junction 导致 .bin shim 失效），需直接调用可执行文件，如 `node ./node_modules/typescript/bin/tsc --noEmit`。其他技术栈按各自方式确定可用的构建检查命令

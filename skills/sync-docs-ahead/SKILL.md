@@ -42,7 +42,15 @@ Analyze the gap between a design document and its code implementation.
 Steps:
 1. Read the entire design document
 2. Extract every distinct feature/requirement/mechanic described
-3. Search the project's source code directories (read from CLAUDE.md Architecture section; if unspecified, search all .ts/.tsx/.py/.js files under project root) using Glob and Grep
+3. Search the project's source code using Glob and Grep. Determine the scope in this order:
+   a. CLAUDE.md's Architecture section, if it names source directories or file types — use those.
+   b. Otherwise detect the stack from the project root and derive the file types:
+      `project.godot` → `.gd` `.cs` `.tscn` `.tres`; `*.uproject` → `.cpp` `.h` `.uasset`;
+      `*.sln`/`Assets/` → `.cs` `.unity` `.prefab`; `package.json` → `.ts` `.tsx` `.js` `.jsx`;
+      `pyproject.toml`/`requirements.txt` → `.py`; `Cargo.toml` → `.rs`; `go.mod` → `.go`.
+   c. If neither works, ask the user rather than guessing.
+   **Never assume a web stack.** State in the report which directories and file types were searched —
+   a feature reported as missing is only meaningful if its source language was actually in scope.
 4. Rate each feature's implementation status
 5. Write report to the output file using the Write tool
 
