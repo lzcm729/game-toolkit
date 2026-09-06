@@ -33,12 +33,14 @@ description: |
 | 单张即兴生图 | 直接 `image-gen` |
 | Godot 项目批量生成（5+ asset） | **本 skill** |
 | 项目根存在 `asset-config.yaml` | **本 skill** |
-| PawnShop 三状态 schema（item/character/background） | 已 fork 到 PawnShop 项目本地 skill（`PawnShopGeminiDemo/.claude/skills/generate-assets/`），本通用 framework 不再支持 |
+| 三状态 schema（item/character/background，旧版特化） | 已由具体项目 fork 为项目内 skill 维护，本通用 framework 不再支持 |
 
 ## 快速使用
 
 ```bash
-SKILL=~/.claude/skills/generate-assets/scripts/generate_assets.py
+# 脚本随插件安装。用 Skill 工具调用本 skill 后，按告知的 base directory 定位；
+# 或在插件目录下取 skills/generate-assets/scripts/generate_assets.py
+SKILL="<本 skill 目录>/scripts/generate_assets.py"
 
 # 列出 config 里所有 category
 python "$SKILL" list
@@ -162,7 +164,7 @@ pip install pyyaml
 ## 不做的事
 
 - ❌ 重新实现 image-gen 的能力（chain / fallback / manifest / skip-existing 都已就绪）
-- ❌ PawnShop schema 解析（CSV / 三状态 / emotions） → 走 legacy 脚本
+- ❌ 项目特化的旧版 schema 解析（CSV / 三状态 / emotions） → 由该项目自己的 legacy 脚本负责
 - ❌ 任意 Python 表达式 / jinja2（str.format + hardcoded helper 够用）
 - ❌ 自动写 .tres atlas / SpriteSheet（thick-layer，未来 TODO）
 - ❌ 绑定特定 model / preset 名（让 yaml chain / preset 透传）

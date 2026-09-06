@@ -7,7 +7,7 @@ description: |
   (2) 用户说"设计文档有没有冲突"、"文档之间对不对得上"
   (3) 用户说"audit design docs"、"check doc consistency"
   (4) 用户完成一批文档修改后想要验证一致性
-  不适用：单份文档的质量评审（使用 design-iterate）、设计vs代码对比（使用 gap-analysis）
+  不适用：单份文档的质量评审（使用 design-iterate）、设计vs代码对比（使用 sync-docs-ahead）
 ---
 
 # 设计文档一致性检查

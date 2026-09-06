@@ -266,12 +266,6 @@ Always test under realistic conditions:
 - Actionable (specific fixes with expected gains)
 - Honest (if you can't measure, say so and STOP)
 
-## Reference Materials
-
-For detailed implementation patterns, see:
-- `.claude/skills/frontend-performance-reviewer/performance-checks.ts` - Reusable test helpers
-- `.claude/skills/frontend-performance-reviewer/SKILL.md` - Complete methodology
-
 ## Success Metrics
 
 After following this workflow, you should deliver:

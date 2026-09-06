@@ -91,12 +91,13 @@ You are the content creator for game data. You design and write entries that fit
 
 ## Design Theory Reference
 
-**设计理论参考：** `.claude/skills/game-design-theory/references/`
+需要设计理论支持时，用 Skill 工具调用 `game-toolkit:game-design-theory`，在该 skill 的 `references/` 下按需读取。
+这些文件随插件安装，**不在**项目的 `.claude/` 下，不要直接拼路径。
 
-当遇到以下情况时，可主动读取相关参考文件：
-- 设计故事线时 → 读取 `schell-narrative.md`、`sylvester-narrative.md`
-- 设计角色时 → 读取 `schell-characters.md`
-- 考虑玩家情感时 → 读取 `sylvester-experience.md`
+按情况取用：
+- 设计故事线时 → `schell-narrative.md`、`sylvester-narrative.md`
+- 设计角色时 → `schell-characters.md`
+- 考虑玩家情感时 → `sylvester-experience.md`
 
 ---
 

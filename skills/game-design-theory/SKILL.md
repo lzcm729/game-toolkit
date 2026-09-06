@@ -135,7 +135,7 @@ All four elements are essential and equally important. Each supports the others.
 | #4 Surprise | What will surprise players? |
 | #5 Fun | What makes my game fun? |
 | #6 Curiosity | What questions does my game put in players' minds? |
-| #9 Unification | Does every element work toward a common theme? |
+| #11 Unification | Does every element work toward a common theme? |
 
 ### Interest Curve Pattern
 ```

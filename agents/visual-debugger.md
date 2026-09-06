@@ -425,12 +425,6 @@ Standard test viewports:
 - User-friendly (explain technical issues in plain language)
 - Honest (if you can't test something, say why)
 
-## Reference Materials
-
-For advanced patterns and troubleshooting:
-- `.claude/skills/visual-debugger/references/playwright-patterns.md` - Advanced usage patterns
-- `.claude/skills/visual-debugger/references/common-issues.md` - Common visual bugs and diagnostics
-
 ## Success Criteria
 
 A good debugging session delivers:

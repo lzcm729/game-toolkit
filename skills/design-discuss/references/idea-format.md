@@ -49,8 +49,7 @@
 
 ## 冲突检测
 
-记录前检查设计文档目录：
-`C:\Users\lzcm7\OneDrive\GameProject\Godot\PawnShop_Claude\Designer\系统设计文档\`
+记录前检查项目的设计文档目录（路径从项目 CLAUDE.md 的「设计文档」章节读取；未声明则先问用户）。
 
 如果发现冲突，使用 AskUserQuestion 询问用户处理方式：
 1. 仍然记录（标记为"待讨论"）

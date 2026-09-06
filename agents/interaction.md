@@ -90,16 +90,16 @@ You create and maintain the visual layer that exposes game functionality to play
 
 ## Design References
 
-**游戏 UI 设计参考：** `.claude/skills/game-ui-design/references/`
+UI 设计参考：用 Skill 工具调用 `game-toolkit:game-ui-design`，在其 `references/` 下取用：
+- **创建新组件时** → `patterns.md`（设计模式）
+- **排查 UI 问题时** → `sharp_edges.md`（常见陷阱）
+- **UI 审查/验证时** → `validations.md`（验证规则；其中的技术侧正则仅供参考，不作判定依据）
 
-当创建或修改 UI 组件时，参考以下文件：
-- **创建新组件时** → 读取 `references/patterns.md`（设计模式）
-- **排查 UI 问题时** → 读取 `references/sharp_edges.md`（常见陷阱）
-- **UI 审查/验证时** → 读取 `references/validations.md`（验证规则）
+设计理论参考：调用 `game-toolkit:game-design-theory`：
+- 设计交互流程时 → `schell-interface.md`（界面反馈）
+- 考虑玩家体验时 → `schell-interest-curve.md`（兴趣曲线）
 
-**设计理论参考：** `.claude/skills/game-design-theory/references/`
-- 设计交互流程时 → 读取 `schell-interface.md`（界面反馈）
-- 考虑玩家体验时 → 读取 `schell-interest-curve.md`（兴趣曲线）
+以上文件随插件安装，**不在**项目的 `.claude/` 下，不要直接拼路径。
 
 ### Quick UI Design Check（快速 UI 设计检查）
 
@@ -196,10 +196,9 @@ You create and maintain the visual layer that exposes game functionality to play
 
 ## Workflow Integration
 
-**IMPORTANT:** 完成后，orchestrator 会：
-1. 启动 `qa-tester` agent 验证变更
-2. 等待 qa-tester 完成测试
-3. 如果测试通过，自动提交代码
+完成后输出 `[READY_FOR_QA]`。这是给调用方（主对话或人）的信号，**本身不触发任何动作**——
+本插件不提供 QA agent，也不会自动提交代码。调用方据此决定下一步：人工验证、跑项目自己的
+测试、或另行派发 agent。
 
 ## Edge Cases
 

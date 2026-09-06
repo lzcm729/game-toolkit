@@ -11,8 +11,8 @@ description: |
 
   不适用场景：
   - 纯粹的文档编写（没有对应代码）
-  - 代码实现（应使用 programmer）
-  - 设计评审（应使用 game-system-review）
+  - 代码实现（应使用 framework / content / interaction）
+  - 设计评审（应使用 design-iterate）
 ---
 
 # Code to Docs Sync
