@@ -46,6 +46,10 @@ docs/design-reviews/{YYYY-MM-DD}-{批次标识}/
 有 整合评估.md，含跨系统议题但无 teams-讨论/ 目录
   → Phase 3 完成，从 Phase 3.5 继续（如用户选择讨论）
 
+有 teams-讨论/ 目录但无 teams-综合报告.md
+  → Phase 3.5 进行中（讨论被中断）。比对已产出的议题文件与
+    整合评估.md 里的跨系统议题清单，补跑缺失的议题，再生成综合报告
+
 有 整合评估.md + teams-讨论/teams-综合报告.md，无 待定与下轮处理.md
   → Phase 3.5 完成，从 Phase 4 继续
 
