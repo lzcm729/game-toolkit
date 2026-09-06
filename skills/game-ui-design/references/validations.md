@@ -36,7 +36,7 @@ error
 ### **Type**
 regex
 ### **Pattern**
-font-?[Ss]ize[:\s=]+["']?([0-9]|1[0-3])(px|pt|rem)?["']?
+font-?[Ss]ize\s*[:=]\s*["']?(1[0-3]|[0-9])(px|pt|rem)?["']?(?![0-9])
 ### **Message**
 Font size under 14px. Too small for game UI, especially on TVs and handhelds.
 ### **Fix Action**
@@ -67,7 +67,7 @@ error
 ### **Type**
 regex
 ### **Pattern**
-["'](Press|Hit|Tap|Push)\s+(A|B|X|Y|Start|Select|Space|Enter|LB|RB|LT|RT|L1|R1|L2|R2)["']
+["'](Press|Hit|Tap|Push)\s+(A|B|X|Y|Start|Select|Space|Enter|LB|RB|LT|RT|L1|R1|L2|R2)\b[^"']*["']
 ### **Message**
 Hardcoded button prompt. Won't adapt to controller type or key rebinding.
 ### **Fix Action**
@@ -125,7 +125,7 @@ warning
 ### **Type**
 regex
 ### **Pattern**
-(enemy|hostile|danger|warning|error).*color:\s*(red|#[fF][0-9a-fA-F]{2}[0-9a-fA-F]{2})|color:\s*(red|green).*!(icon|shape|text)
+(?:(?:enemy|hostile|danger|warning|error)[^\n]*color:\s*(?:red|green|#[fF][0-9a-fA-F]{4})|color:\s*(?:red|green)[^\n]*(?:enemy|hostile|danger|warning|error))(?![^\n]*(?:icon|shape|text|label))
 ### **Message**
 Color appears to be sole indicator. Colorblind players may not distinguish.
 ### **Fix Action**
@@ -168,7 +168,7 @@ warning
 ### **Type**
 regex
 ### **Pattern**
-<(button|Button|a)[^>]+(?!.*navigation|.*selectable|.*focusable)[^>]*>
+<(button|Button|a)\b(?![^>]*(?:navigation|selectable|focusable))[^>]*>
 ### **Message**
 Interactive element may not support controller navigation.
 ### **Fix Action**
@@ -271,7 +271,7 @@ info
 ### **Type**
 regex
 ### **Pattern**
-(margin|padding|top|left|right|bottom):\s*[0-9]{2,}px(?!\s*\/\*)
+(margin|padding|top|left|right|bottom)(-(top|left|right|bottom))?:\s*(?!(?:0|4|8|12|16|20|24|32|40|48|56|64|72|80|96|128)px\b)[0-9]{2,}px(?!\s*\/\*)
 ### **Message**
 Hardcoded pixel positions. Consider using spacing scale or design tokens.
 ### **Fix Action**
@@ -314,7 +314,7 @@ warning
 ### **Type**
 regex
 ### **Pattern**
-(outline:\s*none|outline:\s*0)(?![^}]*:focus-visible)
+(outline:\s*none|outline:\s*0)(?![\s\S]{0,200}?:focus-visible)
 ### **Message**
 Removed outline without focus-visible alternative. Keyboard/controller users can't see focus.
 ### **Fix Action**
@@ -393,7 +393,7 @@ warning
 ### **Type**
 regex
 ### **Pattern**
-(1920|1080|2560|1440|3840|2160)[^0-9].*resolution|screenWidth.*=.*1920|screenHeight.*=.*1080
+(?:resolution[^\n]*\b(?:1920|1080|2560|1440|3840|2160)\b|\b(?:1920|1080|2560|1440|3840|2160)\b[^\n]*resolution|screen(?:Width|Height)\s*=\s*(?:1920|1080))
 ### **Message**
 Hardcoded resolution values. Should use dynamic screen dimensions.
 ### **Fix Action**

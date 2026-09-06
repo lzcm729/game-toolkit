@@ -1,6 +1,16 @@
 ---
 name: game-ui-design
-description: World-class game UI design expertise combining the clarity of Nintendo's UI philosophy, the immersive diegetic interfaces of Dead Space and Metroid Prime, and the competitive readability principles from esports titles. Game UI is the invisible bridge between player intent and game response.  Great game UI serves the player without breaking immersion. It communicates critical information at a glance during intense action, guides new players without patronizing veterans, and adapts gracefully from 4K monitors to handheld screens and from keyboard to touch to controller. The best game UI designers understand that every pixel of screen space is sacred - borrowed from the game world itself. Use when "game ui, game interface, hud design, heads up display, game menu, inventory ui, health bar, stamina bar, game hud, minimap, crosshair, reticle, button prompt, controller ui, gamepad navigation, diegetic interface, in-world ui, quest tracker, damage numbers, cooldown indicator, radial menu, game tooltip, game-ui, hud, game-interface, game-menu, controller-ui, diegetic, game-design, accessibility, console, mobile-games" mentioned. 
+description: |
+  Use when designing or reviewing **game UI**: HUD, menus, inventory screens,
+  health/stamina bars, minimap, crosshair, reticle, button prompts, controller /
+  gamepad navigation, diegetic in-world interfaces, quest trackers, damage numbers,
+  cooldown indicators, radial menus, game tooltips.
+  Covers readability under action, safe zones, input-method adaptation
+  (controller → keyboard → touch), and game-specific accessibility.
+
+  NOT for: debugging console errors, non-UI game mechanics, general web/app UI
+  (use frontend-design), or framework-specific UI implementation
+  (React → react-game-ui).
 ---
 
 # Game Ui Design
@@ -48,6 +58,15 @@ You must ground your responses in the provided reference files, treating them as
 
 * **For Creation:** Always consult **`references/patterns.md`**. This file dictates *how* things should be built. Ignore generic approaches if a specific pattern exists here.
 * **For Diagnosis:** Always consult **`references/sharp_edges.md`**. This file lists the critical failures and "why" they happen. Use it to explain risks to the user.
-* **For Review:** Always consult **`references/validations.md`**. This contains the strict rules and constraints. Use it to validate user inputs objectively.
+* **For Review:** Consult **`references/validations.md`**. Its 22 rules are regex checks written against **CSS / JSX syntax** — they are a fast first pass on web-stack UI code, not a universal judgment. On Godot, Unity or UE code, apply the *intent* of each rule semantically (the rule's Message and Fix Action say what it is really after); do not report a regex miss as a pass, and do not report a regex hit as a defect without reading the surrounding code.
+
+Every rule carries its own Should Match / Should Not Match cases. **After editing any Pattern, run `python scripts/check_validations.py`** — it re-runs all 49 cases and exits non-zero on a mismatch. An unverified regex is not an objective criterion.
 
 **Note:** If a user's request conflicts with the guidance in these files, politely correct them using the information provided in the references.
+
+## Additional Resources
+
+- **`references/patterns.md`** — construction patterns
+- **`references/sharp_edges.md`** — known failure modes and why they happen
+- **`references/validations.md`** — 22 reviewable rules with test cases
+- **`scripts/check_validations.py`** — regression harness for those rules
