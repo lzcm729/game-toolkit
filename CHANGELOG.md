@@ -35,6 +35,8 @@
 - **Schell 透镜编号** — 速查表说 #9 Unification，references 里 #9 是 Elemental
   Tetrad、#11 才是 Unification。以 references 为准修正 3 处。
 - **知识库数量漂移** — `game-designer` 仍称「三本书 / 23 个参考文件」，实际四本 29 个。
+- **`design-iterate` 恢复状态** — Phase 0 恢复表缺「Teams 讨论已开始但综合报告未
+  生成」这个中断状态；评审文件完整性阈值三处不一致（>5KB / >10KB / <5KB），统一为 5KB。
 
 ### refactor
 
