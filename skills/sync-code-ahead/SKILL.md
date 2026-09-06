@@ -21,56 +21,87 @@ description: |
 
 ## 工作流程
 
-### 阶段 0：检查同步检查点
+### 阶段 0：读取同步检查点
 
-首先检查是否有上次同步的检查点文件：
+路径从 CLAUDE.md 读取（查找 "sync-checkpoint" 配置），未定义则默认
+`.claude/.sync-checkpoint`。**该文件是项目的运行产物，不随插件分发。**
 
-Checkpoint 路径从 CLAUDE.md 读取（查找 "sync-checkpoint" 相关配置）。
-如果未定义，默认使用 `.claude/.sync-checkpoint`。
+格式（JSON，`schema_version: 2`）：
 
-```bash
-cat <checkpoint-path>
+```json
+{
+  "schema_version": 2,
+  "scan": {
+    "commit": "<上轮开始时的 HEAD>",
+    "tree": "<该提交的 tree SHA>",
+    "scanned_at": "<ISO-8601>",
+    "scope_version": 1
+  },
+  "pending": [
+    {
+      "id": "sync-0001",
+      "status": "deferred",
+      "summary": "交易失败后的库存回滚行为已变化",
+      "source_paths": ["src/trading/service.gd"],
+      "target_docs": ["docs/design/trading.md"],
+      "evidence": [
+        {"path": "src/trading/service.gd", "symbol": "complete_trade", "change": "失败时恢复扣除的库存"}
+      ],
+      "first_seen_at": "<ISO-8601>",
+      "last_checked_tree": "<tree SHA>",
+      "defer_reason": "用户本轮暂缓"
+    }
+  ]
+}
 ```
 
-**如果存在检查点：** 使用增量扫描
-```bash
-git log --oneline <last_synced_commit>..HEAD | grep -E "^[a-f0-9]+ feat"
-```
+**`scan` 记录「扫描到哪里」，`pending` 记录「还有什么没处理」——两者不能合并成一个字段。**
+旧版单水位格式（`last_synced_commit:` 的 YAML）之所以会丢内容，正是因为用一个 hash
+同时表示这两件事：用户只同步了一部分，水位却越过了全部，剩下的再也扫不到。
 
-**如果不存在检查点：** 执行全量扫描（见下方），完成后创建检查点文件。
+`pending` 条目必须保存足以重新核对的功能描述和源码位置，**不能只存 commit SHA 或
+临时报告路径** —— rebase / squash 会让 SHA 失效，但「功能与文档的差距」这件事本身没变。
+
+读到旧格式时：**不要只转换字段名**。旧水位之前漏掉的条目无法从单个 hash 反推，
+必须先做一次全量对账。
 
 ### 阶段 1：扫描代码修改
 
-**增量扫描（有检查点时）：**
+比较两个**源码状态**，不比较提交范围：
+
 ```bash
-git log --oneline <last_synced_commit>..HEAD | grep -E "^[a-f0-9]+ feat"
+H=$(git rev-parse HEAD)              # 本轮起始 HEAD，全程以它为准
+T=$(git rev-parse "$H^{tree}")
+git cat-file -e "<旧 scan.tree>^{tree}"   # 旧 tree 对象还在吗
+git diff --name-status -z "<旧 tree>" "$T"
 ```
 
-**全量扫描（无检查点时）：**
-```bash
-git log --oneline --all | grep -E "^[a-f0-9]+ feat"
-```
+| 情况 | 做法 |
+|---|---|
+| 无检查点 / 旧格式 / 扫描范围规则变了（`scope_version` 不符） | 全量对账：当前源码 ↔ 当前设计文档 |
+| 旧 `scan.tree` 对象仍在 | `git diff` 两个 tree，分析变化路径对应的行为变化 |
+| 旧对象已被 gc | 全量对账。**不报致命错误，不清空 pending** |
 
-获取每个提交修改的文件列表：
-```bash
-git log --stat --oneline <last_synced_commit>..HEAD
-# 或全量：git log -30 --stat --oneline
-```
+用 tree 比较而非 commit 范围，因此 rebase / squash 后旧 commit 不再属于当前历史也不影响
+—— 比的是两个已扫描的源码状态，不需要共同祖先。
 
-3. **筛选需要同步的修改**（排除以下类型）：
-   - `fix(ui):` 纯样式微调（颜色、间距、可见性）
-   - `fix:` 小 bug 修复
-   - `refactor:` 不改变功能的重构
-   - `test:` 测试相关
-   - `chore:` 配置、依赖等
-   - `.gitignore`、`package.json` 等配置文件变更
+**无论本轮有没有发现新变化，都要重新核对全部 `pending`。**
 
-4. **识别需要同步的修改**（保留以下类型）：
-   - `feat:` 新功能
-   - `feat(xxx):` 带模块的新功能
-   - 涉及新模块/系统目录的创建
-   - 涉及新组件/实体文件的创建
-   - 大量代码变更（>200 行新增）
+**不按提交前缀过滤。** 前缀只作为理解意图的辅助信息：用 `fix:` 提交的功能改动同样要同步，
+不规范的提交信息更不该被静默丢弃。判据是**行为有没有变**：
+
+- 玩家可见行为
+- 系统规则、状态转换、数据契约
+- 与设计文档相关的功能和限制
+
+纯格式化、无行为变化的重构可以排除，但必须**看过差异之后**再判断，不能凭前缀先筛掉。
+
+**不用 `git log --all`。** 它会混入未合并分支的提交，而后续读的是当前工作树，
+会导致「找不到对应代码」或把别的分支的功能当成当前已实现。无基线时以当前 tree
+的跟踪文件确定范围。
+
+源码范围按项目技术栈确定（同 `sync-docs-ahead` 的规则：CLAUDE.md 声明 > 从项目根探测 >
+问用户），必须覆盖 `.gd` / `.cs` 等非 Web 技术栈。
 
 ### 阶段 2：理解代码实现
 
@@ -220,15 +251,37 @@ git log --stat --oneline <last_synced_commit>..HEAD
 
 ### 阶段 7：更新检查点
 
-同步完成后，更新检查点文件（路径同阶段 0）：
+**顺序不能变** —— 只有扫描结果已完整落入 `pending`，才能推进 `scan`：
 
-```
-# Code-to-Docs Sync Checkpoint
-last_synced_commit: <当前 HEAD hash>
-last_sync_date: YYYY-MM-DD
-total_commits_at_sync: <总提交数>
-feat_commits_at_sync: <feat 提交数>
-```
+1. 完成扫描和 `pending` 核对
+2. 合并新发现与旧 `pending`：
+   - 同一功能变化 → 更新原条目
+   - 来源代码又变了 → 重新判断，**不沿用旧结论**
+   - 已被文档覆盖 → 核验后移除
+   - 已被代码撤销 → 核验后移除并在报告里说明
+   - 无法确定 → 保留
+3. **原子保存**：`scan` = 本轮 H/T，`pending` = 全部未完成条目
+4. **然后**才让用户选择本轮同步哪些条目
+5. 未选中的保留，`status: "deferred"`，记 `defer_reason`
+6. 选中的逐项改文档并核验：成功 → 移出 `pending`；失败或中断 → 保留
+7. 每完成一项就原子保存一次
+
+扫描半途失败时**不得推进 `scan`**。
+写法：同目录写临时文件再整体替换；同一检查点同时只允许一个同步任务写入。
+文档已写入但尚未移出队列时中断，下轮靠「已被文档覆盖」核验消重，不要重复追加。
+
+结束时若 HEAD 已经移动，**仍只保存起始的 H/T** —— 后续变化留给下一轮自然覆盖，
+不要在结束时重新读 HEAD 来推进水位。未提交的源码不计入本检查点的完成声明。
+
+**rebase / squash 的处理：**
+
+| 情况 | 行为 |
+|---|---|
+| 旧 commit 不在当前历史，但旧 tree 还在 | 照常比较两个 tree |
+| squash / rebase 后内容没变 | 新差异为空，但仍要处理 `pending` |
+| 历史重写同时改了源码 | 比较 tree 后重新核对受影响条目 |
+| 旧 tree 已被 gc | 全量对账，保留并重核 `pending` |
+| `pending` 对应代码被删除或替换 | 按当前源码判断撤销 / 替代 / 仍待确认，**不能仅因 SHA 失效就丢弃** |
 
 ## 注意事项
 
@@ -236,4 +289,4 @@ feat_commits_at_sync: <feat 提交数>
 - 中文项目使用中文文档，英文项目使用英文文档
 - 表格数据直接从代码配置中提取，确保准确性
 - 如果代码实现与设计意图有差异，在文档中注明"基于代码同步"
-- **每次同步后必须更新检查点文件**
+- **每次同步后必须更新检查点文件**，且遵守阶段 7 的顺序：先落 `pending`，再推进 `scan`

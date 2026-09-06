@@ -13,3 +13,6 @@ desktop.ini
 __pycache__/
 *.pyc
 .pytest_cache/
+
+# 同步检查点是项目的运行产物，不随插件分发
+.sync-checkpoint
