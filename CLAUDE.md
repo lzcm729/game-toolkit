@@ -1,6 +1,6 @@
 # game-toolkit
 
-Claude Code 插件源码仓库。当前版本 v2.1.0，游戏开发/设计工具箱：设计文档工作流、资源管线、评审。
+Claude Code 插件源码仓库。当前版本 v3.0.0，游戏设计文档工具箱：分层契约、设计文档工作流、Godot 资源管线。
 
 **GitHub**: https://github.com/lzcm729/game-toolkit
 **作者**: lzcm729
@@ -40,35 +40,45 @@ Claude Code 插件源码仓库。当前版本 v2.1.0，游戏开发/设计工具
 ```
 .claude-plugin/plugin.json      # 插件清单（name/version/description/author）
 .claude-plugin/marketplace.json # marketplace 清单（两处 version 要和 plugin.json 一起改）
-agents/                         # 15 个 sub-agent（.md，frontmatter + 系统提示词）
-commands/                       # 11 个 slash command（部分嵌套：code-review/ design-review/ security-review/）
-skills/                         # 13 个 skill（每个一个子目录，含 SKILL.md 和资源）
-docs/workflows/                 # 三套评审 workflow 的说明与模板（非命令，别放回 commands/）
+agents/                         # 4 个 sub-agent（.md，frontmatter + 系统提示词）
+skills/                         # 12 个 skill（每个一个子目录，含 SKILL.md 和资源）
 CHANGELOG.md                    # 版本记录，每次 bump 同步补条目
+
+（3.0.0 起没有 commands/ —— 11 个 slash command 连同 11 个 agent 一起移除，
+ 原因见下方「3.0.0 砍掉了什么」）
 ```
 
 ### agents/（按功能分组）
 
-- **分层实现三件套**：`framework.md`（业务逻辑/系统设计）、`content.md`（数据/叙事/数值）、`interaction.md`（UI/样式/交互）——职责边界明确，别交叉
-- **规划/评审**：`planner.md`、`pragmatic-code-review-subagent.md`、`design-review-agent.md`、`security-reviewer.md`、`frontend-performance-reviewer.md`
-  - 架构设计与通用代码评审已移除（与官方 `feature-dev:code-architect` / `pr-review-toolkit:code-reviewer` 重复），请直接使用官方版本
-- **工具/维护**：`build-error-resolver.md`、`refactor-cleaner.md`、`doc-updater.md`、`tdd-guide.md`、`e2e-runner.md`、`visual-debugger.md`
-- **设计理论**：`game-designer.md`（整合 game-design-theory skill）
+- **分层三件套**：`framework.md`（规则与权威状态）、`content.md`（实例与数值）、`interaction.md`（玩家输入与反馈）——职责边界见 `layer-contracts` skill，别交叉
+- **设计评审**：`game-designer.md`（被 design-iterate 委派或用户明确要求独立执行时用；开放式讨论走 design-discuss skill）
 
 ### skills/
 
 - **共享定义**：`layer-contracts/`（三件套与 split-doc-layers 共用的分层定义与 A 层契约门槛，不直接面向用户）
 - **设计流程**：`design-discuss/`（讨论+收录）、`design-iterate/`（多视角评审迭代）、`doc-consistency-check/`（文档矛盾检查）、`split-doc-layers/`（Framework/Content/Interface 三层拆分）
-- **知识/理论**：`game-design-theory/`（四本设计书知识库）、`game-ui-design/`、`react-game-ui/`、`book-to-reference/`
+- **知识/理论**：`game-design-theory/`（四本设计书知识库）、`game-ui-design/`（引擎无关的游戏 UI 原则）、`book-to-reference/`
 - **代码/文档同步**：`sync-code-ahead/`（代码→文档）、`sync-docs-ahead/`（文档→代码 gap 分析）
 - **实现执行**：`parallel-implement/`（git worktree 并行实现）、`generate-assets/`（Godot schema-driven 资源管线）
 
-### commands/
+### 3.0.0 砍掉了什么
 
-- **工作流**：`plan.md`、`tdd.md`、`build-fix.md`、`refactor-clean.md`、`test-coverage.md`、`e2e.md`
-- **评审**：`code-review/`、`design-review/`、`security-review/`——各一个 slash command，配套说明与模板在 `docs/workflows/`
-- **文档维护**：`update-codemaps.md`、`update-docs.md`
-- Web/Node 脚手架（`new-website` 等 5 个）与通用 `code-review.md` 已在 2.0.0 移除：前者与游戏工具箱定位无关，后者和 Claude Code 官方 `/code-review` 重复且与 `code-review/` 目录撞名
+一次性移除 23 个组件（11 agent + 11 command + 1 skill + docs/workflows），占当时正文的 61%。
+
+- **整体来自另一个项目**：`e2e-runner` / `tdd-guide` / `build-error-resolver` /
+  `refactor-cleaner` / `doc-updater` 及其配套命令。它们的示例里是
+  `searchMarkets('election')`、`.from('markets')`、`HeaderWallet`、Solana wallet、
+  MetaMask/Phantom 连接 —— 从一个预测市场 dApp 的 `.claude/` 整体搬来，示例一行没换。
+  不是「偏 Web」，是根本不是为游戏写的。
+- **绑死浏览器技术栈**：`visual-debugger`、`frontend-performance-reviewer`、
+  `design-review-agent` 及其命令、`react-game-ui`。Godot / UE 用不上，
+  且与已装的 `example-skills:webapp-testing`、`browser-use`、playwright MCP 重复。
+- **与官方重复**：`security-reviewer`、`pragmatic-code-review-subagent`、`planner`
+  及其命令 —— 官方 `/security-review`、`/code-review`、`Plan` agent 都更成熟。
+  这条判断本插件早就做过（见 2.x 的「架构设计与通用代码评审已移除」），
+  只是当时没执行完。
+
+更早的移除：Web/Node 脚手架（`new-website` 等 5 个）与撞名的通用 `code-review.md`，2.0.0。
 
 ## 插件组件编写约定
 

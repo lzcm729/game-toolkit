@@ -1,7 +1,7 @@
 {
   "name": "game-toolkit",
-  "version": "2.1.0",
-  "description": "Game development toolkit: design-doc workflows, asset pipeline, and review agents",
+  "version": "3.0.0",
+  "description": "Game design toolkit: layered design contracts, design-doc workflows, and a Godot asset pipeline",
   "author": {
     "name": "lzcm729"
   }

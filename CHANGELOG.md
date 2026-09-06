@@ -2,6 +2,58 @@
 
 `game-toolkit` Claude Code plugin — shared game development skills, agents, and commands for game projects.
 
+## 3.0.0 (2026-09-06)
+
+**移除 23 个组件，占当时正文的 61%**（5572 / 9119 行），常驻 description 省下 656 词。
+插件从「游戏开发工具箱」收敛为「游戏设计文档工具箱」：只留分层契约、设计文档工作流、
+设计理论知识库、Godot 资源管线。**`commands/` 目录整个消失** —— 11 个 slash command
+连同 11 个 agent 一起移除。
+
+### breaking
+
+移除的三类，各有各的理由：
+
+**一、整体来自另一个项目（12 个组件 / 3135 行）**
+
+`e2e-runner` + `e2e`、`tdd-guide` + `tdd` + `test-coverage`、`build-error-resolver` +
+`build-fix`、`refactor-cleaner` + `refactor-clean`、`doc-updater` + `update-codemaps` +
+`update-docs`。
+
+它们的示例是 `searchMarkets('election')`、`.from('markets')`、`HeaderWallet`、
+`app/markets/`、「Solana wallet integration」「Market trading logic」、
+MetaMask / Phantom 钱包连接、place buy order —— 一个预测市场 dApp 的真实代码，
+从那个项目的 `.claude/` 整体搬来，示例一行没改。`e2e-runner` 里这类内容有 135 处、
+整段占约 160 行。这不是「偏 Web 需要去 Web 化」，是根本不是为游戏写的。
+
+**二、绑死浏览器技术栈（5 个组件 / 1340 行）**
+
+`visual-debugger`（Web 命中密度 0.41，全插件最高）、`frontend-performance-reviewer`、
+`design-review-agent` + `design-review` 命令、`react-game-ui`。
+Playwright 只能测浏览器，Godot 用 GUT / gdUnit4、UE 用 Automation，都不走这条路；
+且与已装的 `example-skills:webapp-testing`、`browser-use`、playwright MCP 重复。
+
+**三、与官方重复（6 个组件 / 1097 行）**
+
+`security-reviewer` + 命令、`pragmatic-code-review-subagent` + 命令、`planner` + 命令。
+官方 `/security-review`、`/code-review`、`Plan` agent 都更成熟。
+这条判断本插件 2.x 就做过（「架构设计与通用代码评审已移除，与官方重复」），
+只是当时没执行完 —— 这次执行完了。
+
+配套的 `docs/workflows/`（5 个说明与模板文件）随之移除。
+
+### 迁移
+
+- E2E / 浏览器调试 / 前端性能 → `example-skills:webapp-testing`、`browser-use`、playwright MCP
+- TDD → `superpowers:test-driven-development`、`mattpocock-skills:tdd`
+- 代码评审 / 安全评审 / 计划 → 官方 `/code-review`、`/security-review`、`Plan` agent
+- 构建修复、死代码清理、codemap → 官方 `/simplify` 覆盖一部分；其余按项目自身工具链处理
+
+### 保留
+
+4 个 agent（三件套 + `game-designer`）、12 个 skill（`layer-contracts`、
+设计文档六件套、`game-design-theory`、`game-ui-design`、`book-to-reference`、
+`generate-assets`、`parallel-implement`）。
+
 ## 2.1.0 (2026-09-06)
 
 两轮独立评审（自审 + codex 第三方评审 + codex 复审）后的修复，外加三件套的

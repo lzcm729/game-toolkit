@@ -5,15 +5,15 @@
     "name": "lzcm729"
   },
   "metadata": {
-    "description": "Game development toolkit - design-doc workflows, asset pipeline, and review agents",
-    "version": "2.1.0"
+    "description": "Game design toolkit - layered design contracts, design-doc workflows, and a Godot asset pipeline",
+    "version": "3.0.0"
   },
   "plugins": [
     {
       "name": "game-toolkit",
       "source": "./",
-      "description": "Design-doc workflows (layering, iteration, consistency), game design theory reference, Godot asset pipeline, and review agents",
-      "version": "2.1.0",
+      "description": "Layered design contracts (Framework / Content / Interface), design-doc workflows (layering, iteration, consistency), a four-book game design theory reference, and a Godot asset pipeline",
+      "version": "3.0.0",
       "author": {
         "name": "lzcm729"
       },
@@ -22,7 +22,7 @@
         "design-docs",
         "godot",
         "asset-pipeline",
-        "review"
+        "design-contracts"
       ],
       "category": "development",
       "strict": false
