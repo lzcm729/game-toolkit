@@ -498,3 +498,55 @@ def test_skip_global_style_also_skips_global_chain(tmp_project, mock_subprocess_
     _write_yaml(cfg, config)
     ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
     assert "chain" not in _batch_of(calls)["defaults"]
+
+# -------------------- 裸相对路径 vs res:// 的基准不同 --------------------
+
+def test_bare_relative_reference_resolves_from_output_root(tmp_project, mock_subprocess_run):
+    """examples/README.md 约定：裸相对路径相对 output_root，只有 res:// 才相对项目根。
+
+    回归防护：修 res:// 时若把两者共用一个 root，这条就会挂。
+    """
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_project / "asset-config.yaml"
+    config = _minimal_config()
+    config["style"]["reference_paths"] = ["_style/anchor.png"]
+    _write_yaml(cfg, config)
+    ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+    resolved = Path(_batch_of(calls)["defaults"]["reference_paths"][0])
+    assert resolved == (tmp_project / "art" / "_style" / "anchor.png").resolve()
+
+
+def test_absolute_reference_passes_through(tmp_project, mock_subprocess_run):
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_project / "asset-config.yaml"
+    config = _minimal_config()
+    abs_ref = (tmp_project / "elsewhere" / "ref.png").resolve()
+    config["style"]["reference_paths"] = [str(abs_ref)]
+    _write_yaml(cfg, config)
+    ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+    assert Path(_batch_of(calls)["defaults"]["reference_paths"][0]) == abs_ref
+
+
+# -------------------- .import 提示的触发条件 --------------------
+
+def test_import_hint_shown_when_all_skipped(tmp_project, mock_subprocess_run, capsys):
+    """全部 skipped 时 success=0，但已存在的 PNG 同样可能还没被 Godot 导入。"""
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0, summary={"total": 2, "success": 0, "failed": 0, "skipped": 2,
+                                      "failed_assets": [], "manifest": "/tmp/m.jsonl"})
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+    ga.main(["ingredients", "--config", str(cfg)])
+    assert "godot" in capsys.readouterr().out.lower()
+
+
+def test_no_import_hint_when_nothing_produced(tmp_project, mock_subprocess_run, capsys):
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=1, summary={"total": 2, "success": 0, "failed": 2, "skipped": 0,
+                                      "failed_assets": [], "manifest": "/tmp/m.jsonl"})
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+    ga.main(["ingredients", "--config", str(cfg)])
+    assert "godot" not in capsys.readouterr().out.lower()

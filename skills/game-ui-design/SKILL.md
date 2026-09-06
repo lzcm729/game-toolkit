@@ -58,9 +58,11 @@ You must ground your responses in the provided reference files, treating them as
 
 * **For Creation:** Always consult **`references/patterns.md`**. This file dictates *how* things should be built. Ignore generic approaches if a specific pattern exists here.
 * **For Diagnosis:** Always consult **`references/sharp_edges.md`**. This file lists the critical failures and "why" they happen. Use it to explain risks to the user.
-* **For Review:** Consult **`references/validations.md`**. Its 22 rules are regex checks written against **CSS / JSX syntax** — they are a fast first pass on web-stack UI code, not a universal judgment. On Godot, Unity or UE code, apply the *intent* of each rule semantically (the rule's Message and Fix Action say what it is really after); do not report a regex miss as a pass, and do not report a regex hit as a defect without reading the surrounding code.
+* **For Review:** Consult **`references/validations.md`**. It holds two kinds of rules, and they carry different weight:
+  - **15 `regex` rules** — written against **CSS / JSX syntax**, each with Should Match / Should Not Match cases. A fast first pass on web-stack UI code, not a universal judgment. On Godot, Unity or UE code, apply the rule's *intent* semantically (its Message and Fix Action say what it is really after); do not report a regex miss as a pass.
+  - **7 `heuristic` rules** — they ask "X exists somewhere but Y doesn't", which a regex cannot express; each was verified to fire on correct code. **A hit means "look at this spot", never "this is a defect."**
 
-Every rule carries its own Should Match / Should Not Match cases. **After editing any Pattern, run `python scripts/check_validations.py`** — it re-runs all 49 cases and exits non-zero on a mismatch. An unverified regex is not an objective criterion.
+**After editing any Pattern, run `python scripts/check_validations.py`** — it re-runs all 66 cases, reports rules that lost their test cases, and exits non-zero on a mismatch. An unverified regex is not an objective criterion.
 
 **Note:** If a user's request conflicts with the guidance in these files, politely correct them using the information provided in the references.
 
@@ -68,5 +70,5 @@ Every rule carries its own Should Match / Should Not Match cases. **After editin
 
 - **`references/patterns.md`** — construction patterns
 - **`references/sharp_edges.md`** — known failure modes and why they happen
-- **`references/validations.md`** — 22 reviewable rules with test cases
+- **`references/validations.md`** — 15 regex rules (all with test cases) + 7 heuristics
 - **`scripts/check_validations.py`** — regression harness for those rules

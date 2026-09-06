@@ -152,10 +152,16 @@ def main(argv: list[str] | None = None) -> int:
     overall_code = max((r.exit_code for r in results), default=0)
     _print_summary(results)
 
-    # 只要有成功产出就给 .import 提示：总退码取最大，一个 category 全失败会把
-    # overall_code 抬到 1，但另一个 category 成功生成的图片仍然需要导入
-    any_success = any((r.summary or {}).get("success", 0) > 0 for r in results)
-    if not args.dry_run and any_success:
+    # 只要输出目录里可能有图片就给 .import 提示。两个坑：
+    #   1) 总退码取最大，一个 category 全失败会把它抬到 1，但另一个 category
+    #      成功生成的图片仍然需要导入
+    #   2) 全部 skipped（图片已存在）时 success=0，但那些已存在的 PNG 同样
+    #      可能还没被 Godot 导入过
+    any_output = any(
+        ((r.summary or {}).get("success", 0) + (r.summary or {}).get("skipped", 0)) > 0
+        for r in results
+    )
+    if not args.dry_run and any_output:
         scan = scan_imports(output_root)
         print(scan.render_hint())
 
@@ -370,6 +376,20 @@ def _apply_extra_fields(item: dict, extra_fields: dict) -> dict:
 
 # -------------------- batch JSON 构造 --------------------
 
+def _resolve_reference(ref: str, *, project_root: Path, output_root: Path) -> str:
+    """解析 reference_paths 里的一项。
+
+    两种相对路径的基准不同，不能共用一个 root：
+      - `res://X`  → project_root / X   （res:// 按定义等价于项目根）
+      - 裸相对路径 → output_root / X    （examples/README.md 的约定）
+      - 绝对路径   → 原样返回
+    """
+    if Path(ref).is_absolute():
+        return ref
+    root = project_root if ref.startswith("res://") else output_root
+    return str(resolve_res_path(ref, root))
+
+
 def _build_batch_json(
     *,
     cat_name: str,
@@ -409,7 +429,7 @@ def _build_batch_json(
         if refs:
             # ref 也接受 res:// → 解析为绝对路径
             resolved_refs = [
-                str(resolve_res_path(r, project_root)) if not Path(r).is_absolute() else r
+                _resolve_reference(r, project_root=project_root, output_root=output_root)
                 for r in refs
             ]
             defaults["reference_paths"] = resolved_refs
@@ -418,7 +438,7 @@ def _build_batch_json(
     if "reference_paths" in cat_spec:
         cat_refs = cat_spec["reference_paths"] or []
         defaults["reference_paths"] = [
-            str(resolve_res_path(r, project_root)) if not Path(r).is_absolute() else r
+            _resolve_reference(r, project_root=project_root, output_root=output_root)
             for r in cat_refs
         ]
 

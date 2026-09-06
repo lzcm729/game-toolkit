@@ -36,9 +36,10 @@ error
 ### **Type**
 regex
 ### **Pattern**
-font-?[Ss]ize\s*[:=]\s*["']?(1[0-3]|[0-9])(px|pt|rem)?["']?(?![0-9])
+font-?[Ss]ize\s*[:=]\s*["']?(?:(1[0-3]|[0-9])(?:px)?(?!\s*(?:r?em|%|v[hw]|pt))|([0-9])pt)["']?(?![0-9.])
 ### **Message**
-Font size under 14px. Too small for game UI, especially on TVs and handhelds.
+Font size under 14px (or under 10pt). Too small for game UI, especially on TVs and handhelds.
+相对单位（rem / em / % / vh / vw）不在此规则范围内——它们的实际像素值取决于根字号，需人工换算后判断。
 ### **Fix Action**
 Use minimum 14px for secondary text, 16-18px for body, 24px+ for important info
 ### **Applies To**
@@ -53,10 +54,14 @@ Use minimum 14px for secondary text, 16-18px for body, 24px+ for important info
     - font-size: 12px
     - fontSize: 10
     - fontSize="11px"
+    - font-size: 8pt
   #### **Should Not Match**
     - font-size: 16px
     - fontSize: 24
     - font-size: 14px
+    - font-size: 1rem
+    - font-size: 1.5rem
+    - font-size: 12pt
 
 ## Hardcoded Button Prompt
 
@@ -148,11 +153,13 @@ no-text-shadow-outline
 ### **Severity**
 warning
 ### **Type**
-regex
+heuristic
 ### **Pattern**
 class.*["'].*hud.*["'][^}]*(?!text-shadow|outline|stroke)
 ### **Message**
 HUD text element without shadow or outline. May be unreadable on varied backgrounds.
+
+**这条不是精确规则。** 它要判断的是「某处有 X 但别处没有 Y」这类跨作用域条件，正则表达不了：已有 text-shadow / outline 时仍会命中。命中只说明该处值得人工看一眼，**不构成缺陷判定**；未命中也不代表没问题。
 ### **Fix Action**
 Add 2px contrasting outline or drop shadow to all HUD text
 ### **Applies To**
@@ -294,11 +301,13 @@ missing-hover-state
 ### **Severity**
 warning
 ### **Type**
-regex
+heuristic
 ### **Pattern**
 <[Bb]utton[^>]*className=["'][^"']*["'][^>]*>(?![^<]*:hover)
 ### **Message**
 Button without hover state indication. May confuse players about interactivity.
+
+**这条不是精确规则。** 它要判断的是「某处有 X 但别处没有 Y」这类跨作用域条件，正则表达不了：hover 样式通常写在 CSS 里，正则在 JSX 标签内找不到。命中只说明该处值得人工看一眼，**不构成缺陷判定**；未命中也不代表没问题。
 ### **Fix Action**
 Add hover state with visual change (background, border, scale)
 ### **Applies To**
@@ -314,7 +323,7 @@ warning
 ### **Type**
 regex
 ### **Pattern**
-(outline:\s*none|outline:\s*0)(?![\s\S]{0,200}?:focus-visible)
+(outline:\s*none|outline:\s*0)(?![^{}]*:focus-visible)
 ### **Message**
 Removed outline without focus-visible alternative. Keyboard/controller users can't see focus.
 ### **Fix Action**
@@ -326,8 +335,9 @@ Add :focus-visible style with visible indicator (outline, ring, glow)
   #### **Should Match**
     - outline: none;
     - outline: 0;
+    - button { outline: none; } input:focus-visible { outline: 2px solid blue; }
   #### **Should Not Match**
-    - outline: none; } .btn:focus-visible { outline: 2px solid blue; }
+    - .btn { outline: none; &:focus-visible { outline: 2px solid blue; } }
 
 ## Unity Canvas Without Scaler
 
@@ -336,11 +346,13 @@ unity-canvas-no-scaler
 ### **Severity**
 warning
 ### **Type**
-regex
+heuristic
 ### **Pattern**
 Canvas[^}]*(?!CanvasScaler|ScaleWithScreenSize)
 ### **Message**
 Unity Canvas may not have proper scaling for different resolutions.
+
+**这条不是精确规则。** 它要判断的是「某处有 X 但别处没有 Y」这类跨作用域条件，正则表达不了：同一行已 AddComponent<CanvasScaler>() 时仍会命中。命中只说明该处值得人工看一眼，**不构成缺陷判定**；未命中也不代表没问题。
 ### **Fix Action**
 Add CanvasScaler with Scale With Screen Size mode, reference 1920x1080
 ### **Applies To**
@@ -365,6 +377,13 @@ Use anchors, grow directions, and size flags for responsive UI
   - *.tscn
   - *.tres
   - *.gd
+### **Test Cases**
+  #### **Should Match**
+    - custom_minimum_size = Vector2(400, 200)
+    - custom_minimum_size=Vector2( 320, 64 )
+  #### **Should Not Match**
+    - custom_minimum_size = Vector2(64, 64)
+    - custom_minimum_size = Vector2(0, 0)
 
 ## Missing Reduced Motion Check
 
@@ -373,11 +392,13 @@ no-reduced-motion-check
 ### **Severity**
 info
 ### **Type**
-regex
+heuristic
 ### **Pattern**
 @keyframes|animation:|transition:[^}]*[5-9][0-9]{2}ms
 ### **Message**
 Animations defined without checking prefers-reduced-motion.
+
+**这条不是精确规则。** 它要判断的是「某处有 X 但别处没有 Y」这类跨作用域条件，正则表达不了：只要出现 @keyframes / animation: 就命中，根本没检查 prefers-reduced-motion。命中只说明该处值得人工看一眼，**不构成缺陷判定**；未命中也不代表没问题。
 ### **Fix Action**
 Add @media (prefers-reduced-motion: reduce) to disable/reduce animations
 ### **Applies To**
@@ -427,6 +448,13 @@ Use localization keys: GetLocalizedString("ui_ok") or equivalent
   - *.tsx
   - *.jsx
   - *.xml
+### **Test Cases**
+  #### **Should Match**
+    - <Button>OK</Button>
+    - <button>Cancel</button>
+  #### **Should Not Match**
+    - <Button>{t('ok')}</Button>
+    - <Button>确定</Button>
 
 ## Tooltip Without Delay
 
@@ -435,11 +463,13 @@ tooltip-no-delay
 ### **Severity**
 info
 ### **Type**
-regex
+heuristic
 ### **Pattern**
 (onMouseEnter|onHover|@mouse_entered)[^}]*show.*[Tt]ooltip(?![^}]*delay|setTimeout|timer)
 ### **Message**
 Tooltip appears immediately on hover. May flash during normal navigation.
+
+**这条不是精确规则。** 它要判断的是「某处有 X 但别处没有 Y」这类跨作用域条件，正则表达不了：已用 setTimeout 延迟时仍会命中。命中只说明该处值得人工看一眼，**不构成缺陷判定**；未命中也不代表没问题。
 ### **Fix Action**
 Add 300-500ms delay before showing tooltips
 ### **Applies To**
@@ -464,6 +494,13 @@ Using Find to locate UI elements. Cache references in Awake or use SerializeFiel
 Use [SerializeField] private Button _button; and assign in Inspector
 ### **Applies To**
   - *.cs
+### **Test Cases**
+  #### **Should Match**
+    - GameObject.Find("Canvas")
+    - GameObject.Find("UIRoot")
+  #### **Should Not Match**
+    - GameObject.Find("Player")
+    - transform.Find("Canvas")
 
 ## Unity UI Without Raycast Consideration
 
@@ -472,11 +509,13 @@ unity-ui-raycast-target
 ### **Severity**
 info
 ### **Type**
-regex
+heuristic
 ### **Pattern**
 Image[^}]*(?!raycastTarget\s*=\s*false)
 ### **Message**
 Image components default to raycastTarget=true. Disable on decorative images.
+
+**这条不是精确规则。** 它要判断的是「某处有 X 但别处没有 Y」这类跨作用域条件，正则表达不了：已设 raycastTarget = false 时仍会命中。命中只说明该处值得人工看一眼，**不构成缺陷判定**；未命中也不代表没问题。
 ### **Fix Action**
 Set raycastTarget=false on non-interactive images to improve performance
 ### **Applies To**
@@ -489,11 +528,13 @@ godot-signal-not-connected
 ### **Severity**
 info
 ### **Type**
-regex
+heuristic
 ### **Pattern**
 \.emit\s*\([^)]*\)(?![^}]*\.connect)
 ### **Message**
 Signal emitted but connection not visible in same file. Ensure signal is connected.
+
+**这条不是精确规则。** 它要判断的是「某处有 X 但别处没有 Y」这类跨作用域条件，正则表达不了：同文件已 .connect() 时仍会命中（断言范围不跨函数）。命中只说明该处值得人工看一眼，**不构成缺陷判定**；未命中也不代表没问题。
 ### **Fix Action**
 Connect signals in _ready() or via editor
 ### **Applies To**
