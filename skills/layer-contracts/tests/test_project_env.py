@@ -289,3 +289,69 @@ def test_write_requires_at_least_one_field(tmp_path):
 def test_check_on_missing_dir_returns_error(tmp_path, capsys):
     assert pe.main(["check", str(tmp_path / "nope")]) == 2
     assert "目录不存在" in capsys.readouterr().out
+
+
+# -------------------- 声明与探测冲突 --------------------
+
+def _uproject(root: Path, name="Demo", engine="5.8"):
+    (root / (name + ".uproject")).write_text(
+        json.dumps({"EngineAssociation": engine, "Modules": []}), encoding="utf-8")
+
+
+def test_declared_engine_conflicting_with_detected_is_reported(tmp_path, capsys):
+    """声明 godot、工程里躺着 .uproject —— 不能还说「声明齐全，直接用」。"""
+    _uproject(tmp_path)
+    _write_yaml(tmp_path, {"engine": "godot", "engine_version": "4.3", "project_root": "."})
+    out = _check(tmp_path, capsys)
+    assert out["status"] == "ok"          # 字段确实都填了
+    assert out["conflicts"], out          # 但不是「直接用」
+    assert "godot" in out["conflicts"][0] and "unreal" in out["conflicts"][0]
+    assert "直接用" not in out["next"]
+    assert "以声明为准" in out["next"]
+
+
+def test_declared_version_conflicting_with_detected_is_reported(tmp_path, capsys):
+    _uproject(tmp_path, engine="5.4")
+    _write_yaml(tmp_path, {"engine": "unreal", "engine_version": "5.8", "project_root": "."})
+    out = _check(tmp_path, capsys)
+    assert len(out["conflicts"]) == 1
+    assert "5.8" in out["conflicts"][0] and "5.4" in out["conflicts"][0]
+
+
+def test_patch_version_difference_is_not_a_conflict(tmp_path, capsys):
+    """声明写 5.8、.uproject 写 5.8.1 —— 同一个引擎版本，别拿这个烦人。"""
+    _uproject(tmp_path, engine="5.8.1")
+    _write_yaml(tmp_path, {"engine": "unreal", "engine_version": "5.8", "project_root": "."})
+    assert _check(tmp_path, capsys)["conflicts"] == []
+
+
+def test_matching_declaration_has_no_conflict(tmp_path, capsys):
+    _uproject(tmp_path, engine="5.8")
+    _write_yaml(tmp_path, {"engine": "unreal", "engine_version": "5.8", "project_root": "."})
+    out = _check(tmp_path, capsys)
+    assert out["conflicts"] == []
+    assert out["next"] == "声明齐全，直接用。"
+
+
+def test_detecting_nothing_is_not_a_conflict(tmp_path, capsys):
+    """纯文档项目 / 自研引擎 / 工程根在别处：探测不到，不代表声明错了。"""
+    _write_yaml(tmp_path, {"engine": "自研", "engine_version": "内部 2.1", "project_root": "."})
+    out = _check(tmp_path, capsys)
+    assert out["conflicts"] == []
+    assert out["detected"].get("candidates") in (None, [])
+
+
+def test_placeholder_values_are_not_compared(tmp_path, capsys):
+    """待核实的字段由 incomplete 负责催填，不该再报一遍冲突。"""
+    _uproject(tmp_path)
+    _write_yaml(tmp_path, {"engine": "unreal", "engine_version": "待核实", "project_root": "."})
+    assert _check(tmp_path, capsys)["conflicts"] == []
+
+
+def test_conflict_is_detected_under_declared_project_root(tmp_path, capsys):
+    """探测跟着 project_root 走，冲突检测也得跟着走。"""
+    (tmp_path / "game").mkdir()
+    _uproject(tmp_path / "game", engine="5.4")
+    _write_yaml(tmp_path, {"engine": "unreal", "engine_version": "5.8", "project_root": "game"})
+    out = _check(tmp_path, capsys)
+    assert out["conflicts"] and "5.4" in out["conflicts"][0]

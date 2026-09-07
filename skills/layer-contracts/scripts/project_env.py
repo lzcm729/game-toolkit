@@ -309,6 +309,48 @@ def write_declaration(root: Path, values: dict) -> str:
     return "%s %s" % ("更新" if existed else "新建", p)
 
 
+def _major_minor(v: str) -> str:
+    """5.8.1 -> 5.8。声明写 5.8、.uproject 写 5.8.1 不该报成冲突。"""
+    parts = str(v).strip().split(".")
+    return ".".join(parts[:2])
+
+
+def compare(declared: dict | None, detected: dict) -> list:
+    """声明与探测对不上的地方。**声明为准** —— 那是人工填的，这里只报告，不改。
+
+    探测不到不算冲突：纯文档项目、自研引擎、工程根在别处，都合法。
+    只有「探测到了，且和声明对不上」才值得打断人。
+    """
+    if not declared:
+        return []
+    candidates = detected.get("candidates") or []
+    if not candidates:
+        return []
+
+    out = []
+    d_engine = str(declared.get("engine", "")).strip()
+    if d_engine and d_engine not in PLACEHOLDERS:
+        kinds = sorted({c["engine"] for c in candidates})
+        if d_engine.lower() not in kinds:
+            out.append(
+                "声明 engine=%s，但 %s 里找到的是 %s（%s）。"
+                "要么声明写错了，要么 project_root 指错了目录。"
+                % (d_engine, detected.get("scanned", "工程根"), " / ".join(kinds),
+                   ", ".join(c["file"] for c in candidates)))
+            return out  # 引擎都对不上，再比版本没有意义
+
+        matched = [c for c in candidates if c["engine"] == d_engine.lower()]
+        d_ver = str(declared.get("engine_version", "")).strip()
+        if len(matched) == 1 and d_ver and d_ver not in PLACEHOLDERS:
+            found_ver = matched[0].get("engine_version")
+            if found_ver and _major_minor(found_ver) != _major_minor(d_ver):
+                out.append(
+                    "声明 engine_version=%s，但 %s 里写的是 %s。"
+                    "以声明为准，但值得确认一下是不是升过引擎忘了改声明。"
+                    % (d_ver, matched[0]["file"], found_ver))
+    return out
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="检查/写入 Game Toolkit 项目环境声明")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -351,12 +393,18 @@ def main(argv=None) -> int:
         # 没有声明 = 三个必填项都缺。返回空列表会让调用方以为没什么要问的。
         missing = (list(REQUIRED) if declared is None else
                    [k for k in REQUIRED if str(declared.get(k, "")).strip() in PLACEHOLDERS])
+        detected = detect(root, scope)
+        conflicts = compare(declared, detected)
         nxt = {
             "missing": "没有声明。把 detected 当候选值交给用户确认（AskUserQuestion），再 write 写回。",
             "invalid": "配置损坏或字段类型不对，**先让用户修**。不要直接 write —— 那会覆盖掉原文件。",
             "incomplete": "缺必填项。把 detected 当候选值交给用户确认，再 write 写回。",
             "ok": "声明齐全，直接用。",
         }[status]
+        if conflicts:
+            nxt = ("声明与工程里探测到的对不上（见 conflicts）。**以声明为准** —— "
+                   "那是人工填的。但先把冲突报给用户：是声明过期了，"
+                   "还是 project_root 指到了别的目录？确认前别拿它当准确前提往下推。")
         print(json.dumps({
             "status": status,
             "config": str(config_path(root)),
@@ -364,7 +412,8 @@ def main(argv=None) -> int:
             "error": err,
             "issues": issues,
             "declared": _json_safe(declared or {}),
-            "detected": _json_safe(detect(root, scope)),
+            "detected": _json_safe(detected),
+            "conflicts": conflicts,
             "missing_required": missing,
             "next": nxt,
         }, ensure_ascii=False, indent=2))
