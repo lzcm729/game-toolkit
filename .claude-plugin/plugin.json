@@ -1,6 +1,6 @@
 {
   "name": "game-toolkit",
-  "version": "3.3.0",
+  "version": "3.4.0",
   "description": "Game design and implementation-contract toolkit: layered contracts, design-doc workflows, worktree orchestration, and a schema-driven asset pipeline with pluggable engine adapters",
   "author": {
     "name": "lzcm729"

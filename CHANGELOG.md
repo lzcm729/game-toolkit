@@ -3,6 +3,44 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.4.0 (2026-09-07)
+
+项目环境声明从「CLAUDE.md 里的一段 Markdown」改成项目根的 **`game-toolkit.yaml`**。
+
+### 为什么改
+
+3.3.0 按 codex 的建议放在 CLAUDE.md 固定段落，理由是「主要消费者是 agent」。
+但 3.3.0 自己就带来了第二个消费者 —— `project_env.py` 要读写它。用 Markdown 列表
+承载就得靠正则去啃，人改一下排版（换成表格、加个缩进、把冒号写成半角）就解析不出来。
+既然已经有程序在读，就该用严格格式。
+
+codex 当时也留了这个口子：「只有未来多个程序都需要自动读取同一份项目事实时，
+再引入 game-toolkit.yaml」。现在这个条件到了。
+
+### 改了什么
+
+- 声明文件：项目根 `game-toolkit.yaml`。字段名从中文标签换成 `engine` /
+  `engine_version` / `project_root` / `tech_stack` / `source_scope` /
+  `inspectability` / `verify_entry` / `asset_config`。
+- `project_env.py` 改为 YAML 读写。整文件重渲染（注释每次都在），合并已有字段，
+  **用户自己加的未知字段原样保留**（重渲染不能吃掉别人写的东西）。
+- CLAUDE.md 里只留一行指针。三个消费方（`parallel-implement` / `sync-code-ahead` /
+  `sync-docs-ahead`）改为直接点名 `game-toolkit.yaml`，少一跳。
+
+### fix
+
+写 YAML 时踩到一个坑：`yaml.safe_dump` 对**纯标量**文档会补一行 `...`
+（YAML 的文档结束标记），拼进配置文件就把结构破坏了，生成的文件根本解析不回来。
+改为包成 dict 再取值部分 —— 该加的引号照样加，又不带文档标记。
+
+### CatFishing
+
+声明已迁到 `D:/LocalGameProject/Unreal/Catfishing/game-toolkit.yaml`，7 个字段齐全。
+该工程的 `AGENTS.md` 里「适用于 D:/develop/Catfishing」是过期路径，改为「本仓库」——
+写死路径迟早会再过期。
+
+18 个测试（+3）：新增 YAML 畸形不崩、非映射被忽略、未知字段重写后仍在、多行文本往返。
+
 ## 3.3.0 (2026-09-07)
 
 项目环境声明做成脚本：`layer-contracts/scripts/project_env.py`。

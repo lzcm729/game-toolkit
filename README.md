@@ -59,19 +59,17 @@
 
 ## 项目侧要做一件事
 
-在项目 CLAUDE.md 里加一段环境声明。**引擎和版本必须人工填** —— 工具能认出
-`project.godot`，但认不出「这个仓库里哪个才是本次要动的工程」「用的哪个大版本」
-「Blueprint 能不能按文本扫」，猜错的代价比问一句大得多。
+在项目根放一个 `game-toolkit.yaml`。**引擎和版本必须人工填** —— 工具能认出
+`project.godot` 或 `.uproject`，但认不出「这个仓库里哪个才是本次要动的工程」
+「用的哪个大版本」「Blueprint 能不能按文本扫」，猜错的代价比问一句大得多。
 
-```markdown
-## Game Toolkit 项目环境
-
-- 引擎：unreal
-- 引擎版本：5.4
-- 工程根：./Game
-- 技术栈：C++ / Blueprint
-- 可检查程度：C++ 可按文本扫；Blueprint 当前查不了，不得据文本结果判定缺失
-- 验证入口：尚未登记，使用前读项目构建说明
+```yaml
+engine: unreal
+engine_version: '5.8'
+project_root: .
+tech_stack: C++ / Blueprint
+inspectability: C++ 可按文本扫；Blueprint / .uasset 查不了，不得据文本结果判定缺失
+verify_entry: 尚未登记，使用前读项目构建说明
 ```
 
 **有脚本，不用手抄**：

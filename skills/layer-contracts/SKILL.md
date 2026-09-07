@@ -99,35 +99,37 @@ Content 只能改本例允许的实例及开局参数，不能另定扣款规则
 
 ## 项目环境声明
 
-C 层的事实由**项目声明**，不由工具探测。约定写在项目 CLAUDE.md 的固定段落，
-本插件所有组件从这里读。
+C 层的事实由**项目声明**，不由工具探测。声明放在项目根的 **`game-toolkit.yaml`**，
+本插件所有组件从这里读；CLAUDE.md 里留一行指针即可，不要另写一份。
+
+**为什么是独立 YAML 而不是 CLAUDE.md 的一段**：这份声明既给 agent 读，也给程序读
+（`project_env.py`，以及将来任何需要知道工程根与技术栈的工具）。用 Markdown 列表
+承载就得靠正则去啃，人改一下排版就解析不出来。严格格式换可靠解析。
 
 **引擎与引擎版本必须人工填写。** 探测能认出 `project.godot`，但认不出
 「这个仓库里哪个才是本次要动的工程」「用的哪个大版本」「Blueprint 能不能按文本扫」。
 猜错的代价——把查不了的东西报成缺失、按错误的路径规则生成资源——远大于问一句。
 
-```markdown
-## Game Toolkit 项目环境
-
-- 引擎：unreal
-- 引擎版本：5.4
-- 工程根：./Game（相对本文件）
-- 技术栈：C++ / Blueprint
-- 源码范围：见 Architecture 段
-- 可检查程度：C++ 可按文本扫；Blueprint 当前查不了，不得据文本结果判定缺失
-- 验证入口：尚未登记，使用前读项目构建说明
-- 资源配置：asset-config.yaml
+```yaml
+# game-toolkit.yaml（项目根）
+engine: unreal
+engine_version: '5.8'
+project_root: .
+tech_stack: C++ / Blueprint
+source_scope: Source/ 下的 .cpp / .h；Content/ 为资产，不计入文本扫描
+inspectability: C++ 可按文本扫；Blueprint / .uasset / .umap 查不了，不得据文本结果判定缺失
+verify_entry: 尚未登记，使用前读项目构建说明
 ```
 
 **必填**（缺了就问用户，不要用默认值顶替）：
 
 | 字段 | 说明 |
 |---|---|
-| 引擎 | `godot` / `unreal` / `unity` / 自研 / `无`（纯文档项目） |
-| 引擎版本 | 具体版本号；确实不知道写「待核实」，不要留空 |
-| 工程根 | 相对 CLAUDE.md 的路径。仓库根 ≠ 工程根时尤其要写 |
+| `engine` | `godot` / `unreal` / `unity` / 自研 / `无`（纯文档项目） |
+| `engine_version` | 具体版本号；确实不知道写「待核实」，不要留空 |
+| `project_root` | 相对 `game-toolkit.yaml` 的路径。仓库根 ≠ 工程根时尤其要写 |
 
-**可选**（缺了按「未知」处理）：技术栈、源码范围、可检查程度、验证入口、资源配置。
+**可选**（缺了按「未知」处理）：`tech_stack`、`source_scope`、`inspectability`、`verify_entry`、`asset_config`。
 已有 Architecture 或构建文档就引用它们，不要复制出第二份真值。
 
 **三种「没有」必须分开写**，不能混成一句「不支持」：
@@ -158,7 +160,8 @@ python <本 skill>/scripts/project_env.py write <项目根> --engine unreal --en
 2. **agent 用 AskUserQuestion 把候选值交给人确认** —— 这一步不能省。探测认得出
    `.uproject`，认不出「一个仓库里哪个工程才是本次要动的」「EngineAssociation 是版本号
    还是源码版引擎的 GUID」「Blueprint 能不能按文本扫」。预填候选让人确认，不是让人从零填。
-3. `write` —— 把确认后的值写回。同名段落是**替换**不是追加，可反复跑。
+3. `write` —— 把确认后的值写回 `game-toolkit.yaml`。整文件重渲染（注释每次都在），
+   合并已有字段，**用户自己加的未知字段原样保留**，可反复跑。
 
 `check` 的输出里 `detected` 一律是候选，`declared` 才是已确认的事实。
 两者冲突时报告冲突，不要默默采信探测值。

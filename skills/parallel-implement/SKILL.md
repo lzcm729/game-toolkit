@@ -65,7 +65,7 @@ Phase 5: 清理（worktree + branch + Team）
 
 后续 Phase 2/4 的验证都用它，**不假设任何技术栈**。按顺序确定：
 
-1. 项目的 **Game Toolkit 项目环境** 声明里的「验证入口」（格式见
+1. 项目根 **`game-toolkit.yaml`** 的 `verify_entry`（格式见
    `game-toolkit:layer-contracts`）。这是首选，也通常是唯一可靠来源 ——
    **验证入口是项目的选择，不是引擎的属性**：同是 Godot 项目，脚本解析、导出检查、
    玩法测试是三种不同的验证，跑哪个由项目定。

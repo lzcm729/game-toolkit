@@ -43,7 +43,7 @@ Steps:
 1. Read the entire design document
 2. Extract every distinct feature/requirement/mechanic described
 3. Search the project's source code using Glob and Grep. Read the scope from the project's
-   **Game Toolkit 项目环境** declaration (format and rules: invoke `game-toolkit:layer-contracts`) —
+   **`game-toolkit.yaml`** at the project root (format and rules: invoke `game-toolkit:layer-contracts`) —
    engine, 工程根, 技术栈, 源码范围, 可检查程度. Do not detect the engine yourself; if the
    declaration is missing or the needed field is 未知, ask the user rather than guessing.
 

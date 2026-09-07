@@ -103,7 +103,7 @@ git diff --name-status -z "<旧 tree>" "$T"
 会导致「找不到对应代码」或把别的分支的功能当成当前已实现。无基线时以当前 tree
 的跟踪文件确定范围。
 
-源码范围读项目的 **Game Toolkit 项目环境** 声明（格式与规则：调用
+源码范围读项目根的 **`game-toolkit.yaml`**（`source_scope` / `inspectability`；格式与规则：调用
 `game-toolkit:layer-contracts`）。**不要自行探测引擎** —— 声明缺失或字段为「未知」时问用户。
 声明里标为「查不了」的部分（Blueprint、预制体连线等），文件能 Glob 到但内容读不懂，
 不得据此判断行为有没有变。
