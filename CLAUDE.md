@@ -59,7 +59,7 @@ CHANGELOG.md                    # 版本记录，每次 bump 同步补条目
 - **设计流程**：`design-discuss/`（讨论+收录）、`design-iterate/`（多视角评审迭代）、`doc-consistency-check/`（文档矛盾检查）、`split-doc-layers/`（Framework/Content/Interface 三层拆分）
 - **知识/理论**：`game-design-theory/`（四本设计书知识库）、`game-ui-design/`（引擎无关的游戏 UI 原则）、`book-to-reference/`
 - **代码/文档同步**：`sync-code-ahead/`（代码→文档）、`sync-docs-ahead/`（文档→代码 gap 分析）
-- **实现执行**：`parallel-implement/`（git worktree 并行实现）、`generate-assets/`（Godot schema-driven 资源管线）
+- **实现执行**：`parallel-implement/`（git worktree 并行实现）、`generate-assets/`（schema-driven 批量资源生成，引擎适配层当前提供 Godot / generic）
 
 ### 3.0.0 砍掉了什么
 

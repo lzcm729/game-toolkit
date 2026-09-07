@@ -403,16 +403,54 @@ def test_extract_summary_handles_multiple_json_lines():
 
 # -------------------- non-Godot warn --------------------
 
-def test_non_godot_warn(tmp_path, capsys, mock_subprocess_run, monkeypatch):
+def test_non_godot_falls_back_to_generic_engine(tmp_path, capsys, mock_subprocess_run, monkeypatch):
+    """没有已支持的引擎工程文件时退到 generic，并说明这意味着什么。"""
     calls, set_result = mock_subprocess_run
     set_result(returncode=0)
-    # tmp_path 没 project.godot
-    cfg = tmp_path / "asset-config.yaml"
+    cfg = tmp_path / "asset-config.yaml"          # tmp_path 没 project.godot
     _write_yaml(cfg, _minimal_config())
     monkeypatch.chdir(tmp_path)
     ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
     err = capsys.readouterr().err
-    assert "非 Godot 项目" in err or "没有 project.godot" in err
+    assert "engine=generic" in err
+
+
+def test_explicit_engine_generic_skips_detection(tmp_project, capsys, mock_subprocess_run):
+    """显式声明 engine 后不再探测 —— 即使目录里有 project.godot。"""
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_project / "asset-config.yaml"
+    config = _minimal_config()
+    config["engine"] = "generic"
+    _write_yaml(cfg, config)
+    ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+    assert "engine=generic" in capsys.readouterr().err
+
+
+def test_generic_engine_rejects_res_prefix(tmp_path, mock_subprocess_run, monkeypatch, capsys):
+    """generic 模式撞见 res:// 要报错，不能硬拼成 <root>/res:/art。"""
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_path / "asset-config.yaml"
+    config = _minimal_config()
+    config["engine"] = "generic"
+    config["output_root"] = "res://art"
+    _write_yaml(cfg, config)
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError, match="res://"):
+        ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+
+
+def test_unknown_engine_rejected(tmp_path, mock_subprocess_run, monkeypatch):
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_path / "asset-config.yaml"
+    config = _minimal_config()
+    config["engine"] = "unity"
+    _write_yaml(cfg, config)
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(ValueError, match="未知的 engine"):
+        ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
 
 
 # -------------------- preset / extra_fields error --------------------

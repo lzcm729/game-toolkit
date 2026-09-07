@@ -45,6 +45,15 @@ style:
 如果 category 设了 `skip_global_style: true`，只用 category 模板，不拼全局
 prefix/suffix（背景图等独立 prompt 场景适用）。
 
+## `engine`
+
+```yaml
+engine: godot     # 可选。godot / generic；不写就探测（有 project.godot → godot）
+```
+
+`generic` 下路径不认 `res://` 这类引擎前缀（写了会报错），生成后也不做导入检查。
+UE / Unity 项目用 `generic`。
+
 ## `output_root`
 
 输出根目录，相对项目根。**支持 `res://` 前缀**，等价于剥掉前缀（项目根 =

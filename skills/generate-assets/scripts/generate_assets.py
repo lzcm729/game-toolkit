@@ -33,6 +33,7 @@ if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
 from data_source import load_data_source  # noqa: E402
+import engine_adapter  # noqa: E402
 from godot_utils import (  # noqa: E402
     ensure_parent_dirs,
     find_project_root,
@@ -96,8 +97,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[fatal] config 顶层必须是 dict，实际 {type(config).__name__}", file=sys.stderr)
         return 1
 
-    project_root = _resolve_project_root(config_path, config)
-    output_root = _resolve_output_root(config, project_root)
+    adapter = engine_adapter.select(config, config_path.parent)
+    project_root = _resolve_project_root(config_path, config, adapter)
+    output_root = _resolve_output_root(config, project_root, adapter)
     image_gen_script = _resolve_image_gen()
 
     # list 命令
@@ -122,10 +124,11 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         target_names = [args.command]
 
-    # pre-flight: Godot 项目检测
-    if not is_godot_project(project_root):
+    if adapter.name == "generic":
         print(
-            f"[warn] {project_root} 没有 project.godot — 非 Godot 项目，res:// 解析以 yaml 父目录为根",
+            f"[info] engine=generic（{project_root} 下没有识别到已支持的引擎工程）："
+            "路径按普通相对路径解析，不做引擎导入检查。"
+            " 在 config 里显式写 engine: 可以关掉这条探测。",
             file=sys.stderr,
         )
 
@@ -141,6 +144,7 @@ def main(argv: list[str] | None = None) -> int:
             global_style=config.get("style") or {},
             output_root=output_root,
             project_root=project_root,
+            adapter=adapter,
             image_gen_script=image_gen_script,
             dry_run=args.dry_run,
             force=args.force,
@@ -162,8 +166,9 @@ def main(argv: list[str] | None = None) -> int:
         for r in results
     )
     if not args.dry_run and any_output:
-        scan = scan_imports(output_root)
-        print(scan.render_hint())
+        hint = adapter.post_generate_hint(output_root)
+        if hint:
+            print(hint)
 
     return overall_code
 
@@ -218,9 +223,10 @@ def _locate_config(explicit: Path | None) -> Path | None:
     return None
 
 
-def _resolve_project_root(config_path: Path, config: dict) -> Path:
-    """优先 project.godot 目录；否则 yaml 父目录的父（即 yaml 在 ./assets/foo.yaml 时，根=cwd）。"""
-    found = find_project_root(config_path.parent)
+def _resolve_project_root(config_path: Path, config: dict, adapter=None) -> Path:
+    """优先引擎工程根；否则 yaml 父目录的父（即 yaml 在 ./assets/foo.yaml 时，根=cwd）。"""
+    adapter = adapter or engine_adapter.select(config, config_path.parent)
+    found = adapter.detect_root(config_path.parent)
     if found is not None:
         return found
     # fallback：yaml 直接父目录
@@ -231,9 +237,10 @@ def _resolve_project_root(config_path: Path, config: dict) -> Path:
     return parent
 
 
-def _resolve_output_root(config: dict, project_root: Path) -> Path:
+def _resolve_output_root(config: dict, project_root: Path, adapter=None) -> Path:
     raw = config.get("output_root", "assets/art")
-    return resolve_res_path(raw, project_root)
+    adapter = adapter or engine_adapter.GODOT
+    return adapter.resolve_path(raw, project_root)
 
 
 def _resolve_image_gen() -> Path:
@@ -273,6 +280,7 @@ def _run_category(
     global_style: dict,
     output_root: Path,
     project_root: Path,
+    adapter,
     image_gen_script: Path,
     dry_run: bool,
     force: bool,
@@ -310,6 +318,7 @@ def _run_category(
             global_style=global_style,
             output_root=output_root,
             project_root=project_root,
+            adapter=adapter,
         )
     except Exception as e:
         msg = f"batch JSON 构造失败：{e}"
@@ -376,7 +385,7 @@ def _apply_extra_fields(item: dict, extra_fields: dict) -> dict:
 
 # -------------------- batch JSON 构造 --------------------
 
-def _resolve_reference(ref: str, *, project_root: Path, output_root: Path) -> str:
+def _resolve_reference(ref: str, *, project_root: Path, output_root: Path, adapter) -> str:
     """解析 reference_paths 里的一项。
 
     两种相对路径的基准不同，不能共用一个 root：
@@ -386,8 +395,9 @@ def _resolve_reference(ref: str, *, project_root: Path, output_root: Path) -> st
     """
     if Path(ref).is_absolute():
         return ref
-    root = project_root if ref.startswith("res://") else output_root
-    return str(resolve_res_path(ref, root))
+    is_engine_path = any(ref.startswith(px) for px in engine_adapter.KNOWN_ENGINE_PREFIXES)
+    root = project_root if is_engine_path else output_root
+    return str(adapter.resolve_path(ref, root))
 
 
 def _build_batch_json(
@@ -398,6 +408,7 @@ def _build_batch_json(
     global_style: dict,
     output_root: Path,
     project_root: Path,
+    adapter,
 ) -> dict:
     template = cat_spec.get("prompt_template")
     if not template:
@@ -429,7 +440,7 @@ def _build_batch_json(
         if refs:
             # ref 也接受 res:// → 解析为绝对路径
             resolved_refs = [
-                _resolve_reference(r, project_root=project_root, output_root=output_root)
+                _resolve_reference(r, project_root=project_root, output_root=output_root, adapter=adapter)
                 for r in refs
             ]
             defaults["reference_paths"] = resolved_refs
@@ -438,7 +449,7 @@ def _build_batch_json(
     if "reference_paths" in cat_spec:
         cat_refs = cat_spec["reference_paths"] or []
         defaults["reference_paths"] = [
-            _resolve_reference(r, project_root=project_root, output_root=output_root)
+            _resolve_reference(r, project_root=project_root, output_root=output_root, adapter=adapter)
             for r in cat_refs
         ]
 
