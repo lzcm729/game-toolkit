@@ -422,9 +422,11 @@ def test_explicit_engine_generic_skips_detection(tmp_project, capsys, mock_subpr
     cfg = tmp_project / "asset-config.yaml"
     config = _minimal_config()
     config["engine"] = "generic"
+    config["output_root"] = "res://art"      # generic 不认 res://：被拒 = 声明生效
     _write_yaml(cfg, config)
-    ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
-    assert "adapter=generic" in capsys.readouterr().err
+    assert ga.main(["ingredients", "--config", str(cfg), "--dry-run"]) == 1
+    assert "res://" in capsys.readouterr().err
+    assert calls == []
 
 
 def test_generic_engine_rejects_res_prefix(tmp_path, mock_subprocess_run, monkeypatch, capsys):
@@ -437,11 +439,11 @@ def test_generic_engine_rejects_res_prefix(tmp_path, mock_subprocess_run, monkey
     config["output_root"] = "res://art"
     _write_yaml(cfg, config)
     monkeypatch.chdir(tmp_path)
-    with pytest.raises(ValueError, match="res://"):
-        ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+    assert ga.main(["ingredients", "--config", str(cfg), "--dry-run"]) == 1
+    assert "res://" in capsys.readouterr().err
 
 
-def test_unknown_adapter_rejected(tmp_path, mock_subprocess_run, monkeypatch):
+def test_unknown_adapter_rejected(tmp_path, mock_subprocess_run, monkeypatch, capsys):
     calls, set_result = mock_subprocess_run
     set_result(returncode=0)
     cfg = tmp_path / "asset-config.yaml"
@@ -449,8 +451,8 @@ def test_unknown_adapter_rejected(tmp_path, mock_subprocess_run, monkeypatch):
     config["adapter"] = "unity"
     _write_yaml(cfg, config)
     monkeypatch.chdir(tmp_path)
-    with pytest.raises(ValueError, match="未知的 adapter"):
-        ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+    assert ga.main(["ingredients", "--config", str(cfg), "--dry-run"]) == 1
+    assert "未知的 adapter" in capsys.readouterr().err
 
 
 # -------------------- preset / extra_fields error --------------------
@@ -618,20 +620,22 @@ def test_adapter_field_preferred_over_legacy_engine(tmp_project, mock_subprocess
     cfg = tmp_project / "asset-config.yaml"
     config = _minimal_config()
     config["adapter"] = "generic"
+    config["output_root"] = "res://art"      # 同上
     _write_yaml(cfg, config)
-    ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
-    assert "adapter=generic" in capsys.readouterr().err
+    assert ga.main(["ingredients", "--config", str(cfg), "--dry-run"]) == 1
+    assert "res://" in capsys.readouterr().err
+    assert calls == []
 
 
-def test_adapter_and_engine_conflict_is_an_error(tmp_project, mock_subprocess_run):
+def test_adapter_and_engine_conflict_is_an_error(tmp_project, mock_subprocess_run, capsys):
     calls, set_result = mock_subprocess_run
     set_result(returncode=0)
     cfg = tmp_project / "asset-config.yaml"
     config = _minimal_config()
     config["adapter"], config["engine"] = "generic", "godot"
     _write_yaml(cfg, config)
-    with pytest.raises(ValueError, match="engine 是 adapter 的旧名"):
-        ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+    assert ga.main(["ingredients", "--config", str(cfg), "--dry-run"]) == 1
+    assert "engine 是 adapter 的旧名" in capsys.readouterr().err
 
 
 def test_explicit_project_root_wins(tmp_project, tmp_path, mock_subprocess_run):
@@ -647,3 +651,144 @@ def test_explicit_project_root_wins(tmp_project, tmp_path, mock_subprocess_run):
     ga.main(["ingredients", "--config", str(cfg), "--project-root", str(tmp_project), "--dry-run"])
     resolved = Path(_batch_of(calls)["defaults"]["reference_paths"][0])
     assert resolved == (tmp_project / "art" / "_style" / "anchor.png").resolve()
+
+
+# -------------------- 新用户的三道坎（3.4.3） --------------------
+
+def _generic_res_config(tmp_path: Path) -> Path:
+    """没有 project.godot 的目录 + res:// 路径 —— 插件自带示例在陌生目录跑就是这个组合。"""
+    cfg = _minimal_config()
+    cfg["output_root"] = "res://art"
+    cfg["adapter"] = "generic"
+    cfg.pop("engine", None)
+    p = tmp_path / "asset-config.yaml"
+    _write_yaml(p, cfg)
+    return p
+
+
+def test_res_prefix_under_generic_is_a_clean_fatal(tmp_path, capsys):
+    """曾经是一整屏 traceback，把「改 adapter 或换相对路径」那句话埋在栈帧下面。"""
+    p = _generic_res_config(tmp_path)
+    rc = ga.main(["--config", str(p), "ingredients", "--dry-run"])
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert "[fatal]" in err and "res://" in err
+    assert "Traceback" not in err
+
+
+def test_list_only_needs_config(tmp_path, capsys):
+    """list 不该被路径解析拦住 —— 看一眼有哪些 category 不需要工程根。"""
+    p = _generic_res_config(tmp_path)
+    assert ga.main(["--config", str(p), "list"]) == 0
+    assert "ingredients" in capsys.readouterr().out
+
+
+def test_missing_image_gen_fails_fast_with_directions(
+    tmp_project, capsys, mock_subprocess_run, monkeypatch
+):
+    calls, _ = mock_subprocess_run
+    monkeypatch.setenv("IMAGE_GEN_SCRIPT", str(tmp_project / "nope" / "generate_image.py"))
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+    rc = ga.main(["--config", str(cfg), "ingredients", "--dry-run"])
+    err = capsys.readouterr().err
+    assert rc == 1
+    assert "image-gen" in err and "IMAGE_GEN_SCRIPT" in err
+    assert calls == []          # 一个 category 都没开始跑
+
+
+def test_missing_image_gen_at_default_location_is_also_reported(
+    tmp_project, capsys, mock_subprocess_run, monkeypatch
+):
+    """以前只有走环境变量才有 [warn]，默认路径不存在时一声不吭。"""
+    calls, _ = mock_subprocess_run
+    monkeypatch.delenv("IMAGE_GEN_SCRIPT", raising=False)
+    monkeypatch.setattr(ga, "DEFAULT_IMAGE_GEN_SCRIPT", tmp_project / "absent.py")
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+    assert ga.main(["--config", str(cfg), "ingredients", "--dry-run"]) == 1
+    err = capsys.readouterr().err
+    assert "默认位置" in err and "image-gen" in err
+    assert calls == []
+
+
+def test_list_does_not_need_image_gen(tmp_project, capsys, monkeypatch):
+    monkeypatch.setenv("IMAGE_GEN_SCRIPT", str(tmp_project / "nope.py"))
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+    assert ga.main(["--config", str(cfg), "list"]) == 0
+
+
+# -------------------- codex 实跑找出的（3.4.3） --------------------
+
+def test_broken_yaml_is_a_clean_fatal(tmp_path, capsys):
+    p = tmp_path / "asset-config.yaml"
+    p.write_text("categories: [\n", encoding="utf-8")
+    assert ga.main(["--config", str(p), "list"]) == 1
+    err = capsys.readouterr().err
+    assert "[fatal]" in err and "解析失败" in err
+
+
+def test_non_string_output_root_is_a_clean_fatal(tmp_project, capsys, mock_subprocess_run):
+    cfg = _minimal_config()
+    cfg["output_root"] = ["art"]
+    p = tmp_project / "asset-config.yaml"
+    _write_yaml(p, cfg)
+    assert ga.main(["--config", str(p), "ingredients", "--dry-run"]) == 1
+    assert "output_root" in capsys.readouterr().err
+
+
+def test_output_dir_blocked_by_a_file_is_a_category_error(tmp_project, capsys, mock_subprocess_run):
+    calls, _ = mock_subprocess_run
+    p = tmp_project / "asset-config.yaml"
+    _write_yaml(p, _minimal_config())
+    (tmp_project / "art").mkdir()
+    (tmp_project / "art" / "ingredients").write_text("in the way", encoding="utf-8")
+    assert ga.main(["--config", str(p), "ingredients", "--dry-run"]) == 1
+    assert "输出目录建不了" in capsys.readouterr().err
+    assert calls == []
+
+
+def test_no_summary_on_a_real_run_is_a_failure(tmp_project, capsys, mock_subprocess_run, monkeypatch):
+    """只有注释的上游脚本退出 0、什么都不打 —— 曾被报成成功，图一张没有。"""
+    monkeypatch.setattr(ga, "_invoke_image_gen", lambda cmd: (None, 0, None))
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 1
+    assert "没有返回 summary" in capsys.readouterr().err
+
+
+def test_no_summary_on_dry_run_is_fine(tmp_project, capsys, mock_subprocess_run, monkeypatch):
+    """上游 dry-run 本来就只打计划、不吐 summary，不能当失败。"""
+    monkeypatch.setattr(ga, "_invoke_image_gen", lambda cmd: (None, 0, None))
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+    assert ga.main(["--config", str(cfg), "ingredients", "--dry-run"]) == 0
+
+
+def test_dry_run_prints_rendered_prompts(tmp_project, capsys, mock_subprocess_run):
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+    assert ga.main(["--config", str(cfg), "ingredients", "--dry-run"]) == 0
+    out = capsys.readouterr().out
+    assert "[prompt]" in out and "black pearls" in out
+
+
+def test_generic_hint_is_silent_when_adapter_is_declared(tmp_path, capsys, mock_subprocess_run):
+    cfg = _minimal_config()
+    cfg["adapter"] = "generic"
+    cfg.pop("engine", None)
+    p = tmp_path / "asset-config.yaml"
+    _write_yaml(p, cfg)
+    assert ga.main(["--config", str(p), "ingredients", "--dry-run"]) == 0
+    assert "[info] adapter=generic" not in capsys.readouterr().err
+
+
+def test_generic_hint_shows_when_auto_detected(tmp_path, capsys, mock_subprocess_run):
+    cfg = _minimal_config()
+    cfg.pop("adapter", None)
+    cfg.pop("engine", None)
+    p = tmp_path / "asset-config.yaml"
+    _write_yaml(p, cfg)
+    assert ga.main(["--config", str(p), "ingredients", "--dry-run"]) == 0
+    assert "[info] adapter=generic" in capsys.readouterr().err

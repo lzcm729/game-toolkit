@@ -18,13 +18,18 @@ Auto-discover design docs, spawn one `general-purpose` subagent per doc (needs W
 ### Phase 1: Auto-Discover
 
 1. Read CLAUDE.md to find the design documents directory (look for "Design Documents" section or similar).
+   **If CLAUDE.md names no local directory** (the project keeps its design docs in Feishu, Notion,
+   a wiki…): stop and ask the user for a local export directory or the remote location. Do not
+   treat "no local docs" as "no design" — nothing downstream can be judged missing from an empty
+   input. Exporting from Feishu is the user's `lark-doc` / `feishu-doc-sync` skills' job, not this
+   skill's; once the export exists, have it declared in CLAUDE.md and continue from step 2.
 2. Glob `**/*.md` under that directory to discover all design documents.
 3. Derive system name from each filename:
    - If filename contains English in parentheses: extract it (e.g., `鉴定系统 (Appraisal System).md` → `Appraisal`)
    - If filename has a numeric prefix: strip it and use remainder (e.g., `00_核心愿景.md` → `CoreVision`)
    - Otherwise: use the filename without extension
 
-Create output directory: `mkdir -p docs/gap-analysis/{YYYY-MM-DD}`. If it already exists (same-day re-run), clear it first.
+Create output directory: `mkdir -p docs/gap-analysis/{YYYY-MM-DD}`. If it already exists (same-day re-run), write into `docs/gap-analysis/{YYYY-MM-DD}-{HHMM}/` instead — **never clear the previous run first**: if the new analysis fails halfway, the old report is the only evidence left, and it may carry manual corrections.
 
 ### Phase 2: Parallel Analysis
 

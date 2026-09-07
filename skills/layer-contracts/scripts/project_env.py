@@ -80,6 +80,26 @@ def config_path(root: Path) -> Path:
     return root / CONFIG_NAME
 
 
+def _is_blank(v) -> bool:
+    """None、空串、占位值都算「没填」。str(None) 是 'None'，不在占位表里 —— 踩过：
+    三个必填项都写成 null，check 报 ok，write 再崩。"""
+    return v is None or str(v).strip() in PLACEHOLDERS
+
+
+def _has_cycle(obj, _stack=None) -> bool:
+    """`x: &c [*c]` 是合法 YAML，读进来是自引用结构；json 化和写后比对都会递归爆栈。"""
+    if not isinstance(obj, (dict, list)):
+        return False
+    stack = _stack or set()
+    if id(obj) in stack:
+        return True
+    stack.add(id(obj))
+    items = obj.values() if isinstance(obj, dict) else obj
+    hit = any(_has_cycle(x, stack) for x in items)
+    stack.discard(id(obj))
+    return hit
+
+
 def load_config(root: Path):
     """读配置。返回 (data, error)。
 
@@ -101,6 +121,8 @@ def load_config(root: Path):
         return {}, None
     if not isinstance(data, dict):
         return None, "顶层不是键值映射（读到 %s），无法作为配置使用" % type(data).__name__
+    if _has_cycle(data):
+        return None, "YAML 里有循环引用（anchor 引用了自己），无法作为配置使用"
     return data, None
 
 
@@ -329,7 +351,7 @@ def compare(declared: dict | None, detected: dict) -> list:
 
     out = []
     d_engine = str(declared.get("engine", "")).strip()
-    if d_engine and d_engine not in PLACEHOLDERS:
+    if not _is_blank(declared.get("engine")):
         kinds = sorted({c["engine"] for c in candidates})
         if d_engine.lower() not in kinds:
             out.append(
@@ -341,7 +363,7 @@ def compare(declared: dict | None, detected: dict) -> list:
 
         matched = [c for c in candidates if c["engine"] == d_engine.lower()]
         d_ver = str(declared.get("engine_version", "")).strip()
-        if len(matched) == 1 and d_ver and d_ver not in PLACEHOLDERS:
+        if len(matched) == 1 and not _is_blank(declared.get("engine_version")):
             found_ver = matched[0].get("engine_version")
             if found_ver and _major_minor(found_ver) != _major_minor(d_ver):
                 out.append(
@@ -376,10 +398,14 @@ def main(argv=None) -> int:
     if args.cmd == "check":
         issues = validate(declared) if declared else []
         scope = None
-        if declared and isinstance(declared.get("project_root"), str):
+        if declared and isinstance(declared.get("project_root"), str) \
+                and not _is_blank(declared["project_root"]):
             cand = (root / declared["project_root"]).resolve()
             if cand.is_dir():
                 scope = cand
+            else:
+                # 静默退回配置所在目录会让探测看错地方，再报一个错误的「直接用」
+                issues.append("project_root 指向的目录不存在：%s" % cand)
         if err:
             status = "invalid"
         elif declared is None:
@@ -387,12 +413,11 @@ def main(argv=None) -> int:
         elif issues:
             status = "invalid"
         else:
-            missing = [k for k in REQUIRED
-                       if str(declared.get(k, "")).strip() in PLACEHOLDERS]
+            missing = [k for k in REQUIRED if _is_blank(declared.get(k))]
             status = "ok" if not missing else "incomplete"
         # 没有声明 = 三个必填项都缺。返回空列表会让调用方以为没什么要问的。
         missing = (list(REQUIRED) if declared is None else
-                   [k for k in REQUIRED if str(declared.get(k, "")).strip() in PLACEHOLDERS])
+                   [k for k in REQUIRED if _is_blank(declared.get(k))])
         detected = detect(root, scope)
         conflicts = compare(declared, detected)
         nxt = {
@@ -431,6 +456,22 @@ def main(argv=None) -> int:
         return 2
     merged = dict(declared or {})
     merged.update({k: v for k, v in given.items() if v is not None})
+    # 必填项写了键没写值（null）：渲染层会填「待核实」，自检发现 None → '待核实'
+    # 对不上就拒绝。先统一成占位值，下次 check 报 incomplete 去催填。
+    for k in REQUIRED:
+        if merged.get(k) is None:
+            merged[k] = "待核实"
+    # 只改一个字段也是整文件重渲染：没动的字段按 YAML 读到的值写回去。
+    # engine_version: 5.10 没加引号，读进来是浮点 5.1，写回去就成了 5.1 ——
+    # check 早就会报这条，但 write 曾经照写不误。凡 validate 不过的一律拒绝，
+    # 除非本次 write 把那个字段一起改了（命令行来的值是字符串，自然就修好了）。
+    issues = validate(merged)
+    if issues and not args.force:
+        print("拒绝写入，重渲染会把这些值改掉：\n  - %s\n"
+              "把出问题的字段在本次 write 里一起给出（如 --engine-version 5.10），"
+              "或先手工加引号，或加 --force 接受改动。" % "\n  - ".join(issues),
+              file=sys.stderr)
+        return 1
     print(write_declaration(root, merged))
     return 0
 

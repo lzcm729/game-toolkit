@@ -50,7 +50,7 @@ def fake_image_gen_summary():
 
 
 @pytest.fixture
-def mock_subprocess_run(monkeypatch, fake_image_gen_summary):
+def mock_subprocess_run(monkeypatch, fake_image_gen_summary, tmp_path):
     """替换 subprocess.run，记录调用并返回伪 stdout（含 JSON summary）。
 
     用法：
@@ -61,6 +61,12 @@ def mock_subprocess_run(monkeypatch, fake_image_gen_summary):
             assert len(calls) == 1
     """
     import subprocess as _sp
+
+    # 开跑前会先检查 image-gen 脚本存不存在。测试不能依赖这台机器装没装 image-gen，
+    # 所以指向一个假脚本 —— subprocess 反正是 mock 的，内容无所谓。
+    fake_script = tmp_path / "fake_image_gen.py"
+    fake_script.write_text("# stub\n", encoding="utf-8")
+    monkeypatch.setenv("IMAGE_GEN_SCRIPT", str(fake_script))
 
     state = {
         "returncode": 0,

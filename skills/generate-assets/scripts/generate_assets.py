@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""generate-assets: Godot 项目通用 schema-driven asset orchestrator。
+"""generate-assets: schema-driven asset orchestrator，引擎无关；引擎相关的部分在 engine_adapter.py。
 
 读项目 asset-config.yaml → 加载数据源 → 渲染 prompt → 调底层 image-gen SDK 批量生成
 → 输出到 res:// 路径。
@@ -91,24 +91,40 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    with config_path.open(encoding="utf-8") as f:
-        config = yaml.safe_load(f)
+    try:
+        with config_path.open(encoding="utf-8") as f:
+            config = yaml.safe_load(f)
+    except yaml.YAMLError as e:
+        mark = getattr(e, "problem_mark", None)
+        where = f" 第 {mark.line + 1} 行第 {mark.column + 1} 列" if mark else ""
+        print(f"[fatal] asset-config.yaml 解析失败{where}：{getattr(e, 'problem', e)}",
+              file=sys.stderr)
+        return 1
     if not isinstance(config, dict):
         print(f"[fatal] config 顶层必须是 dict，实际 {type(config).__name__}", file=sys.stderr)
         return 1
 
-    adapter = engine_adapter.select(config, config_path.parent)
-    project_root = _resolve_project_root(
-        config_path, config, adapter,
-        explicit=Path(args.project_root) if getattr(args, "project_root", None) else None,
-    )
-    output_root = _resolve_output_root(config, project_root, adapter)
-    image_gen_script = _resolve_image_gen()
-
-    # list 命令
+    # list 只看 config，不解析路径 —— 插件自带的示例用 res://，
+    # 在没有 Godot 工程的目录下也应该能列出来看看。
     if args.command == "list":
         _cmd_list(config)
         return 0
+
+    # 适配器与路径解析的报错都是写给人看的（改 adapter、换相对路径……），
+    # 不接住就变成 traceback，把那句话埋在栈帧下面。
+    try:
+        adapter = engine_adapter.select(config, config_path.parent)
+        project_root = _resolve_project_root(
+            config_path, config, adapter,
+            explicit=Path(args.project_root) if getattr(args, "project_root", None) else None,
+        )
+        raw_root = config.get("output_root", "")
+        if not isinstance(raw_root, str):
+            raise ValueError(f"output_root 应为字符串，实际是 {type(raw_root).__name__}（{raw_root!r}）")
+        output_root = _resolve_output_root(config, project_root, adapter)
+    except ValueError as e:
+        print(f"[fatal] {e}", file=sys.stderr)
+        return 1
 
     # 选择 category
     categories: dict[str, dict] = config.get("categories") or {}
@@ -127,11 +143,16 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         target_names = [args.command]
 
-    if adapter.name == "generic":
+    image_gen_script = _resolve_image_gen()
+    if image_gen_script is None:
+        return 1
+
+    declared_adapter = str(config.get("adapter") or config.get("engine") or "").strip()
+    if adapter.name == "generic" and not declared_adapter:
         print(
             f"[info] adapter=generic（{project_root} 下没有识别到已支持的引擎工程）："
             "路径按普通相对路径解析，不做引擎导入检查。"
-            " 在 config 里显式写 engine: 可以关掉这条探测。",
+            " 在 config 里显式写 adapter: generic 可以关掉这条探测（engine: 是旧名，别再用）。",
             file=sys.stderr,
         )
 
@@ -181,7 +202,7 @@ def main(argv: list[str] | None = None) -> int:
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="generate_assets",
-        description="Godot 通用 schema-driven asset orchestrator",
+        description="schema-driven asset orchestrator（引擎无关，适配层见 engine_adapter.py）",
     )
     parser.add_argument(
         "command",
@@ -261,17 +282,25 @@ def _resolve_output_root(config: dict, project_root: Path, adapter=None) -> Path
     return adapter.resolve_path(raw, project_root)
 
 
-def _resolve_image_gen() -> Path:
+def _resolve_image_gen() -> Path | None:
+    """找 image-gen 的入口脚本。找不到返回 None，并把「怎么装」说清楚。
+
+    这是本 skill 唯一的外部依赖，而且是**用户级** skill（~/.claude/skills/image-gen），
+    随插件安装不会自动带上。新用户最容易在这里卡住 —— 以前默认路径不查存在与否，
+    直接交给 subprocess，用户看到的是一行陌生路径的 Errno 2 和 "(no summary)"。
+    """
     env_path = os.environ.get(IMAGE_GEN_SCRIPT_ENV)
-    if env_path:
-        p = Path(env_path)
-        if not p.exists():
-            print(
-                f"[warn] {IMAGE_GEN_SCRIPT_ENV}={env_path} 指向的脚本不存在，仍尝试调用",
-                file=sys.stderr,
-            )
+    p = Path(env_path) if env_path else DEFAULT_IMAGE_GEN_SCRIPT
+    if p.exists():
         return p
-    return DEFAULT_IMAGE_GEN_SCRIPT
+    source = f"环境变量 {IMAGE_GEN_SCRIPT_ENV}" if env_path else "默认位置"
+    print(
+        f"[fatal] image-gen 脚本不存在（{source}）：{p}\n"
+        f"        generate-assets 依赖 image-gen skill 做实际生图，它不随本插件安装。"
+        f"装好 image-gen，或用 {IMAGE_GEN_SCRIPT_ENV}=<generate_image.py 的路径> 指过去。",
+        file=sys.stderr,
+    )
+    return None
 
 
 # -------------------- list --------------------
@@ -350,9 +379,15 @@ def _run_category(
     # 解析 output_dir + 预建子目录
     out_subdir = cat_spec.get("output_subdir") or cat_name
     output_dir = (output_root / out_subdir).resolve()
-    output_dir.mkdir(parents=True, exist_ok=True)
-    asset_paths = [output_dir / a["filename"] for a in batch["assets"]]
-    ensure_parent_dirs(asset_paths)
+    try:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        asset_paths = [output_dir / a["filename"] for a in batch["assets"]]
+        ensure_parent_dirs(asset_paths)
+    except (FileExistsError, NotADirectoryError, PermissionError) as e:
+        msg = (f"输出目录建不了：{output_dir}（{getattr(e, 'strerror', None) or e}）"
+               "—— 那个位置已经是个文件，或没有写权限")
+        print(f"[error] {msg}", file=sys.stderr)
+        return CategoryRunResult(name=cat_name, exit_code=1, summary=None, error=msg)
 
     # 写临时 batch 文件
     with tempfile.NamedTemporaryFile(
@@ -366,6 +401,10 @@ def _run_category(
 
     print(f"  items: {len(batch['assets'])}, output: {output_dir}")
     print(f"  batch JSON: {batch_path}")
+    if dry_run:
+        # dry-run 的目的之一是看 prompt；上游 image-gen 的 dry-run 只打计划不打 prompt
+        for a in batch["assets"]:
+            print(f"  [prompt] {a.get('id') or a['filename']}: {a.get('prompt', '')}")
 
     # 调 image-gen
     cmd = [
@@ -382,6 +421,12 @@ def _run_category(
 
     print(f"  $ {' '.join(cmd)}")
     summary, exit_code, err = _invoke_image_gen(cmd)
+    if summary is None and err is None and not dry_run:
+        # 没有 summary 就无法确认产物，退出码 0 也不算成功。
+        # dry-run 例外：上游 dry-run 本来就只打计划、不吐 summary。
+        err = f"image-gen 没有返回 summary，无法确认生成结果（它的退出码 {exit_code}）"
+        print(f"[error] {err}", file=sys.stderr)
+        exit_code = 1
     return CategoryRunResult(name=cat_name, exit_code=exit_code, summary=summary, error=err)
 
 

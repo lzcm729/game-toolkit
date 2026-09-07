@@ -111,6 +111,9 @@ def main(argv=None) -> int:
         problems, dirty = check(args.ref, args.version)
     except RuntimeError as exc:
         print("自检无法进行：%s" % exc, file=sys.stderr)
+        if "not a git repository" in str(exc):
+            print("  本脚本要在插件**源码仓库**里跑 —— 安装缓存（~/.claude/plugins/cache/…）"
+                  "不是 git 仓库，没有 commit 可校验。", file=sys.stderr)
         return 2
 
     sha = git("rev-list", "-n", "1", args.ref).strip()[:12]

@@ -41,7 +41,7 @@ description: |
 本脚本是独立 CLI，**不读 `game-toolkit.yaml`** —— 那是 agent 侧的事实源。
 所以 agent 调它之前要先桥接：
 
-1. 读项目声明拿到 `project_root`（`layer-contracts/scripts/project_env.py check`）
+1. 读项目声明拿到 `project_root`（`../layer-contracts/scripts/project_env.py check`，相对**本 skill 目录** —— 它是兄弟 skill，不在本目录下）
 2. 解析成绝对路径，用 `--project-root` 传给本脚本
 
 不做这一步、又把 `asset-config.yaml` 放在子目录（如 `tools/`）时，脚本只能按
@@ -58,7 +58,7 @@ SKILL="<本 skill 目录>/scripts/generate_assets.py"
 # 列出 config 里所有 category
 python "$SKILL" list
 
-# 跑单个 category（dry-run 看 prompt 不调 API）
+# 跑单个 category（dry-run：打印渲染后的 prompt，不调 API）
 python "$SKILL" customers --dry-run
 
 # 跑全部 + 强制覆盖
@@ -97,7 +97,7 @@ $schema_version: 1
 style:
   prompt_prefix: "Cute chibi sticker style, transparent background."
   prompt_suffix: "Warm caramel palette."
-output_root: "res://art"
+output_root: "art"          # Godot 项目可写 res://art；其他引擎用普通相对路径
 categories:
   ingredients:
     aspect_ratio: "1:1"
@@ -173,6 +173,9 @@ UE / Unity 项目现在用 `generic` 就能跑通生成流程 —— 只是没�
 - `0` — 全成功（含 skipped）
 - `1` — 全失败
 - `2` — 部分失败
+
+非 dry-run 时上游没返回 summary 一律按 `1` 处理 —— 没有 summary 就无法确认产物，
+退出码 0 也不算成功。
 
 每个 category 末尾打印一行 image-gen 输出的 JSON summary，本框架再打总表：
 

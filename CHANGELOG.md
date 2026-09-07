@@ -3,6 +3,119 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.4.3 (2026-09-07)
+
+第一次**测试**而不是评审：从安装副本跑、真触发 skill、真派 agent、codex 冷读 SKILL.md
+照着执行。找到的全是「照文档做会撞墙」的事，其中一条会改坏数据。
+
+### fix: `project_env.py write` 会把没动的字段改坏
+
+`engine_version: 5.10` 没加引号，YAML 读进来是浮点 `5.1`。`check` 一直会报这条
+（「YAML 会把 5.10 读成 5.1，请加引号」），但 `write` **照写不误**：只改
+`verify_entry`，整文件重渲染，`5.10` 就成了 `5.1`，退出码 0。被改的正是整个设计里
+「必须人工填」的那个字段。
+
+3.4.1 修的是「文件读不回来就别动手」，这次补的是「读回来了但会写错也别动手」——
+两者是同一条原则的两半。`write` 现在对 `validate(merged)` 不过的一律拒绝，
+除非本次 write 把那个字段一起给了（命令行来的值是字符串，天然就修好了），
+或加 `--force`。
+
+codex 发现，本地复现。
+
+### fix: `generate-assets` 对新用户的三道坎
+
+- **插件自带的示例在陌生目录跑，直接 traceback。** `examples/milk-tea-defense.yaml`
+  用 `res://`，没有 `project.godot` 的目录会探测成 `generic`，`generic` 拒绝 `res://`
+  —— 这个拒绝本身是对的，报错文案也写得清楚（改 adapter 或换相对路径），但
+  `main()` 不接 `ValueError`，那句话被埋在一屏栈帧下面。连 `list` 都炸，因为
+  `list` 排在路径解析之后。现在 `list` 只读 config，不解析路径；`ValueError`
+  接住转 `[fatal]`。
+- **没装 image-gen 时看不出是缺依赖。** 默认路径不查存在与否，直接交给 subprocess；
+  用户看到的是一行陌生路径的 `Errno 2` 和每个 category 一行 `(no summary)`。
+  `_invoke_image_gen` 里那句「image-gen 脚本不存在」是死分支 —— python.exe 找得到，
+  找不到的是脚本，异常不在那里抛。现在开跑前查一次，找不到就一条 `[fatal]`
+  说明这是 image-gen skill、不随插件安装、怎么指过去。
+- `[info] adapter=generic` 提示里写「显式写 `engine:`」—— 3.4.1 在 `engine_adapter`
+  里修过同一类错，这里漏了。改成 `adapter:`。
+
+三处泛化后残留的「Godot 项目」措辞（`--help` 第一行、文件头、`examples/README.md`）
+一并改掉。SKILL.md 本来就是对的。
+
+三个现有测试把「`main` 抛 `ValueError`」锁成了正确行为 —— 从用户角度那就是
+traceback。改成断言退出码 + `[fatal]` 文案。`conftest` 给 `mock_subprocess_run`
+指一个假 image-gen 脚本，否则 132 个测试会开始依赖「这台机器装了 image-gen」。
+
+### 测试方法（本次新做的，记下来免得下次重来）
+
+| 做了什么 | 结果 |
+|---|---|
+| 三个测试套件从**安装副本**跑（不是源码目录） | 全过；缓存与源码只有 CRLF 差异 |
+| `project_env.py check` 从安装副本对 CatFishing | ok，0 冲突 |
+| Skill 工具从安装副本加载 `layer-contracts` | base directory 传到了，`<本 skill>/scripts/...` 可解析 |
+| 派 `framework` agent 对 CatFishing 做只读检查 | 读了声明并逐字段说明影响；「查不了」单列不判未实现；要拍板的事回报不自决；git status 前后一致。超字数一倍；160k tokens |
+| 所有 .md 里的文件引用 | 0 条真死链 |
+| codex 冷读 SKILL.md 照着执行 + 脚本对抗 | 见上 |
+| `claude plugin eval`（官方 harness） | early access，用不了 |
+
+### codex 实跑找出的其余问题
+
+codex 拿三个 SKILL.md 冷读照做、对两个脚本做对抗输入，91 条执行记录。
+以下每条都本地复现过再修。
+
+**`project_env.py check` 三种误报「声明齐全，直接用」**
+
+- 三个必填项都写成 `null`（写了键没写值）→ `ok`、`missing_required=[]`。
+  `str(None)` 是 `'None'`，不在占位表里。随后 `write` 崩：渲染层填了「待核实」，
+  自检发现 `None → '待核实'` 对不上。现在 `null` 按「没填」处理，`check` 报
+  `incomplete`，`write` 先统一成占位值。
+- `project_root` 指向不存在的目录 → 静默退回配置所在目录探测，再报 `ok`。
+  现在是 `invalid`，issue 里写明哪个目录不存在。占位值（待核实）不算，那归 `incomplete`。
+- `custom_cycle: &c [*c]`（合法 YAML，自引用）→ `check` 和 `write` 都 `RecursionError`。
+  现在 `load_config` 识别循环引用，按「读不回来」处理：`check` 报 `invalid`，`write` 拒绝。
+
+**`generate-assets` 报成功但一张图没有；四处 traceback**
+
+- 上游脚本退出 0 但什么都不打（故障注入：一个只有注释的文件）→ 报成功、总退码 0、
+  产物目录 0 张图。`(no summary)` 只打印，不当错误。现在非 dry-run 拿不到 summary
+  一律按失败（退码 1）—— 没有 summary 就无法确认产物，退出码 0 也不算成功。
+  dry-run 例外：上游 image-gen 的 dry-run 本来就只打计划、不吐 summary。
+- 坏 YAML（`categories: [` 没闭合）、`output_root: [art]`、输出目录位置已经是个文件 ——
+  三种输入三种 traceback。现在分别是 `[fatal]` 带行列号、`[fatal]` 说明类型、
+  `[error]` 只算该 category 失败。
+- 文档从两版前就承诺「dry-run 看 prompt」，但上游 dry-run 只打计划；要看 prompt
+  得自己去翻 batch JSON。现在编排器在 dry-run 时逐条打印渲染后的 prompt。
+- `[info] adapter=generic` 提示说「显式写 adapter 可以关掉」，但代码不判断那个字段，
+  声明了照样打。现在只在自动探测时打。
+
+**`sync-docs-ahead` 两条流程指令**
+
+- 「同日重跑先清空目录」—— 照做真的会删掉上一份报告，新分析失败时旧证据已经没了，
+  而旧报告可能带着人工修正。改为写到 `{date}-{HHMM}/`，永不先删。
+- 设计文档不在本地（CatFishing 的在飞书）时，正文停在 Phase 1 第一步，没说下一步。
+  补上：停下来问用户要本地导出目录或远程位置；导出是 `lark-doc` / `feishu-doc-sync`
+  的事，不是本 skill 的；**不把「没拿到文档」当「没有设计」**。
+
+**其他**
+
+- `generate-assets` SKILL.md 写 `layer-contracts/scripts/project_env.py`，但 base directory
+  是 `skills/generate-assets`，照着跑 `Errno 2`。补 `../` 并注明是兄弟 skill。
+- 最小骨架的 `output_root: "res://art"` 改成引擎无关的 `art`，注释说 Godot 可写 `res://`。
+- `examples/README.md` 说「缺 Godot 会 warn 并按 yaml 父目录解析 res://」—— 与实跑不符，
+  generic 是直接拒绝。改成实际行为。裸 `--dry-run` 示例实际只 `list`，改成 `all --dry-run`。
+- `verify_release.py` 在安装缓存目录跑（不是 git 仓库）会报「not a git repository」，
+  但没说该去哪跑。补一句：回源码仓库。
+
+两个旧测试拿 `[info] adapter=generic` 那行 stderr 当「声明生效、没去探测」的代理，
+提示改成只在探测时打之后代理消失。换成行为观测：`output_root` 写 `res://`，generic
+不认 → 被拒就证明声明压过了探测。
+
+codex 查过没问题的：BOM、CRLF、非循环 alias、`project_root: ..`、只有注释 / 空文件
+（报 incomplete 不是 ok）、顶层是 list（拒绝写入，字节未变）、CLI root 不存在（exit 2）；
+生成器的大小写归一、Windows 绝对路径、`res://` 引用在 generic 下的清楚报错、数据源
+不存在 / 空表 / 空文件三者区分。安装副本与源码目录各 171 passed，无差异。
+
+测试：`layer-contracts` 47（+8）、`generate-assets` 145（+13）、validations 66 用例 0 不符。
+
 ## 3.4.2 (2026-09-07)
 
 补完 codex 评审里最后一条：**声明与探测结果冲突时，`check` 仍然输出「声明齐全，直接用」。**

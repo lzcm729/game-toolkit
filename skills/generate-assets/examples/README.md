@@ -1,6 +1,6 @@
 # asset-config.yaml — Schema 文档
 
-`generate-assets` 的项目级配置文件。一个 yaml 描述一个 Godot 项目的所有 asset
+`generate-assets` 的项目级配置文件。一个 yaml 描述一个游戏项目的所有 asset（引擎无关；Godot 有专门适配，其他引擎走 generic）
 category（顾客、配料、配方、建筑、背景……）。底层调用 image-gen SDK，本框架只
 负责"yaml → batch JSON → image-gen subprocess"翻译 + 调度。
 
@@ -182,7 +182,7 @@ python generate_assets.py list                # 列出 + desc
 python generate_assets.py <category>          # 单个 category
 python generate_assets.py all                 # 全部
 python generate_assets.py <cat> --names a,b   # 过滤 id
-python generate_assets.py --dry-run           # image-gen --dry-run
+python generate_assets.py all --dry-run       # 只打计划和 prompt，不调 API（不带 category 等于 list）
 python generate_assets.py --force             # 覆盖已存在
 python generate_assets.py --config path.yaml  # 自定义 config
 ```
@@ -199,7 +199,7 @@ buildings / backgrounds）。
 - `res://` 路径自动剥前缀，等价于相对项目根
 - 跑完后扫输出目录，提示有多少 `.import` 文件缺失（用 Godot 编辑器打开自动 import）
 - 输出子目录自动 `mkdir -p`（image-gen 不建多层目录）
-- 检测 `project.godot`：缺则 warn"非 Godot 项目，res:// 解析按 yaml 父目录"
+- 检测 `project.godot`：缺则退到 generic 适配 —— generic **不认** `res://`，会直接报错让你改 `adapter` 或换相对路径，不会按 yaml 父目录猜
 
 ## 不做的事
 

@@ -355,3 +355,75 @@ def test_conflict_is_detected_under_declared_project_root(tmp_path, capsys):
     _write_yaml(tmp_path, {"engine": "unreal", "engine_version": "5.8", "project_root": "game"})
     out = _check(tmp_path, capsys)
     assert out["conflicts"] and "5.4" in out["conflicts"][0]
+
+
+# -------------------- write 不能把没动的字段改坏 --------------------
+
+_UNQUOTED_510 = "engine: unreal\nengine_version: 5.10\nproject_root: .\n"
+
+
+def test_write_refuses_when_an_untouched_field_would_be_rewritten(tmp_path, capsys):
+    """engine_version: 5.10 没加引号 —— check 一直会报，但 write 曾照写不误，重渲染成 5.1。"""
+    p = tmp_path / pe.CONFIG_NAME
+    p.write_text(_UNQUOTED_510, encoding="utf-8")
+    assert pe.main(["write", str(tmp_path), "--verify-entry", "x"]) == 1
+    assert p.read_text(encoding="utf-8") == _UNQUOTED_510      # 一个字没动
+    assert "5.10" in capsys.readouterr().err
+
+
+def test_write_heals_the_field_when_it_is_given_as_a_string(tmp_path):
+    p = tmp_path / pe.CONFIG_NAME
+    p.write_text(_UNQUOTED_510, encoding="utf-8")
+    assert pe.main(["write", str(tmp_path), "--engine-version", "5.10"]) == 0
+    assert _load(tmp_path)["engine_version"] == "5.10"
+
+
+def test_force_accepts_the_rewrite(tmp_path):
+    p = tmp_path / pe.CONFIG_NAME
+    p.write_text(_UNQUOTED_510, encoding="utf-8")
+    assert pe.main(["write", str(tmp_path), "--verify-entry", "x", "--force"]) == 0
+
+
+# -------------------- codex 实跑找出的三个 check 误报（3.4.3） --------------------
+
+_NULL_REQUIRED = "engine: null\nengine_version: ~\nproject_root:\n"
+
+
+def test_null_required_fields_are_missing_not_ok(tmp_path, capsys):
+    """写了键没写值：str(None) 是 'None'，不在占位表里，曾被当成填了。"""
+    (tmp_path / pe.CONFIG_NAME).write_text(_NULL_REQUIRED, encoding="utf-8")
+    out = _check(tmp_path, capsys)
+    assert out["status"] == "incomplete"
+    assert set(out["missing_required"]) == {"engine", "engine_version", "project_root"}
+    assert out["conflicts"] == []
+
+
+def test_write_normalizes_null_required_to_placeholder(tmp_path):
+    (tmp_path / pe.CONFIG_NAME).write_text(_NULL_REQUIRED, encoding="utf-8")
+    assert pe.main(["write", str(tmp_path), "--verify-entry", "x"]) == 0   # 曾经 RuntimeError
+    data = _load(tmp_path)
+    assert data["engine"] == "待核实" and data["verify_entry"] == "x"
+
+
+def test_nonexistent_project_root_is_invalid_not_ok(tmp_path, capsys):
+    """曾静默退回配置所在目录探测，再报一个「直接用」。"""
+    _write_yaml(tmp_path, {"engine": "unreal", "engine_version": "5.8", "project_root": "nonexistent"})
+    out = _check(tmp_path, capsys)
+    assert out["status"] == "invalid"
+    assert any("project_root" in i and "不存在" in i for i in out["issues"])
+
+
+def test_placeholder_project_root_is_incomplete_not_invalid(tmp_path, capsys):
+    _write_yaml(tmp_path, {"engine": "unreal", "engine_version": "5.8", "project_root": "待核实"})
+    assert _check(tmp_path, capsys)["status"] == "incomplete"
+
+
+def test_cyclic_alias_is_reported_as_unreadable(tmp_path, capsys):
+    """`x: &c [*c]` 合法 YAML，但 json 化和写后比对都会递归爆栈。"""
+    raw = "engine: unreal\nengine_version: '5.8'\nproject_root: .\ncustom_cycle: &c [*c]\n"
+    p = tmp_path / pe.CONFIG_NAME
+    p.write_text(raw, encoding="utf-8")
+    out = _check(tmp_path, capsys)
+    assert out["status"] == "invalid" and "循环" in (out["error"] or "")
+    assert pe.main(["write", str(tmp_path), "--verify-entry", "x"]) == 1
+    assert p.read_text(encoding="utf-8") == raw
