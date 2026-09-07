@@ -141,6 +141,28 @@ C 层的事实由**项目声明**，不由工具探测。约定写在项目 CLAU
 最后一条是硬要求：把「查不了」报成「未实现」会引发重复实现。Blueprint 逻辑、
 预制体连线、可视化脚本都属于这一类——文件能 Glob 到，内容读不懂。
 
+### 怎么拿到这份声明
+
+有脚本，别手抄：
+
+```bash
+python <本 skill>/scripts/project_env.py check <项目根>     # 只读，输出 JSON
+python <本 skill>/scripts/project_env.py write <项目根> --engine unreal --engine-version 5.8 ...
+```
+
+**脚本不与人交互，也不该交互** —— 它在 Bash 工具里跑，stdin 接空设备，`input()` 只会拿到 EOF。
+分工固定成三步：
+
+1. `check` —— 报告缺哪些必填项，并给出**探测到的候选值**（`.uproject` 的
+   EngineAssociation、`project.godot` 的 config/features、源码构成、二进制资产数量…）
+2. **agent 用 AskUserQuestion 把候选值交给人确认** —— 这一步不能省。探测认得出
+   `.uproject`，认不出「一个仓库里哪个工程才是本次要动的」「EngineAssociation 是版本号
+   还是源码版引擎的 GUID」「Blueprint 能不能按文本扫」。预填候选让人确认，不是让人从零填。
+3. `write` —— 把确认后的值写回。同名段落是**替换**不是追加，可反复跑。
+
+`check` 的输出里 `detected` 一律是候选，`declared` 才是已确认的事实。
+两者冲突时报告冲突，不要默默采信探测值。
+
 **读取顺序**：本次任务明确指定 > 项目声明 > 项目内已有技术文档 > 问用户。
 **任何一环都不猜引擎。** 声明与本地证据冲突时报告冲突，不要默默选一边。
 
