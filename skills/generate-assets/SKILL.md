@@ -130,7 +130,15 @@ categories:
 
 ## 引擎适配
 
-config 里的 `engine` 字段选适配，未声明则探测（找到 `project.godot` → `godot`，否则 `generic`）：
+config 里的 `adapter` 字段选适配，未声明则探测（找到 `project.godot` → `godot`，否则 `generic`）。
+
+> **`adapter` 不是「项目用什么引擎」。** 引擎身份属于项目环境声明（人工填，见
+> `game-toolkit:layer-contracts` 的「项目环境声明」）；这里选的是**本生成器能提供哪套
+> 路径与导入规则**。UE 项目声明 `引擎：unreal`、而 config 里 `adapter: generic`，
+> 两者并不矛盾 —— 前者是事实，后者是本 skill 当前的能力边界。
+>
+> 旧配置的 `engine:` 按 `adapter:` 处理；两者同时存在且不同会报错。
+
 
 | engine | 路径前缀 | 工程根探测 | 生成后 |
 |---|---|---|---|
@@ -145,7 +153,7 @@ UE / Unity 项目现在用 `generic` 就能跑通生成流程 —— 只是没�
 - **`res://` 路径**：`output_root: "res://art"` ↔ `<project_root>/art`
 - **自动 mkdir -p** 子目录（image-gen 不建多层目录）
 - **`.import` 扫描**：跑完后统计哪些图缺 `.import`，提示"用 Godot 编辑器自动 import"
-- **`project.godot` 检测**：缺则 warn 但仍跑（按 yaml 父目录推根）
+- **`project.godot` 检测**：缺则退到 generic（工程根按 `--project-root` > config 的 `project_root` > yaml 位置推断）
 
 ## 退码 + summary
 

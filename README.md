@@ -57,6 +57,26 @@
 - **资源管线** — `generate-assets`（schema-driven 批量生成，引擎适配当前支持 Godot / generic）
 - **可选技术适配** — `react-game-ui`（Web 栈的游戏 UI 实现模式，只在项目确实用 React 时才用）
 
+## 项目侧要做一件事
+
+在项目 CLAUDE.md 里加一段环境声明。**引擎和版本必须人工填** —— 工具能认出
+`project.godot`，但认不出「这个仓库里哪个才是本次要动的工程」「用的哪个大版本」
+「Blueprint 能不能按文本扫」，猜错的代价比问一句大得多。
+
+```markdown
+## Game Toolkit 项目环境
+
+- 引擎：unreal
+- 引擎版本：5.4
+- 工程根：./Game
+- 技术栈：C++ / Blueprint
+- 可检查程度：C++ 可按文本扫；Blueprint 当前查不了，不得据文本结果判定缺失
+- 验证入口：尚未登记，使用前读项目构建说明
+```
+
+字段含义、可选项、以及「未知 / 不适用 / 查不了」三者为什么必须分开写，
+见 `layer-contracts` skill。不声明也能用，只是每次都要回答同样的问题。
+
 ## 从哪开始
 
 **设计文档乱了** → 说「拆一下 XX 系统的设计文档」，走 `split-doc-layers`

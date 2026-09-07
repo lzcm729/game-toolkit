@@ -42,15 +42,22 @@ Analyze the gap between a design document and its code implementation.
 Steps:
 1. Read the entire design document
 2. Extract every distinct feature/requirement/mechanic described
-3. Search the project's source code using Glob and Grep. Determine the scope in this order:
-   a. CLAUDE.md's Architecture section, if it names source directories or file types — use those.
-   b. Otherwise detect the stack from the project root and derive the file types:
-      `project.godot` → `.gd` `.cs` `.tscn` `.tres`; `*.uproject` → `.cpp` `.h` `.uasset`;
-      `*.sln`/`Assets/` → `.cs` `.unity` `.prefab`; `package.json` → `.ts` `.tsx` `.js` `.jsx`;
-      `pyproject.toml`/`requirements.txt` → `.py`; `Cargo.toml` → `.rs`; `go.mod` → `.go`.
-   c. If neither works, ask the user rather than guessing.
-   **Never assume a web stack.** State in the report which directories and file types were searched —
-   a feature reported as missing is only meaningful if its source language was actually in scope.
+3. Search the project's source code using Glob and Grep. Read the scope from the project's
+   **Game Toolkit 项目环境** declaration (format and rules: invoke `game-toolkit:layer-contracts`) —
+   engine, 工程根, 技术栈, 源码范围, 可检查程度. Do not detect the engine yourself; if the
+   declaration is missing or the needed field is 未知, ask the user rather than guessing.
+
+   **Honour 可检查程度 — this is the part that silently corrupts a gap report.** Some sources
+   can be Glob'd but not read: Blueprint graphs, prefab wiring, visual-script assets. Finding
+   `.uasset` files does not mean their logic was inspected.
+   - source is text and in scope → rate it normally
+   - source exists but **查不了** (needs the engine / an export to inspect) → rate it
+     `无法检查`, never `missing`. A feature reported missing because its logic lives in a
+     binary asset triggers a duplicate implementation.
+   - source language was **not in scope** at all → say so; a "missing" verdict is only
+     meaningful when the language was actually searched.
+
+   State in the report which directories, file types, and check methods were used.
 4. Rate each feature's implementation status
 5. Write report to the output file using the Write tool
 

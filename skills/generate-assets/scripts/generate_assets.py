@@ -98,7 +98,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     adapter = engine_adapter.select(config, config_path.parent)
-    project_root = _resolve_project_root(config_path, config, adapter)
+    project_root = _resolve_project_root(
+        config_path, config, adapter,
+        explicit=Path(args.project_root) if getattr(args, "project_root", None) else None,
+    )
     output_root = _resolve_output_root(config, project_root, adapter)
     image_gen_script = _resolve_image_gen()
 
@@ -198,6 +201,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="逗号分隔 id 列表，仅对 inline / json_dict 数据源有效",
     )
+    parser.add_argument(
+        "--project-root",
+        default=None,
+        help="工程根绝对/相对路径。不给则按 config 的 project_root、"
+             "适配器探测、最后按 config 位置推断（后者会随 config 移动而变）",
+    )
     parser.add_argument("--dry-run", action="store_true", help="image-gen 走 --dry-run")
     parser.add_argument("--force", action="store_true", help="覆盖已存在的输出文件")
     return parser
@@ -223,8 +232,17 @@ def _locate_config(explicit: Path | None) -> Path | None:
     return None
 
 
-def _resolve_project_root(config_path: Path, config: dict, adapter=None) -> Path:
-    """优先引擎工程根；否则 yaml 父目录的父（即 yaml 在 ./assets/foo.yaml 时，根=cwd）。"""
+def _resolve_project_root(config_path: Path, config: dict, adapter=None, explicit: Path | None = None) -> Path:
+    """显式指定 > 适配器探测 > 按 yaml 位置推断。
+
+    最后那条只是兜底：把 config 挪个子目录，推断出的根就变了，相对路径会跟着换基准。
+    非 Godot 项目建议显式给 --project-root 或在 config 里写 project_root。
+    """
+    if explicit is not None:
+        return Path(explicit).resolve()
+    declared = config.get("project_root")
+    if declared:
+        return (config_path.parent / str(declared)).resolve()
     adapter = adapter or engine_adapter.select(config, config_path.parent)
     found = adapter.detect_root(config_path.parent)
     if found is not None:

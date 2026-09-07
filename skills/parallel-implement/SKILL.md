@@ -65,16 +65,17 @@ Phase 5: 清理（worktree + branch + Team）
 
 后续 Phase 2/4 的验证都用它，**不假设任何技术栈**。按顺序确定：
 
-1. 项目 CLAUDE.md 里声明的构建/类型检查命令
-2. 从项目根探测：`package.json` 的 scripts → 对应命令；`*.csproj`/`*.sln` →
-   `dotnet build`；`Cargo.toml` → `cargo check`；`pyproject.toml` → 项目声明的
-   lint/typecheck
-   - `project.godot` → **用项目自己的验证入口**（GUT / gdUnit4 测试、导出检查脚本）。
-     注意 `godot --headless --check-only` 必须配 `--script <文件>` 才生效
-     （`--help` 原文：Only parse for errors and quit, use with --script），
-     它只能逐脚本解析、不做导入与依赖检查，**不能当项目级构建检查**。
-     若确实要用逐脚本解析，须明确文件集合、导入准备和失败判定
-3. 都确定不了 → **问用户**，不要默认成 `tsc`
+1. 项目的 **Game Toolkit 项目环境** 声明里的「验证入口」（格式见
+   `game-toolkit:layer-contracts`）。这是首选，也通常是唯一可靠来源 ——
+   **验证入口是项目的选择，不是引擎的属性**：同是 Godot 项目，脚本解析、导出检查、
+   玩法测试是三种不同的验证，跑哪个由项目定。
+2. 声明里没有 → 读项目已有的构建文档 / CI 配置 / package.json scripts 这类**项目自己写下的**入口
+3. 仍然没有 → **问用户**。不要从工程文件反推命令：
+   - `*.sln` 存在**不能**推出 `dotnet build` —— UE 项目也会生成 `.sln`
+   - `project.godot` 存在**不能**推出某条 godot 命令 —— `--headless --check-only`
+     必须配 `--script <文件>`（`--help` 原文：Only parse for errors and quit, use with
+     --script），只逐脚本解析、不做导入与依赖检查，当不了项目级构建检查
+   - 更不要默认成 `tsc`
 
 若该项目没有可自动运行的构建检查，明确记录「本轮无构建验证」，
 在合并前改用人工确认，**不要跳过这一步却当作验证通过**。
@@ -191,6 +192,17 @@ TeamCreate("impl-batch-N")
 
 ```
 你是 team "{team_name}" 的成员 {name}，负责在 worktree 中实现 {系统名} 系统的 {角色职责描述}。
+
+## 项目环境（主流程已解析，直接用，不要自己探测）
+
+- 引擎 / 版本：{从项目声明读到的值}
+- 工程根：{绝对路径}（本 worktree 内的对应位置：{worktree 绝对路径}）
+- 技术栈：{值}
+- 可检查程度：{哪些能按文本验、哪些要引擎才能验、哪些当前查不了}
+- 验证入口：{构建检查命令，或「未登记」}
+
+**这些是事实，不是待你确认的猜测。** 字段写「未知」或「查不了」时按未知处理：
+报告缺口，不要自己去探测引擎，也不要把「查不了」当成「不存在」。
 
 ## 先读共享契约
 

@@ -441,15 +441,15 @@ def test_generic_engine_rejects_res_prefix(tmp_path, mock_subprocess_run, monkey
         ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
 
 
-def test_unknown_engine_rejected(tmp_path, mock_subprocess_run, monkeypatch):
+def test_unknown_adapter_rejected(tmp_path, mock_subprocess_run, monkeypatch):
     calls, set_result = mock_subprocess_run
     set_result(returncode=0)
     cfg = tmp_path / "asset-config.yaml"
     config = _minimal_config()
-    config["engine"] = "unity"
+    config["adapter"] = "unity"
     _write_yaml(cfg, config)
     monkeypatch.chdir(tmp_path)
-    with pytest.raises(ValueError, match="未知的 engine"):
+    with pytest.raises(ValueError, match="未知的 adapter"):
         ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
 
 
@@ -588,3 +588,62 @@ def test_no_import_hint_when_nothing_produced(tmp_project, mock_subprocess_run, 
     _write_yaml(cfg, _minimal_config())
     ga.main(["ingredients", "--config", str(cfg)])
     assert "godot" not in capsys.readouterr().out.lower()
+
+def test_unregistered_engine_prefix_does_not_suggest_unknown_engine():
+    """认出前缀属于哪个引擎 != 支持那个引擎。
+
+    回归防护：曾经 /Game/ 的报错建议「把 engine 设成 unreal」，
+    照做会撞进「未知的 engine: 'unreal'」—— 把人指进一个死循环。
+    """
+    import engine_adapter as ea
+    with pytest.raises(ValueError) as ex:
+        ea.GENERIC.resolve_path("/Game/Art/a.uasset", Path("C:/p"))
+    msg = str(ex.value)
+    assert "没有 unreal 适配" in msg
+    assert "engine 设成 unreal" not in msg
+
+
+def test_registered_engine_prefix_does_suggest_switching():
+    import engine_adapter as ea
+    with pytest.raises(ValueError) as ex:
+        ea.GENERIC.resolve_path("res://art/a.png", Path("C:/p"))
+    assert "engine 设成 godot" in str(ex.value)
+
+
+# -------------------- adapter vs engine：两个词不是一回事 --------------------
+
+def test_adapter_field_preferred_over_legacy_engine(tmp_project, mock_subprocess_run, capsys):
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_project / "asset-config.yaml"
+    config = _minimal_config()
+    config["adapter"] = "generic"
+    _write_yaml(cfg, config)
+    ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+    assert "engine=generic" in capsys.readouterr().err
+
+
+def test_adapter_and_engine_conflict_is_an_error(tmp_project, mock_subprocess_run):
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_project / "asset-config.yaml"
+    config = _minimal_config()
+    config["adapter"], config["engine"] = "generic", "godot"
+    _write_yaml(cfg, config)
+    with pytest.raises(ValueError, match="engine 是 adapter 的旧名"):
+        ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
+
+
+def test_explicit_project_root_wins(tmp_project, tmp_path, mock_subprocess_run):
+    """config 挪位置不该改变相对路径的基准 —— 显式给根就固定下来。"""
+    calls, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    sub = tmp_project / "tools"
+    sub.mkdir()
+    cfg = sub / "asset-config.yaml"
+    config = _minimal_config()
+    config["style"]["reference_paths"] = ["_style/anchor.png"]
+    _write_yaml(cfg, config)
+    ga.main(["ingredients", "--config", str(cfg), "--project-root", str(tmp_project), "--dry-run"])
+    resolved = Path(_batch_of(calls)["defaults"]["reference_paths"][0])
+    assert resolved == (tmp_project / "art" / "_style" / "anchor.png").resolve()

@@ -49,10 +49,18 @@ def _generic_resolve(raw: str, root: Path) -> Path:
     """不认任何引擎前缀。绝对路径原样，相对路径接在 root 下。"""
     for prefix, engine in KNOWN_ENGINE_PREFIXES.items():
         if raw.startswith(prefix):
+            # 认出前缀属于哪个引擎 ≠ 本 skill 支持那个引擎的操作。
+            # 只有注册了适配才建议改 engine，否则会把人指进「未知的 engine」。
+            if engine in ADAPTERS:
+                fix = "把 config 的 engine 设成 {}，或改用普通相对路径。".format(engine)
+            else:
+                fix = (
+                    "本 skill 目前没有 {} 适配（已注册：{}）。"
+                    "改用普通相对路径输出，引擎侧的资产导入另行处理。"
+                ).format(engine, " / ".join(sorted(ADAPTERS)))
             raise ValueError(
-                "engine=generic 不认识路径前缀 {!r}（那是 {} 的写法）：{}。"
-                "要么把 config 的 engine 设成 {}，要么改用普通相对路径。"
-                .format(prefix, engine, raw, engine)
+                "engine=generic 不认识路径前缀 {!r}（那是 {} 的写法）：{}。{}"
+                .format(prefix, engine, raw, fix)
             )
     p = Path(raw)
     return p if p.is_absolute() else (Path(root) / p).resolve()
@@ -76,18 +84,34 @@ ADAPTERS = {"godot": GODOT, "generic": GENERIC}
 
 
 def select(config: dict, config_dir: Path) -> EngineAdapter:
-    """按 config 的 `engine` 字段选适配；未声明则探测。
+    """选适配器。`adapter` 优先，`engine` 是兼容期的旧名。
 
-    探测规则保持向后兼容：能找到 project.godot 就当 Godot（历史行为），
-    否则退到 generic —— 之前这种情况会打一条 warn 然后继续按 Godot 规则跑，
-    对 UE / Unity 项目来说那条 res:// 规则本来就不适用。
+    这两个词指的不是一回事，混用过一次值得写下来：
+      - **引擎身份**（项目用的是 UE 还是 Godot）属于项目环境声明，人工填，见
+        `game-toolkit:layer-contracts` 的「项目环境声明」。
+      - **适配器**（本生成器能提供哪套路径与导入规则）是这里选的东西。
+        `generic` 是一个适配器，不是一种引擎 —— UE 项目用 generic 完全正常。
+
+    旧配置里的 `engine:` 按 `adapter:` 处理；两者同时存在且不同则报错，
+    不替用户猜哪个是他真正想要的。
     """
-    declared = (config.get("engine") or "").strip().lower()
+    adapter_name = (config.get("adapter") or "").strip().lower()
+    legacy_name = (config.get("engine") or "").strip().lower()
+
+    if adapter_name and legacy_name and adapter_name != legacy_name:
+        raise ValueError(
+            "config 同时有 adapter={!r} 和 engine={!r} 且不一致。"
+            "engine 是 adapter 的旧名，请只保留 adapter。".format(adapter_name, legacy_name)
+        )
+    declared = adapter_name or legacy_name
     if declared:
         if declared not in ADAPTERS:
             raise ValueError(
-                "未知的 engine: %r（可选：%s）" % (declared, " / ".join(sorted(ADAPTERS)))
+                "未知的 adapter: {!r}（可选：{}）。"
+                "注意这里选的是本生成器的适配能力，不是项目用的引擎 —— "
+                "没有对应适配时用 generic。".format(declared, " / ".join(sorted(ADAPTERS)))
             )
         return ADAPTERS[declared]
+
     found = find_project_root(config_dir)
     return GODOT if (found is not None and is_godot_project(found)) else GENERIC

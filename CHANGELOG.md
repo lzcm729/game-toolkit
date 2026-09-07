@@ -3,6 +3,57 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.2.0 (2026-09-07)
+
+引擎与版本改为**人工声明**，作为项目级配置。起因是 `generate-assets` 加了 `engine`
+字段后发现：四个 skill 各写了一套引擎探测，问的问题还不一样。
+
+### 一个被推翻的论据
+
+我原本的论据是「`sync-docs-ahead` 认出 UE、`generate-assets` 退到 generic，
+同一个插件对同一个项目给出两种答案」。codex 复核指出**这两个结果可以同时正确** ——
+前者回答「实现代码可能在哪」，后者回答「这个生成器能提供什么路径与导入支持」。
+`generic` 不是引擎身份，是**适配器**身份；是字段起名叫 `engine` 才让两个维度看起来冲突。
+它还指出 `package.json` / `Cargo.toml` / `go.mod` 识别的是语言与工具链，
+不该和游戏引擎放进同一个互斥枚举。
+
+所以「探测四次」本身不是问题。真正要修的是**错误推断**：
+
+### fix
+
+- **`parallel-implement`：`.sln` 不能推出 `dotnet build`** —— UE 项目也会生成 `.sln`。
+  构建命令改为只从项目声明的「验证入口」读，读不到就问，**不从工程文件反推命令**。
+  验证入口是项目的选择不是引擎的属性 —— 同是 Godot 项目，脚本解析、导出检查、
+  玩法测试是三种不同的验证。
+- **`sync-docs-ahead`：`.uasset` 能 Glob 到不等于读得懂** —— Blueprint 逻辑、预制体
+  连线属于「有源码但当前查不了」，此前会被算进扫描范围然后报成 missing，引发重复实现。
+  现在必须按声明的「可检查程度」分三档：正常评级 / `无法检查` / 语言不在扫描范围。
+- **`generate-assets`：工程根不再靠 config 位置猜** —— 把 config 挪个子目录，
+  相对路径基准就变了。新增 `--project-root` 与 config 的 `project_root`，
+  优先级：显式 > 声明 > 适配器探测 > 位置推断。
+- **报错把人指进死循环** —— generic 撞见 `/Game/` 时提示「把 engine 设成 unreal」，
+  但注册表里没有 unreal，照做会得到「未知的 engine」。认出前缀属于哪个引擎
+  ≠ 支持那个引擎的操作。现在按有无适配分支给不同建议。补 2 个回归测试。
+
+### feat
+
+- **`layer-contracts` 新增「项目环境声明」节** —— 约定项目 CLAUDE.md 里的固定段落
+  `## Game Toolkit 项目环境`。**引擎与引擎版本必须人工填**：探测认得出
+  `project.godot`，认不出「这个仓库里哪个才是本次要动的工程」「哪个大版本」
+  「Blueprint 能不能按文本扫」。
+  规定了**三种「没有」必须分开写**：未知（还没查）/ 不适用（结构上就没有）/
+  查不了（有但验证不了）—— 最后一种被当成「未实现」正是上面 `.uasset` 那个 bug 的根源。
+  另附边界：它是兜底事实不是能力白名单、只读本次任务要用的字段、
+  **子 agent 不会自动继承主流程读过的声明**、声明变化导致扫描范围变化要触发全量对账。
+- **`adapter` 与 `engine` 语义分离** —— config 里选的是**适配器能力**，
+  项目声明里的才是**引擎身份**。UE 项目声明「引擎：unreal」而 config 写
+  `adapter: generic` 并不矛盾。旧 `engine:` 按 `adapter:` 处理（兼容期），
+  两者同时存在且不同则报错，不替用户猜。
+- `parallel-implement` 的委派模板新增「项目环境」段，主流程把已解析的事实传给子 agent。
+- README 新增「项目侧要做一件事」，给出声明样板。
+
+129 → 132 passed。
+
 ## 3.1.0 (2026-09-07)
 
 三条产品决策的落地。

@@ -45,14 +45,21 @@ style:
 如果 category 设了 `skip_global_style: true`，只用 category 模板，不拼全局
 prefix/suffix（背景图等独立 prompt 场景适用）。
 
-## `engine`
+## `adapter` 与 `project_root`
 
 ```yaml
-engine: godot     # 可选。godot / generic；不写就探测（有 project.godot → godot）
+adapter: godot        # 可选。godot / generic；不写就探测（有 project.godot → godot）
+project_root: ".."    # 可选。相对本文件；也可用 CLI 的 --project-root 覆盖
 ```
 
-`generic` 下路径不认 `res://` 这类引擎前缀（写了会报错），生成后也不做导入检查。
-UE / Unity 项目用 `generic`。
+`adapter` 选的是**本生成器的能力**，不是项目用的引擎 —— UE 项目声明「引擎：unreal」
+而这里写 `adapter: generic`，两者不矛盾。`generic` 不认 `res://` / `/Game/` 这类前缀
+（写了会报错），生成后也不做导入检查。
+
+旧字段 `engine:` 仍可用（按 `adapter:` 处理），但两者同时出现且不一致会报错。
+
+`project_root` 不给时按「适配器探测 → yaml 位置推断」兜底 —— 后者会随 config 移动
+而改变相对路径基准，非 Godot 项目建议显式指定。
 
 ## `output_root`
 
