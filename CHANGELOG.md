@@ -3,6 +3,38 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.3.0 (2026-09-07)
+
+项目环境声明做成脚本：`layer-contracts/scripts/project_env.py`。
+
+### feat
+
+- **`check`** —— 只读，输出 JSON：缺哪些必填项 + 探测到的候选值。识别 `.uproject`
+  （含 EngineAssociation）、`project.godot`（config/features）、Unity 的
+  ProjectVersion.txt；统计源码构成；对二进制资产给出「查不了」提示。
+- **`write`** —— 把确认后的值写回项目 CLAUDE.md。同名段落**替换**不追加，可反复跑；
+  合并已有字段，不冲掉上一轮的值；不碰同文件其他段落。
+
+**脚本不与人交互，这是设计不是限制。** 它在 agent 的 Bash 工具里跑，stdin 接空设备，
+`input()` 只会拿到 EOF。分工固定三步：`check` 报告缺口与候选 → **agent 用
+AskUserQuestion 交给人确认** → `write` 写回。预填候选让人确认比从零填好；引擎与版本
+仍由人拍板 —— 探测认得出 `.uproject`，认不出「一个仓库里哪个工程才是本次要动的」
+「EngineAssociation 是版本号还是源码版引擎的 GUID」「Blueprint 能不能按文本扫」。
+
+### 在真实项目上验证过
+
+CatFishing 的 UE 5.8 工程（`D:/LocalGameProject/Unreal/Catfishing`）：探测出
+`unreal` / `5.8`、453 个 .cpp + 606 个 .h + **1707 个 .uasset + 12 个 .umap**，
+并正确指出 `Catfishing.sln` / `Automation_Catfishing.sln` 是 UE 自动生成的、
+不能据此推 `dotnet build` —— 这正是 3.2.0 修掉的那个误判的活样本。
+
+走完 check → 确认 → write 给该工程建了声明。「可检查程度」记为「C++ 可按文本扫；
+Blueprint / .uasset / .umap 查不了」—— 1707 个二进制资产，按文本扫描结果判定
+功能缺失会是大规模误报。
+
+15 个测试：状态判定、段落解析不越界、占位符不算已填、UE/Godot/Unity 探测、
+GUID 不当版本号、多工程提示、`.sln` 反例，以及写入的幂等性与不破坏其他段落。
+
 ## 3.2.0 (2026-09-07)
 
 引擎与版本改为**人工声明**，作为项目级配置。起因是 `generate-assets` 加了 `engine`

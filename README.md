@@ -74,6 +74,16 @@
 - 验证入口：尚未登记，使用前读项目构建说明
 ```
 
+**有脚本，不用手抄**：
+
+```bash
+python <layer-contracts>/scripts/project_env.py check <项目根>
+```
+
+它报告缺哪些必填项，并从 `.uproject` / `project.godot` / `ProjectVersion.txt`
+探测候选值。**候选不是结论** —— Claude 会把它们弹给你确认（引擎和版本必须人拍板），
+确认后用 `write` 写回；同名段落是替换不是追加，可反复跑。
+
 字段含义、可选项、以及「未知 / 不适用 / 查不了」三者为什么必须分开写，
 见 `layer-contracts` skill。不声明也能用，只是每次都要回答同样的问题。
 
