@@ -1,6 +1,6 @@
 # game-toolkit
 
-Claude Code 插件源码仓库。当前版本 v3.4.0，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、可插拔引擎适配的资源管线。
+Claude Code 插件源码仓库。当前版本 v3.4.1，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、可插拔引擎适配的资源管线。
 
 > 本文是**维护者文档**（怎么改这个插件）。只想用它的话看 [README.md](README.md)。
 
@@ -23,15 +23,25 @@ Claude Code 插件源码仓库。当前版本 v3.4.0，游戏设计与实现契�
 1. 在此目录修改 agents/ skills/（3.0.0 起没有 commands/）
 2. 更新 version（遵循 semver）——plugin.json 一处 + marketplace.json 两处，三处要一起改
 3. 补 CHANGELOG.md 条目
-4. git commit + push（commit message 参考 git log 风格：feat/fix/chore 前缀）
+4. git commit（commit message 参考 git log 风格：feat/fix/chore 前缀）
+   —— 内容生成和 git 操作**分成两条命令跑**，别用 && 串起来。3.3.0 那次
+   生成脚本报错退出了，同一条命令里的 commit && push 照跑，推出去一个
+   版本号还停在上一版的 commit。
+5. 校验这条 commit 能不能发（打 tag 之前，不是之后）：
+     python scripts/verify_release.py --version X.Y.Z
+   查的是 commit 里的内容，不是工作区 —— 未提交的正确内容不能替错误的 commit 背书。
+   退出码非 0 就别往下走。
+6. tag + push：
      git tag -a vX.Y.Z -m "..." && git push origin main --follow-tags
-5. 把 marketplace 镜像对齐到 origin/main：
+   tag 推出去之后就不再移动。发错了发修正版本（3.4.1 这种），
+   因为别人本地的 tag、插件缓存和已安装版本不会跟着 force-push 变。
+7. 把 marketplace 镜像对齐到 origin/main：
      M=~/.claude/plugins/marketplaces/game-toolkit
      git -C "$M" fetch origin main && git -C "$M" reset --hard origin/main
    直接 git pull 会报 refusing to merge unrelated histories——这个镜像是
    shallow clone，拉不到共同祖先。首次可先 git -C "$M" fetch --unshallow。
    镜像没有本地改动，reset --hard 安全。
-6. 重启 Claude Code 或运行 /plugin update game-toolkit 让新版本生效
+8. 重启 Claude Code 或运行 /plugin update game-toolkit 让新版本生效
    ——运行时缓存按 version 号建目录，不改 version 就不会重装
 ```
 
@@ -45,6 +55,7 @@ Claude Code 插件源码仓库。当前版本 v3.4.0，游戏设计与实现契�
 agents/                         # 4 个 sub-agent（.md，frontmatter + 系统提示词）
 skills/                         # 13 个 skill（每个一个子目录，含 SKILL.md 和资源）
 CHANGELOG.md                    # 版本记录，每次 bump 同步补条目
+scripts/verify_release.py       # 发布自检（校验 commit 而非工作区）
 
 （3.0.0 起没有 commands/ —— 11 个 slash command 连同 11 个 agent 一起移除，
  原因见下方「3.0.0 砍掉了什么」）

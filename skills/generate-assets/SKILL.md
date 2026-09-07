@@ -36,6 +36,18 @@ description: |
 | 项目根存在 `asset-config.yaml` | **本 skill** |
 | 三状态 schema（item/character/background，旧版特化） | 已由具体项目 fork 为项目内 skill 维护，本通用 framework 不再支持 |
 
+## 调用前：把工程根接上
+
+本脚本是独立 CLI，**不读 `game-toolkit.yaml`** —— 那是 agent 侧的事实源。
+所以 agent 调它之前要先桥接：
+
+1. 读项目声明拿到 `project_root`（`layer-contracts/scripts/project_env.py check`）
+2. 解析成绝对路径，用 `--project-root` 传给本脚本
+
+不做这一步、又把 `asset-config.yaml` 放在子目录（如 `tools/`）时，脚本只能按
+config 位置推断工程根 —— 推出来的会是 `tools/`，相对路径全部错基准。
+让用户在两处重复声明不是解法，桥接一步就够。
+
 ## 快速使用
 
 ```bash

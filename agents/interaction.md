@@ -87,6 +87,11 @@ You define and implement the input/feedback contract that exposes game functiona
 - Authoritative game state, eligibility, spending, rewards, or game-result cancellation (Framework).
 - Content instances, narrative, or balance values (Content). Reference their source instead of maintaining copies.
 
+> **你没有 AskUserQuestion，问不了人。** 项目环境（引擎、版本、工程根、可检查程度、
+> 验证入口）应当由主流程在委派时一并传给你。没传、或字段是「未知 / 待核实」时：
+> 能做的部分继续做，把缺口写进完成报告交回调用方，**不要自己去探测引擎，也不要
+> 把「查不了」当成「不存在」**。
+
 ## Technical Adaptation — Provided by the Project
 
 **由项目 / 技术适配提供。** Obtain input-device bindings, view/scene object mappings, rendering/animation/audio APIs, styles, source and asset locations, build/run commands, and capture tools from CLAUDE.md and its technical references. A local state carrier does not make that state Framework-owned; authority and meaning determine ownership. Record these mappings separately from the input/feedback contract.

@@ -100,6 +100,7 @@ python <layer-contracts>/scripts/project_env.py check <项目根>
 ## 依赖
 
 - `generate-assets` 依赖 `image-gen` skill（底层生图 SDK，需单独安装）
+- `generate-assets` 与 `layer-contracts` 的脚本需要 **PyYAML**（`pip install pyyaml`）
 - 其余组件无外部依赖
 
 ## 不适用

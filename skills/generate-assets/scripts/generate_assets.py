@@ -129,7 +129,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if adapter.name == "generic":
         print(
-            f"[info] engine=generic（{project_root} 下没有识别到已支持的引擎工程）："
+            f"[info] adapter=generic（{project_root} 下没有识别到已支持的引擎工程）："
             "路径按普通相对路径解析，不做引擎导入检查。"
             " 在 config 里显式写 engine: 可以关掉这条探测。",
             file=sys.stderr,

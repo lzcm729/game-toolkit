@@ -3,6 +3,81 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.4.1 (2026-09-07)
+
+一轮 codex 独立评审的修复。全部是「上一版引入的、自己没查出来的问题」，
+其中第一条是数据丢失。
+
+### fix: `project_env.py` 会吃掉读不回来的配置文件
+
+3.4.0 的 `load_config` 在 YAML 解析失败时兜底返回 `{}`。`write` 拿这个空 dict
+当「已有内容」去合并，结果是：**本次改的字段活下来，其他字段全变回「待核实」，
+用户自己加的字段直接消失。**触发条件很日常 —— 手改配置时漏个引号、括号没闭合。
+
+比这更糟的是，3.4.0 的测试把这个行为锁成了「正确」：有一条用例断言损坏文件
+被重写后只剩新字段，还写着「符合预期」。写测试的人（我）当时认为覆盖率够了。
+
+修法不是「让它合并得更聪明」，而是**让它不动手**：
+
+- `load_config` 返回 `(data, error)` 三态 —— 文件不存在 / 文件损坏 / 读到了。
+  「读不出来」和「里面是空的」不再是同一个返回值。
+- 文件损坏时 `write` 直接退出，一个字节都不改，除非显式 `--force`。
+- 渲染完的内容先自己解析一遍，parse 不回来就不落盘。
+- 落盘走 tempfile + 原子替换，写一半断电不会留下半个配置。
+
+回归用例 `test_write_refuses_to_clobber_a_broken_file` 逐字节比对原文件。
+
+### fix: 三件套 agent 被要求用它没有的工具
+
+`layer-contracts` 写着「不确定就用 AskUserQuestion 问」，`framework.md` 的
+Edge Case 也这么写。但 `content` / `framework` / `interaction` 三个 agent 的
+`tools` 白名单里**没有** AskUserQuestion —— 照着做会撞上工具不存在。
+
+改为：主流程（主 agent）用 AskUserQuestion；实现 agent 遇到要拍板的事**回报给主流程**，
+不自己问。三个 agent 各加一段醒目提示说明这件事。
+
+### fix: `sync-docs-ahead` 把「查不了」报成「未实现」
+
+报告协议只有 OK/缺失 两态，Blueprint 图逻辑这类文本搜索证明不了的东西只能落进「缺失」。
+新增 `Unverifiable` 状态，并把单一覆盖率拆成两个数：`Inspectable`（多大比例能查）
+与 `Coverage of inspected`（查得了的里面实现了多少）。混成一个百分比会同时
+低估实现度、高估检查力。
+
+### 其他
+
+- `generate-assets` 的 CLI **不读** `game-toolkit.yaml`。SKILL.md 新增「调用前：
+  把工程根接上」：先 `project_env.py check` 取 `project_root`、解析成绝对路径，
+  再传 `--project-root`。否则配置放在 `tools/` 下时脚本会把 `tools/` 当工程根。
+- `engine_adapter.py` 撞见 `res://` 时原本提示「把 config 的 engine 改成 godot」，
+  而 config 里已有 `adapter` 时这么改会触发「两者不一致」报错 —— 照提示做更错了。
+  改为提示改 `adapter`，并说明旧 `engine` 字段要一并删掉。
+- `README.md` 补上 PyYAML 依赖（`layer-contracts` 与 `generate-assets` 的脚本都要）。
+- `layer-contracts` 新增「从 3.3.0 的 Markdown 声明迁过来」三步；两边都在且不一致时
+  以 `game-toolkit.yaml` 为准并报告冲突。
+- `detect` 把 `Intermediate/` `Saved/` `Binaries/` `DerivedDataCache/` `Build/` `.git/`
+  的计数与源码分开；多个引擎标记同时命中时不给单一候选。日期值（YAML 会把
+  `2026-09-07` 读成 `date` 对象）不再让 JSON 输出崩掉；数字型 `engine_version`
+  会被点名（`5.10` 不加引号读成 `5.1`）。
+
+### 新增：`scripts/verify_release.py`
+
+发布前自检，**校验 commit 而不是工作区**：
+
+```bash
+python scripts/verify_release.py --version 3.4.1
+```
+
+比对指定 commit 里的三处 manifest 版本、CHANGELOG 最新段、拟建 tag 的状态。
+3.3.0 那次事故正是「工作区是对的、commit 是错的」——
+生成 CHANGELOG 的脚本报错退出了，同一条命令里的 `git commit && git push` 照跑，
+推出去一个版本号还停在上一版的 commit，tag 却打成了新版本。
+只看工作区的检查对这种情况一点用没有。
+
+已存在且指向别处的 tag 一律报错，**默认不移动已推送的 tag** —— 别人本地的 tag、
+插件缓存和已安装版本不会跟着变，要修就发修正版本。
+
+测试：`layer-contracts` 32（+14）、`generate-assets` 132、validations 66 用例 0 不符。
+
 ## 3.4.0 (2026-09-07)
 
 项目环境声明从「CLAUDE.md 里的一段 Markdown」改成项目根的 **`game-toolkit.yaml`**。

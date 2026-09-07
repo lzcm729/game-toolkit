@@ -59,16 +59,62 @@ def test_placeholder_counts_as_missing(tmp_path, capsys):
     assert out["missing_required"] == ["engine_version"]
 
 
-def test_malformed_yaml_does_not_crash(tmp_path, capsys):
+def test_malformed_yaml_is_invalid_not_missing(tmp_path, capsys):
+    """曾经把「读不出来」当成「没声明」，于是 write 把损坏文件当空配置覆盖掉。"""
     (tmp_path / pe.CONFIG_NAME).write_text("engine: [unclosed\n", encoding="utf-8")
     out = _check(tmp_path, capsys)
-    assert out["status"] == "missing"          # 读不出来就当没声明，不抛异常
+    assert out["status"] == "invalid"
+    assert "YAML 解析失败" in out["error"]
 
 
-def test_yaml_that_is_not_a_mapping_is_ignored(tmp_path, capsys):
+def test_yaml_that_is_not_a_mapping_is_invalid(tmp_path, capsys):
     (tmp_path / pe.CONFIG_NAME).write_text("- 就是个列表\n", encoding="utf-8")
     out = _check(tmp_path, capsys)
-    assert out["declared"] == {}
+    assert out["status"] == "invalid"
+    assert "顶层不是键值映射" in out["error"]
+
+
+def test_write_refuses_to_clobber_a_broken_file(tmp_path):
+    """核心回归：只改一个字段，不能把读不回来的原文件整个重写掉。"""
+    p = tmp_path / pe.CONFIG_NAME
+    original = ("engine: unreal\nengine_version: '5.8'\nproject_root: .\n"
+                "我的自定义字段: 很重要别删\nbroken: [unclosed\n")
+    p.write_text(original, encoding="utf-8")
+    assert pe.main(["write", str(tmp_path), "--engine-version", "5.9"]) == 1
+    assert p.read_text(encoding="utf-8") == original      # 一个字都没动
+
+
+def test_force_overrides_the_refusal(tmp_path):
+    p = tmp_path / pe.CONFIG_NAME
+    p.write_text("broken: [unclosed\n", encoding="utf-8")
+    assert pe.main(["write", str(tmp_path), "--force", "--engine", "godot"]) == 0
+    assert _load(tmp_path)["engine"] == "godot"
+
+
+def test_type_errors_are_reported(tmp_path, capsys):
+    """engine: [] 和 engine_version: false 曾经照样返回 ok。"""
+    _write_yaml(tmp_path, {"engine": [], "engine_version": False, "project_root": ["absent"]})
+    out = _check(tmp_path, capsys)
+    assert out["status"] == "invalid"
+    assert len(out["issues"]) == 3
+
+
+def test_numeric_version_is_flagged(tmp_path, capsys):
+    """5.10 不加引号会被 YAML 读成 5.1 —— 静默固化成错误版本。"""
+    (tmp_path / pe.CONFIG_NAME).write_text(
+        "engine: unreal\nengine_version: 5.10\nproject_root: .\n", encoding="utf-8")
+    out = _check(tmp_path, capsys)
+    assert out["status"] == "invalid"
+    assert any("加引号" in i for i in out["issues"])
+
+
+def test_date_value_does_not_break_json_output(tmp_path, capsys):
+    """PyYAML 把 2026-09-07 读成 date 对象，json.dumps 会抛 TypeError。"""
+    (tmp_path / pe.CONFIG_NAME).write_text(
+        "engine: unreal\nengine_version: '5.8'\nproject_root: .\nreviewed_at: 2026-09-07\n",
+        encoding="utf-8")
+    out = _check(tmp_path, capsys)
+    assert out["declared"]["reviewed_at"] == "2026-09-07"
 
 
 # -------------------- 探测 --------------------
@@ -127,6 +173,49 @@ def test_binary_assets_produce_inspectability_hint(tmp_path, capsys):
     assert "查不了" in out["detected"]["inspectability_hint"]
 
 
+def test_text_serialized_assets_are_not_lumped_with_binary(tmp_path, capsys):
+    """.tscn 是文本，能读节点和属性 —— 跟 .uasset 归成一句「都读不懂」会白挡掉可做的检查。"""
+    (tmp_path / "project.godot").write_text("config/features=PackedStringArray(\"4.3\")\n",
+                                            encoding="utf-8")
+    (tmp_path / "Main.tscn").write_text("[gd_scene]\n", encoding="utf-8")
+    hint = _check(tmp_path, capsys)["detected"]["inspectability_hint"]
+    assert "可读节点" in hint
+    assert "二进制资产" not in hint
+
+
+def test_generated_dirs_counted_separately(tmp_path, capsys):
+    """Intermediate / Saved 里的文件不能算进正式源码范围。"""
+    (tmp_path / "Game.uproject").write_text(json.dumps({"EngineAssociation": "5.8"}), encoding="utf-8")
+    for d, n in (("Source", 2), ("Intermediate", 5)):
+        (tmp_path / d).mkdir()
+        for i in range(n):
+            (tmp_path / d / ("f%d.cpp" % i)).write_text("", encoding="utf-8")
+    det = _check(tmp_path, capsys)["detected"]
+    assert det["source_counts"][".cpp"] == 2
+    assert det["generated_or_ignored"][".cpp"] == 5
+
+
+def test_multiple_engine_markers_give_no_single_candidate(tmp_path, capsys):
+    """两个工程版本不同时，不能只报排序第一个的版本。"""
+    (tmp_path / "A.uproject").write_text(json.dumps({"EngineAssociation": "5.6"}), encoding="utf-8")
+    (tmp_path / "B.uproject").write_text(json.dumps({"EngineAssociation": "5.8"}), encoding="utf-8")
+    det = _check(tmp_path, capsys)["detected"]
+    assert "engine_version" not in det
+    assert len(det["candidates"]) == 2
+    assert {c.get("engine_version") for c in det["candidates"]} == {"5.6", "5.8"}
+
+
+def test_detection_follows_declared_project_root(tmp_path, capsys):
+    """声明了 project_root 就该去那儿探测，而不是配置文件所在目录。"""
+    game = tmp_path / "Game"
+    game.mkdir()
+    (game / "Inner.uproject").write_text(json.dumps({"EngineAssociation": "5.8"}), encoding="utf-8")
+    _write_yaml(tmp_path, {"engine": "unreal", "engine_version": "5.8", "project_root": "Game"})
+    det = _check(tmp_path, capsys)["detected"]
+    assert det["scanned"].endswith("Game")
+    assert det["engine"] == "unreal"
+
+
 # -------------------- 写入 --------------------
 
 def test_write_creates_valid_yaml(tmp_path, capsys):
@@ -165,10 +254,32 @@ def test_unknown_fields_survive_rewrite(tmp_path):
     assert data["verify_entry"] == "gdunit4"
 
 
-def test_multiline_value_round_trips(tmp_path):
-    long = "C++ 可按文本扫；\nBlueprint / .uasset 查不了 —— 不得据文本结果判定缺失"
-    pe.main(["write", str(tmp_path), "--engine", "unreal", "--inspectability", long])
-    assert _load(tmp_path)["inspectability"] == long
+@pytest.mark.parametrize("value", [
+    "C++ 可按文本扫；\nBlueprint / .uasset 查不了 —— 不得据文本结果判定缺失",
+    "  首行带缩进\n第二行",          # 手拼块标量时这个会生成解析不回来的 YAML
+    "末尾有换行\n",                  # rstrip("\n") 会把它吃掉
+    "含冒号: 和 # 井号",
+])
+def test_tricky_values_round_trip(tmp_path, value):
+    pe.main(["write", str(tmp_path), "--engine", "unreal", "--inspectability", value])
+    assert _load(tmp_path)["inspectability"] == value
+
+
+def test_null_valued_unknown_field_survives(tmp_path):
+    """过滤 None 会让 custom: null 在下一次写入时消失。"""
+    (tmp_path / pe.CONFIG_NAME).write_text(
+        "engine: unreal\nengine_version: '5.8'\nproject_root: .\ncustom: null\n",
+        encoding="utf-8")
+    pe.main(["write", str(tmp_path), "--verify-entry", "x"])
+    assert "custom" in _load(tmp_path)
+
+
+def test_written_file_always_parses_back(tmp_path):
+    """写入前自校验：绝不落一个自己都读不回来的文件。"""
+    pe.main(["write", str(tmp_path), "--engine", "unreal",
+             "--source-scope", "带 'single' 和 \"double\" 引号\n以及换行"])
+    data = _load(tmp_path)
+    assert data["source_scope"].startswith("带 'single'")
 
 
 def test_write_requires_at_least_one_field(tmp_path):

@@ -71,7 +71,12 @@ Report format (strict):
 |---|-------------------|--------|---------------|-------|
 | 1 | [requirement summary] | [status] | [file:line or "—"] | [note] |
 
-Status values: ✅ Implemented, ⚠️ Partial, ❌ Missing, 🔄 Divergent
+Status values: ✅ Implemented, ⚠️ Partial, ❌ Missing, 🔄 Divergent, ❓ Unverifiable
+
+`❓ Unverifiable` = the feature's source exists but **cannot be inspected by the means
+available** (Blueprint graphs, prefab wiring, binary assets — see 可检查程度 in the
+project declaration). It is **not** a synonym for Missing: reporting it as Missing
+triggers a duplicate implementation. Never fold it into the other four.
 
 ### Summary
 - Total features: N
@@ -79,7 +84,13 @@ Status values: ✅ Implemented, ⚠️ Partial, ❌ Missing, 🔄 Divergent
 - ⚠️ Partial: N
 - ❌ Missing: N
 - 🔄 Divergent: N
-- Coverage: X%  (formula: (Implemented + 0.5 * Partial) / Total * 100)
+- ❓ Unverifiable: N
+- Inspectable: (Total - Unverifiable) / Total * 100%   ← 这次**能**下结论的比例
+- Coverage of inspected: (Implemented + 0.5 * Partial) / (Total - Unverifiable) * 100%
+
+两个百分比都要给，不要只报一个。Unverifiable 既不算实现、也不算缺失 ——
+把它塞进分母会让 Blueprint 重的系统凭空显得完成度很低；把它排除后又宣称
+「全项目已完成」同样是错的。
 ```
 
 ### Phase 3: Collect Results

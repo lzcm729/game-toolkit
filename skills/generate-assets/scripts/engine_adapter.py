@@ -52,14 +52,17 @@ def _generic_resolve(raw: str, root: Path) -> Path:
             # 认出前缀属于哪个引擎 ≠ 本 skill 支持那个引擎的操作。
             # 只有注册了适配才建议改 engine，否则会把人指进「未知的 engine」。
             if engine in ADAPTERS:
-                fix = "把 config 的 engine 设成 {}，或改用普通相对路径。".format(engine)
+                # 必须说 adapter 而不是 engine：config 里已有 adapter 时再加个
+                # engine 会触发「两者不一致」的冲突报错 —— 照着提示做反而更错。
+                fix = ("把 config 的 adapter 改成 {}（若还留着旧的 engine 字段，"
+                       "一并删掉，否则两者会冲突），或改用普通相对路径。").format(engine)
             else:
                 fix = (
                     "本 skill 目前没有 {} 适配（已注册：{}）。"
                     "改用普通相对路径输出，引擎侧的资产导入另行处理。"
                 ).format(engine, " / ".join(sorted(ADAPTERS)))
             raise ValueError(
-                "engine=generic 不认识路径前缀 {!r}（那是 {} 的写法）：{}。{}"
+                "adapter=generic 不认识路径前缀 {!r}（那是 {} 的写法）：{}。{}"
                 .format(prefix, engine, raw, fix)
             )
     p = Path(raw)

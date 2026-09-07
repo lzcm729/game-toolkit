@@ -143,6 +143,17 @@ verify_entry: 尚未登记，使用前读项目构建说明
 最后一条是硬要求：把「查不了」报成「未实现」会引发重复实现。Blueprint 逻辑、
 预制体连线、可视化脚本都属于这一类——文件能 Glob 到，内容读不懂。
 
+### 从 3.3.0 的 Markdown 声明迁过来
+
+3.3.0 曾把声明放在 CLAUDE.md 的 `## Game Toolkit 项目环境` 段落里。脚本**只认
+`game-toolkit.yaml`**，所以那种项目会被报成「没有声明」。迁移手动做，三步：
+
+1. 读 CLAUDE.md 里那段的字段值（`- 引擎：unreal` 这样的列表项）
+2. 用 `write` 把它们写进 `game-toolkit.yaml`，逐条核对转换结果
+3. 把 CLAUDE.md 里那段换成一行指针，**不要两边都留** —— 双份真值必然漂移
+
+两边都存在且不一致时，以 `game-toolkit.yaml` 为准并报告冲突，不要默默选一边。
+
 ### 怎么拿到这份声明
 
 有脚本，别手抄：
@@ -157,7 +168,10 @@ python <本 skill>/scripts/project_env.py write <项目根> --engine unreal --en
 
 1. `check` —— 报告缺哪些必填项，并给出**探测到的候选值**（`.uproject` 的
    EngineAssociation、`project.godot` 的 config/features、源码构成、二进制资产数量…）
-2. **agent 用 AskUserQuestion 把候选值交给人确认** —— 这一步不能省。探测认得出
+2. **主流程用 AskUserQuestion 把候选值交给人确认** —— 这一步不能省，而且只能由主流程做：
+   三件套等实现 agent 的 tools 里**没有** AskUserQuestion，它们问不了。**顺序是
+   「主流程 check → 问人 → write → 再委派」**，委派时把已确认的事实一并传下去；
+   子 agent 发现缺口时把结构化缺口交回主流程，不自行发起确认。探测认得出
    `.uproject`，认不出「一个仓库里哪个工程才是本次要动的」「EngineAssociation 是版本号
    还是源码版引擎的 GUID」「Blueprint 能不能按文本扫」。预填候选让人确认，不是让人从零填。
 3. `write` —— 把确认后的值写回 `game-toolkit.yaml`。整文件重渲染（注释每次都在），

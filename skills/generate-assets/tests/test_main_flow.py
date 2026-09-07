@@ -412,7 +412,7 @@ def test_non_godot_falls_back_to_generic_engine(tmp_path, capsys, mock_subproces
     monkeypatch.chdir(tmp_path)
     ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
     err = capsys.readouterr().err
-    assert "engine=generic" in err
+    assert "adapter=generic" in err
 
 
 def test_explicit_engine_generic_skips_detection(tmp_project, capsys, mock_subprocess_run):
@@ -424,7 +424,7 @@ def test_explicit_engine_generic_skips_detection(tmp_project, capsys, mock_subpr
     config["engine"] = "generic"
     _write_yaml(cfg, config)
     ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
-    assert "engine=generic" in capsys.readouterr().err
+    assert "adapter=generic" in capsys.readouterr().err
 
 
 def test_generic_engine_rejects_res_prefix(tmp_path, mock_subprocess_run, monkeypatch, capsys):
@@ -600,14 +600,14 @@ def test_unregistered_engine_prefix_does_not_suggest_unknown_engine():
         ea.GENERIC.resolve_path("/Game/Art/a.uasset", Path("C:/p"))
     msg = str(ex.value)
     assert "没有 unreal 适配" in msg
-    assert "engine 设成 unreal" not in msg
+    assert "adapter 改成 unreal" not in msg
 
 
 def test_registered_engine_prefix_does_suggest_switching():
     import engine_adapter as ea
     with pytest.raises(ValueError) as ex:
         ea.GENERIC.resolve_path("res://art/a.png", Path("C:/p"))
-    assert "engine 设成 godot" in str(ex.value)
+    assert "adapter 改成 godot" in str(ex.value)
 
 
 # -------------------- adapter vs engine：两个词不是一回事 --------------------
@@ -620,7 +620,7 @@ def test_adapter_field_preferred_over_legacy_engine(tmp_project, mock_subprocess
     config["adapter"] = "generic"
     _write_yaml(cfg, config)
     ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
-    assert "engine=generic" in capsys.readouterr().err
+    assert "adapter=generic" in capsys.readouterr().err
 
 
 def test_adapter_and_engine_conflict_is_an_error(tmp_project, mock_subprocess_run):
