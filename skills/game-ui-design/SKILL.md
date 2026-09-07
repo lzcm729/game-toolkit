@@ -8,9 +8,10 @@ description: |
   Covers readability under action, safe zones, input-method adaptation
   (controller → keyboard → touch), and game-specific accessibility.
 
-  NOT for: debugging console errors, non-UI game mechanics, or general web/app UI
-  (use frontend-design). Covers UI *principles*, not framework-specific
-  implementation — the engine/framework side is the project's own concern.
+  Covers UI *principles*, not framework-specific implementation.
+  NOT for: debugging console errors, non-UI game mechanics, general web/app UI
+  (use frontend-design), or writing the components themselves
+  (React → react-game-ui; Godot / Unity / UE → each engine's own UI system).
 ---
 
 # Game Ui Design

@@ -41,7 +41,7 @@ Claude Code 插件源码仓库。当前版本 v3.0.1，游戏设计与实现契�
 .claude-plugin/plugin.json      # 插件清单（name/version/description/author）
 .claude-plugin/marketplace.json # marketplace 清单（两处 version 要和 plugin.json 一起改）
 agents/                         # 4 个 sub-agent（.md，frontmatter + 系统提示词）
-skills/                         # 12 个 skill（每个一个子目录，含 SKILL.md 和资源）
+skills/                         # 13 个 skill（每个一个子目录，含 SKILL.md 和资源）
 CHANGELOG.md                    # 版本记录，每次 bump 同步补条目
 
 （3.0.0 起没有 commands/ —— 11 个 slash command 连同 11 个 agent 一起移除，
@@ -58,6 +58,7 @@ CHANGELOG.md                    # 版本记录，每次 bump 同步补条目
 - **共享定义**：`layer-contracts/`（三件套与 split-doc-layers 共用的分层定义与 A 层契约门槛，不直接面向用户）
 - **设计流程**：`design-discuss/`（讨论+收录）、`design-iterate/`（多视角评审迭代）、`doc-consistency-check/`（文档矛盾检查）、`split-doc-layers/`（Framework/Content/Interface 三层拆分）
 - **知识/理论**：`game-design-theory/`（四本设计书知识库）、`game-ui-design/`（引擎无关的游戏 UI 原则）、`book-to-reference/`
+- **可选技术适配**：`react-game-ui/`（Web 栈的游戏 UI 实现模式，只在项目确实用 React 时才用）
 - **代码/文档同步**：`sync-code-ahead/`（代码→文档）、`sync-docs-ahead/`（文档→代码 gap 分析）
 - **实现执行**：`parallel-implement/`（git worktree 并行实现）、`generate-assets/`（schema-driven 批量资源生成，引擎适配层当前提供 Godot / generic）
 
