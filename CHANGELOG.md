@@ -3,6 +3,38 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.1.0 (2026-09-07)
+
+三条产品决策的落地。
+
+### feat
+
+- **`generate-assets` 的引擎特化抽成适配层** —— 此前 description 里就写死「适用任何
+  Godot 引擎游戏项目」「非 Godot 项目不适用」，而主项目用的是 UE5，等于插件里唯一的
+  资源管线用不了。耦合其实很浅（只依赖 `godot_utils` 的 4 个函数），现在收进
+  `engine_adapter.py`：工程根探测 / 路径前缀解析 / 生成后检查。
+  config 加 `engine` 字段（`godot` / `generic`），未声明则探测，历史行为不变。
+  **`generic` 撞见 `res://` 或 `/Game/` 会报错**，不再硬拼成 `<root>/res:/art`。
+  UE / Unity 项目用 `generic` 即可跑通生成流程。加引擎 = 加一个 `EngineAdapter`
+  实例并注册，主流程不动。（没有 UE 项目可验证，故不凭空写 UE 适配。）
+  124 → 127 passed。
+
+- **`react-game-ui` 恢复** —— 3.0.0 误删，codex 复核判定。它是 React 游戏 UI 的
+  实现模式（资源条、动画计数器、卡牌、金币弹出、HUD 布局、读屏播报…），测试类工具
+  替代不了。不是原样恢复：唯一一处项目特化 `<MetaPotPanel />` 改为 `<SidePanel />`，
+  description 重写为「可选的技术适配」并划清三条边界（原则去 `game-ui-design`、
+  其他引擎用各自 UI 系统、非游戏界面去 `frontend-design`）。skills 12 → 13。
+
+### docs
+
+- **新增 README.md** —— 此前仓库根目录只有 `agents/`、`skills/`、`CHANGELOG.md`
+  和一份写满个人路径的 `CLAUDE.md`，别人打开这个仓库不知道它是什么、怎么装。
+  README 讲：解决什么问题、两条正交轴的核心概念、安装、组件清单、四个典型入口、
+  依赖、以及**不适用什么**（3.0.0 移除的那批去哪找）。
+- **CLAUDE.md 泛化** —— 三处硬编码个人路径改为 `~/.claude/...`（Claude Code 的固定
+  位置）与「你 clone 的位置」；顶部标明本文是维护者文档，用插件的人看 README。
+  组件正文扫过，没有单人语境残留（扫出的「我的」全是 Meadows 书籍引文）。
+
 ## 3.0.1 (2026-09-06)
 
 codex 对 3.0.0 做的独立复核（第三轮）。它确认删除本身清理干净、剩余 16 个组件

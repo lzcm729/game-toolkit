@@ -1,19 +1,21 @@
 # game-toolkit
 
-Claude Code 插件源码仓库。当前版本 v3.0.1，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、明确列出的技术适配（Godot 资源管线）。
+Claude Code 插件源码仓库。当前版本 v3.1.0，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、可插拔引擎适配的资源管线。
+
+> 本文是**维护者文档**（怎么改这个插件）。只想用它的话看 [README.md](README.md)。
 
 **GitHub**: https://github.com/lzcm729/game-toolkit
 **作者**: lzcm729
 
 ## 这个目录的定位
 
-这是插件的**开发主目录**（位于 OneDrive，跨机器同步源码）。真正被 Claude Code 加载运行的是另外两个副本：
+这是插件的**开发主目录**（clone 到哪都行；作者放在 OneDrive 里跨机器同步）。真正被 Claude Code 加载运行的是另外两个副本 —— 后两个是 Claude Code 的固定位置，人人一样：
 
 | 角色 | 路径 | 说明 |
 |---|---|---|
-| 开发主目录（此处） | `C:\Users\lzcm7\OneDrive\GameRelated\game-toolkit` | 改动在这里发生，push 到 GitHub |
-| Marketplace 源 | `C:\Users\lzcm7\.claude\plugins\marketplaces\game-toolkit` | Claude 从此拉取发布版本 |
-| 运行时缓存 | `C:\Users\lzcm7\.claude\plugins\cache\game-toolkit\game-toolkit\<version>` | 实际被加载的只读副本 |
+| 开发主目录（此处） | 你 clone 的位置 | 改动在这里发生，push 到 GitHub |
+| Marketplace 源 | `~/.claude/plugins/marketplaces/game-toolkit` | Claude 从此拉取发布版本 |
+| 运行时缓存 | `~/.claude/plugins/cache/game-toolkit/game-toolkit/<version>` | 实际被加载的只读副本 |
 
 ## 开发回路
 
@@ -24,7 +26,7 @@ Claude Code 插件源码仓库。当前版本 v3.0.1，游戏设计与实现契�
 4. git commit + push（commit message 参考 git log 风格：feat/fix/chore 前缀）
      git tag -a vX.Y.Z -m "..." && git push origin main --follow-tags
 5. 把 marketplace 镜像对齐到 origin/main：
-     M=C:/Users/lzcm7/.claude/plugins/marketplaces/game-toolkit
+     M=~/.claude/plugins/marketplaces/game-toolkit
      git -C "$M" fetch origin main && git -C "$M" reset --hard origin/main
    直接 git pull 会报 refusing to merge unrelated histories——这个镜像是
    shallow clone，拉不到共同祖先。首次可先 git -C "$M" fetch --unshallow。
