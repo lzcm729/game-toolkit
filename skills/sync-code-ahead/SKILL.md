@@ -136,6 +136,10 @@ git diff --name-status -z "<旧 tree>" "$T"
 ### 阶段 3：对比设计文档
 
 1. 定位项目的设计文档目录（从 CLAUDE.md 读取）
+   **CLAUDE.md 没写本地目录时**（设计文档在飞书 / Notion / wiki）：停下来问用户要本地导出目录
+   或远程位置。不要拿 `Docs/` 这类技术文档目录当设计真值源硬凑，也不要把「没拿到文档」
+   当「文档缺失」写进 pending。导出是 `lark-doc` / `feishu-doc-sync` 的事；拿到后让用户在
+   CLAUDE.md 里声明，再从第 2 步继续。
 
 2. 检查相关设计文档是否已存在：
    ```bash

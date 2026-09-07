@@ -792,3 +792,45 @@ def test_generic_hint_shows_when_auto_detected(tmp_path, capsys, mock_subprocess
     _write_yaml(p, cfg)
     assert ga.main(["--config", str(p), "ingredients", "--dry-run"]) == 0
     assert "[info] adapter=generic" in capsys.readouterr().err
+
+
+# -------------------- codex 第二轮（3.4.4） --------------------
+
+def test_categories_list_is_a_clean_fatal(tmp_path, capsys):
+    p = tmp_path / "asset-config.yaml"
+    p.write_text("output_root: art\nadapter: generic\ncategories:\n  - icons\n", encoding="utf-8")
+    assert ga.main(["--config", str(p), "list"]) == 1
+    assert "categories 应为映射" in capsys.readouterr().err
+    assert ga.main(["--config", str(p), "icons", "--dry-run"]) == 1
+
+
+def test_null_category_spec_is_a_clean_fatal(tmp_path, capsys, mock_subprocess_run):
+    cfg = _minimal_config()
+    cfg["adapter"] = "generic"
+    cfg.pop("engine", None)
+    cfg["categories"]["broken"] = None
+    p = tmp_path / "asset-config.yaml"
+    _write_yaml(p, cfg)
+    assert ga.main(["--config", str(p), "list"]) == 1
+    assert "broken" in capsys.readouterr().err
+
+
+def test_empty_categories_still_lists_nothing_without_error(tmp_path, capsys):
+    p = tmp_path / "asset-config.yaml"
+    p.write_text("output_root: art\nadapter: generic\ncategories: {}\n", encoding="utf-8")
+    assert ga.main(["--config", str(p), "list"]) == 0
+    assert "empty config" in capsys.readouterr().out
+
+
+def test_printed_command_quotes_paths_with_spaces(tmp_path, capsys, mock_subprocess_run):
+    """路径带空格时打印的 $ 命令行要能直接复制执行。"""
+    root = tmp_path / "with space"
+    root.mkdir()
+    cfg = _minimal_config()
+    cfg["adapter"] = "generic"
+    cfg.pop("engine", None)
+    p = root / "asset-config.yaml"
+    _write_yaml(p, cfg)
+    assert ga.main(["--config", str(p), "ingredients", "--dry-run", "--project-root", str(root)]) == 0
+    line = [l for l in capsys.readouterr().out.splitlines() if l.strip().startswith("$ ")][0]
+    assert '"' in line or "'" in line

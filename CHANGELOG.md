@@ -3,6 +3,68 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.4.4 (2026-09-07)
+
+第二轮测试。上轮 14 条回归：12 条修干净，**2 条修法没贯通**。新发现 8 条
+（codex 7 条 + agent 篇幅 1 条），全部本地复现后修。
+
+### fix: 上轮两条没修透
+
+- **同日重跑仍会覆盖旧报告。** 3.4.3 把 `sync-docs-ahead` Phase 1 的目录改成
+  `{date}-{HHMM}/`，但 Phase 2 的 agent 模板、Phase 3 的收集、Phase 4 的 SUMMARY
+  还写旧目录 —— 新目录是空的，旧报告照样被覆盖。codex 按文字演练了一遍：
+  `New directory reports 0`。改一处不改后面三处，等于没改。现在整个 skill 用一个
+  `{OUTPUT_DIR}`，Phase 1 定一次，后面全部引用。
+- README `output_root` 一节还留着「找不到 `project.godot` 则按 yaml 父目录」——
+  3.4.3 改了第 202 行，漏了第 67 行。
+
+### fix: `parallel-implement` 清理阶段不问就删
+
+`rm -rf {worktree}` 前不查脏状态。codex 在假仓库里往工作树注入一个未提交文件、
+照流程跑一遍，文件直接没了。改成 `git worktree remove` —— 脏了它自己会拒绝，
+这正是要的；`git branch -d` 没合并也会拒绝，同理。人来决定是提交、搬走还是
+明确 `--force`。
+
+另外 `:137` 写 `cd wt-X`，但 worktree 建在上级目录，照抄 `PathNotFound`。补 `../`。
+
+### fix: `generate-assets` 三处
+
+- `categories` 写成 list、字符串、某项 `null` → 三种 traceback。现在一条 `[fatal]`
+  说清楚哪项该是映射。空 `{}` 的 `list` 照旧列零项，不算错。
+- 打印的 `$ ...` 命令行用空格 join，路径带空格时复制过去 argparse 拆错。
+  Windows 用 `list2cmdline`，其他用 `shlex.join`。
+- `project_env write --project-root typo` 照写不误，要下次 check 才发现。write 也拦。
+
+### fix: `sync-code-ahead` 没有「设计文档不在本地」分支
+
+和 3.4.3 给 `sync-docs-ahead` 补的是同一件事，这个 skill 漏了。codex 冷读停在阶段 3，
+「不得不猜」的正是用本地 `Docs/`、远程、还是先问 —— 三个都不该猜。
+
+### fix: agent 不守调用方的篇幅预算
+
+`framework` 要求 400 字给了 900，`interaction` 要求 300 字给了 900，`game-designer`
+守住了。四个 agent 正文没有一句关于篇幅的话 —— 详尽度指令压过了调用方的预算，
+而主流程的上下文比子 agent 的详尽更贵。加一段：超预算先砍引文、再砍证据正文
+（留路径:行号）、最后砍已实现项细节；「查不了」和「需要拍板」两栏不砍。
+
+### 测试方法（第二轮新做的）
+
+| 做了什么 | 结果 |
+|---|---|
+| 3.4.3 安装副本回归 | 192 过；缓存 = 源码；`verify_release` 在缓存里会指路 |
+| 真实 `game-toolkit.yaml`（CatFishing 的副本）write 往返 | **零文本差异**，不只是语义相等 |
+| 中文 + 空格路径：project_env / generate_assets 全链路 | 通过；codex 另测到 312 字符工程根、385 字符输出根 |
+| `game-designer` agent：三面 Schell 透镜评一条规则 | 工具序列恰好 `Skill → Read(references/schell-lenses-core.md)`；#40/#47/#63 编号与名字和文件逐字一致；58k tokens |
+| `interaction` agent：鱼线张力反馈（WBP 全查不了的最硬场景） | 读声明按字段改法、WBP 全进「查不了」、契约缺口按三项列、5 条拍板项回报；247k tokens、64 次工具调用 |
+| codex 冷读 `sync-code-ahead` / `doc-consistency-check` / `split-doc-layers` / `parallel-implement` | 前三个停点合理；后者在假仓库建、验、回收两棵工作树，找出上面两条 |
+| codex 回归上轮 14 条 + `validate(merged)` 副作用 | 可选字段 null、`\|` / `>` 块标量、`2022.3.1f1` / `4.3.stable` / `5.8-preview`、自定义字段数值/列表 —— 无误伤 |
+
+两个 agent 第一次跑撞上账号限额（429）被砍在落盘前，transcript 0 KB；恢复后重跑。
+第一次 `game-designer` 在没提任何工程的任务里去翻工程文档，重跑时 prompt 补了一句
+「规则文字就是全部输入」就没再跑 —— 给清楚输入时它不乱跑，没给时会不会跑不能定论。
+
+测试：`layer-contracts` 48（+1）、`generate-assets` 149（+4）、validations 66 用例 0 不符。
+
 ## 3.4.3 (2026-09-07)
 
 第一次**测试**而不是评审：从安装副本跑、真触发 skill、真派 agent、codex 冷读 SKILL.md

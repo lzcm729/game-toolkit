@@ -466,6 +466,10 @@ def main(argv=None) -> int:
     # check 早就会报这条，但 write 曾经照写不误。凡 validate 不过的一律拒绝，
     # 除非本次 write 把那个字段一起改了（命令行来的值是字符串，自然就修好了）。
     issues = validate(merged)
+    pr = merged.get("project_root")
+    if isinstance(pr, str) and not _is_blank(pr) and not (root / pr).resolve().is_dir():
+        # check 会报这条；write 也拦，否则 --project-root 打错字要到下次 check 才发现
+        issues.append("project_root 指向的目录不存在：%s" % (root / pr).resolve())
     if issues and not args.force:
         print("拒绝写入，重渲染会把这些值改掉：\n  - %s\n"
               "把出问题的字段在本次 write 里一起给出（如 --engine-version 5.10），"

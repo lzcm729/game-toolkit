@@ -63,8 +63,8 @@ project_root: ".."    # 可选。相对本文件；也可用 CLI 的 --project-r
 
 ## `output_root`
 
-输出根目录，相对项目根。**支持 `res://` 前缀**，等价于剥掉前缀（项目根 =
-`project.godot` 所在目录；找不到则 yaml 父目录或其父）。
+输出根目录，相对项目根。`adapter: godot` 时**支持 `res://` 前缀**，等价于剥掉前缀（项目根 =
+`project.godot` 所在目录）。`generic` 不认 `res://`，会直接报错 —— 不会退回 yaml 父目录猜。
 
 ```yaml
 output_root: "res://art"   # = <project_root>/art

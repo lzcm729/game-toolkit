@@ -149,6 +149,10 @@ Scripts must preserve the content contract, report invalid records, and avoid pa
 
 ## Output Format
 
+**调用方给了篇幅预算就遵守。** 300 字就是 300 字，不是 900。超预算时先砍引文、
+再砍证据的正文（留路径:行号即可）、最后砍已实现项的细节 ——「查不了」和「需要拍板」
+两栏不砍，那是调用方最需要的。宁可少列，不可超限：主流程的上下文比你的详尽更贵。
+
 完成后输出：
 
 ```

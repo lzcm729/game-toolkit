@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -107,6 +108,10 @@ def main(argv: list[str] | None = None) -> int:
     # list 只看 config，不解析路径 —— 插件自带的示例用 res://，
     # 在没有 Godot 工程的目录下也应该能列出来看看。
     if args.command == "list":
+        bad = _categories_problem(config.get("categories") or {})
+        if bad and "无 categories" not in bad:   # 空配置照旧打 "(empty config)"，不算错
+            print(f"[fatal] {bad}", file=sys.stderr)
+            return 1
         _cmd_list(config)
         return 0
 
@@ -127,9 +132,10 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     # 选择 category
-    categories: dict[str, dict] = config.get("categories") or {}
-    if not categories:
-        print("[fatal] config 中无 categories", file=sys.stderr)
+    categories = config.get("categories") or {}
+    bad = _categories_problem(categories)
+    if bad:
+        print(f"[fatal] {bad}", file=sys.stderr)
         return 1
 
     if args.command == "all":
@@ -305,6 +311,23 @@ def _resolve_image_gen() -> Path | None:
 
 # -------------------- list --------------------
 
+def _categories_problem(cats) -> str | None:
+    """categories 必须是 {名字: {配置}}。写成 list / 字符串 / 某项 null 都得说清楚，不能 traceback。"""
+    if not cats:
+        return "config 中无 categories"
+    if not isinstance(cats, dict):
+        return f"categories 应为映射（名字 → 配置），实际是 {type(cats).__name__}"
+    for name, spec in cats.items():
+        if not isinstance(spec, dict):
+            return f"category {name!r} 的配置应为映射，实际是 {type(spec).__name__}（{spec!r}）"
+    return None
+
+
+def _shell_join(argv: list[str]) -> str:
+    """打印给人复制的命令行。路径带空格就得加引号，否则复制过去 argparse 会拆错。"""
+    return subprocess.list2cmdline(argv) if os.name == "nt" else shlex.join(argv)
+
+
 def _cmd_list(config: dict) -> None:
     cats = config.get("categories") or {}
     if not cats:
@@ -419,7 +442,7 @@ def _run_category(
     if force:
         cmd.append("--force")
 
-    print(f"  $ {' '.join(cmd)}")
+    print(f"  $ {_shell_join(cmd)}")
     summary, exit_code, err = _invoke_image_gen(cmd)
     if summary is None and err is None and not dry_run:
         # 没有 summary 就无法确认产物，退出码 0 也不算成功。

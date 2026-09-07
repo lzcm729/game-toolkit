@@ -134,7 +134,7 @@ git worktree add ../wt-{系统名} {分支名}
   **Godot / UE 等不依赖 `node_modules` 的项目直接跳过这一步**，
   改按项目自身方式准备可运行环境（导入资源、还原包、生成工程文件等）。
   判据是 worktree 能不能跑起 `{构建检查命令}` —— 只创建 worktree 不等于环境就绪。
-- 验证构建：`cd wt-{系统名} && {构建检查命令}`（该命令在 Phase 0 确定）
+- 验证构建：`cd ../wt-{系统名} && {构建检查命令}`（worktree 建在上级目录，所以是 `../`；该命令在 Phase 0 确定）
 
 **重要**：向用户确认 worktree 路径。
 
@@ -301,12 +301,14 @@ cd {主项目} && git merge {分支名} --no-edit
 
 1. 向所有 agent 发送 `shutdown_request`
 2. `TeamDelete`
-3. 清理 worktree：
+3. 清理 worktree —— **先查脏状态，再删**：
 ```bash
-rm -rf {worktree 路径}
-git worktree prune
-git branch -d {分支名}
+git -C {worktree 路径} status --porcelain     # 非空就停：里面有没提交的东西
+git worktree remove {worktree 路径}            # 脏了会拒绝，这正是要的；别用 rm -rf 绕过
+git branch -d {分支名}                          # 没合并也会拒绝，同理
 ```
+`rm -rf` 不问就删：测试里往工作树注入一个未提交文件、照旧流程跑一遍，文件直接没了。
+`git worktree remove` 遇到脏工作树会停下来，让人决定是提交、搬走还是明确 `--force`。
 
 最终运行 `{构建检查命令}` 验证。
 

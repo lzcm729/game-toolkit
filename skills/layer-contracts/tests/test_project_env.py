@@ -427,3 +427,11 @@ def test_cyclic_alias_is_reported_as_unreadable(tmp_path, capsys):
     assert out["status"] == "invalid" and "循环" in (out["error"] or "")
     assert pe.main(["write", str(tmp_path), "--verify-entry", "x"]) == 1
     assert p.read_text(encoding="utf-8") == raw
+
+
+def test_write_refuses_a_project_root_that_does_not_exist(tmp_path, capsys):
+    rc = pe.main(["write", str(tmp_path), "--engine", "unreal",
+                  "--engine-version", "5.8", "--project-root", "typo"])
+    assert rc == 1
+    assert "不存在" in capsys.readouterr().err
+    assert not (tmp_path / pe.CONFIG_NAME).exists()
