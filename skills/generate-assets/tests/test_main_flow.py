@@ -834,3 +834,35 @@ def test_printed_command_quotes_paths_with_spaces(tmp_path, capsys, mock_subproc
     assert ga.main(["--config", str(p), "ingredients", "--dry-run", "--project-root", str(root)]) == 0
     line = [l for l in capsys.readouterr().out.splitlines() if l.strip().startswith("$ ")][0]
     assert '"' in line or "'" in line
+
+
+# -------------------- codex 第三轮（3.4.5） --------------------
+
+def test_output_subdir_cannot_escape_output_root(tmp_project, capsys, mock_subprocess_run):
+    """`../../escaped` 曾真的写到工程外；dry-run 都把 generate.log 写出去了。"""
+    calls, _ = mock_subprocess_run
+    cfg = _minimal_config()
+    cfg["categories"]["ingredients"]["output_subdir"] = "../../escaped"
+    p = tmp_project / "asset-config.yaml"
+    _write_yaml(p, cfg)
+    assert ga.main(["--config", str(p), "ingredients", "--dry-run"]) == 1
+    assert "output_root 之外" in capsys.readouterr().err
+    assert calls == []
+    assert not (tmp_project.parent / "escaped").exists()
+
+
+def test_absolute_output_subdir_is_rejected_too(tmp_project, capsys, mock_subprocess_run):
+    cfg = _minimal_config()
+    cfg["categories"]["ingredients"]["output_subdir"] = str(tmp_project.parent / "abs-escape")
+    p = tmp_project / "asset-config.yaml"
+    _write_yaml(p, cfg)
+    assert ga.main(["--config", str(p), "ingredients", "--dry-run"]) == 1
+    assert "output_root 之外" in capsys.readouterr().err
+
+
+def test_nested_output_subdir_is_fine(tmp_project, mock_subprocess_run):
+    cfg = _minimal_config()
+    cfg["categories"]["ingredients"]["output_subdir"] = "icons/small"
+    p = tmp_project / "asset-config.yaml"
+    _write_yaml(p, cfg)
+    assert ga.main(["--config", str(p), "ingredients", "--dry-run"]) == 0

@@ -38,6 +38,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 try:
@@ -373,6 +374,84 @@ def compare(declared: dict | None, detected: dict) -> list:
     return out
 
 
+LOCK_NAME = CONFIG_NAME + ".lock"
+LOCK_TIMEOUT = 5.0      # 秒。测试会改小
+LOCK_STALE = 30.0       # 秒。超过这个年龄的锁当作上次崩溃留下的
+
+
+class _WriteLock:
+    """整个「读—改—写」加锁。原子替换只保护写出那一步：两个 write 各自读到同一份快照，
+    后写的把先写的改动覆盖掉，两边都报「更新」—— 实测 5 次里 4 次丢一方。
+    O_EXCL 建锁文件，Windows / POSIX 都行；不用 fcntl。"""
+
+    def __init__(self, root: Path, timeout=None):
+        self.path = root / LOCK_NAME
+        self.timeout = LOCK_TIMEOUT if timeout is None else timeout
+        self.fd = None
+
+    def __enter__(self):
+        deadline = time.monotonic() + self.timeout
+        while True:
+            try:
+                self.fd = os.open(str(self.path), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+                os.write(self.fd, str(os.getpid()).encode())
+                return self
+            except FileExistsError:
+                try:
+                    if time.time() - self.path.stat().st_mtime > LOCK_STALE:
+                        self.path.unlink()
+                        continue
+                except OSError:
+                    pass
+                if time.monotonic() > deadline:
+                    raise TimeoutError(
+                        "另一个 write 正在改 %s（锁文件 %s）。等它结束再跑；"
+                        "确认没有别的进程在跑时可以删掉锁文件。" % (CONFIG_NAME, self.path))
+                time.sleep(0.05)
+
+    def __exit__(self, *exc):
+        if self.fd is not None:
+            os.close(self.fd)
+        try:
+            self.path.unlink()
+        except OSError:
+            pass
+        return False
+
+
+def _do_write(root: Path, declared, err, given: dict, force: bool) -> int:
+    """write 的主体。调用方已持锁，declared/err 是锁内重读的结果。"""
+    if err and not force:
+        print("拒绝写入：%s\n"
+              "现有文件读不回来，直接覆盖会丢掉里面的内容。请先修好，或加 --force 明确覆盖。"
+              % err, file=sys.stderr)
+        return 1
+    merged = dict(declared or {})
+    merged.update({k: v for k, v in given.items() if v is not None})
+    # 必填项写了键没写值（null）：渲染层会填「待核实」，自检发现 None → '待核实'
+    # 对不上就拒绝。先统一成占位值，下次 check 报 incomplete 去催填。
+    for k in REQUIRED:
+        if merged.get(k) is None:
+            merged[k] = "待核实"
+    # 只改一个字段也是整文件重渲染：没动的字段按 YAML 读到的值写回去。
+    # engine_version: 5.10 没加引号，读进来是浮点 5.1，写回去就成了 5.1 ——
+    # check 早就会报这条，但 write 曾经照写不误。凡 validate 不过的一律拒绝，
+    # 除非本次 write 把那个字段一起改了（命令行来的值是字符串，自然就修好了）。
+    issues = validate(merged)
+    pr = merged.get("project_root")
+    if isinstance(pr, str) and not _is_blank(pr) and not (root / pr).resolve().is_dir():
+        # check 会报这条；write 也拦，否则 --project-root 打错字要到下次 check 才发现
+        issues.append("project_root 指向的目录不存在：%s" % (root / pr).resolve())
+    if issues and not force:
+        print("拒绝写入，重渲染会把这些值改掉：\n  - %s\n"
+              "把出问题的字段在本次 write 里一起给出（如 --engine-version 5.10），"
+              "或先手工加引号，或加 --force 接受改动。" % "\n  - ".join(issues),
+              file=sys.stderr)
+        return 1
+    print(write_declaration(root, merged))
+    return 0
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description="检查/写入 Game Toolkit 项目环境声明")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -444,40 +523,22 @@ def main(argv=None) -> int:
         }, ensure_ascii=False, indent=2))
         return 0 if status in ("ok", "incomplete", "missing") else 1
 
-    if err and not args.force:
-        print("拒绝写入：%s\n"
-              "现有文件读不回来，直接覆盖会丢掉里面的内容。请先修好，或加 --force 明确覆盖。"
-              % err, file=sys.stderr)
-        return 1
-
     given = {k: getattr(args, k) for k in KEYS}
     if not any(v is not None for v in given.values()):
         print("write 至少要给一个字段", file=sys.stderr)
         return 2
-    merged = dict(declared or {})
-    merged.update({k: v for k, v in given.items() if v is not None})
-    # 必填项写了键没写值（null）：渲染层会填「待核实」，自检发现 None → '待核实'
-    # 对不上就拒绝。先统一成占位值，下次 check 报 incomplete 去催填。
-    for k in REQUIRED:
-        if merged.get(k) is None:
-            merged[k] = "待核实"
-    # 只改一个字段也是整文件重渲染：没动的字段按 YAML 读到的值写回去。
-    # engine_version: 5.10 没加引号，读进来是浮点 5.1，写回去就成了 5.1 ——
-    # check 早就会报这条，但 write 曾经照写不误。凡 validate 不过的一律拒绝，
-    # 除非本次 write 把那个字段一起改了（命令行来的值是字符串，自然就修好了）。
-    issues = validate(merged)
-    pr = merged.get("project_root")
-    if isinstance(pr, str) and not _is_blank(pr) and not (root / pr).resolve().is_dir():
-        # check 会报这条；write 也拦，否则 --project-root 打错字要到下次 check 才发现
-        issues.append("project_root 指向的目录不存在：%s" % (root / pr).resolve())
-    if issues and not args.force:
-        print("拒绝写入，重渲染会把这些值改掉：\n  - %s\n"
-              "把出问题的字段在本次 write 里一起给出（如 --engine-version 5.10），"
-              "或先手工加引号，或加 --force 接受改动。" % "\n  - ".join(issues),
-              file=sys.stderr)
+    try:
+        with _WriteLock(root):
+            # 锁内重读：锁外那份快照可能已经被另一个 write 改过了
+            declared, err = load_config(root)
+            return _do_write(root, declared, err, given, args.force)
+    except TimeoutError as exc:          # 先于 OSError：它是 OSError 的子类
+        print(str(exc), file=sys.stderr)
         return 1
-    print(write_declaration(root, merged))
-    return 0
+    except OSError as exc:
+        print("写不进去：%s\n  文件只读、目录没有写权限、或被别的程序占用。临时文件已清理，原文件没动。"
+              % exc, file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":

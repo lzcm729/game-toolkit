@@ -3,6 +3,80 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.4.5 (2026-09-07)
+
+第三轮测试。前两轮 agent 全是只读，这轮第一次测**写路径**，并实测 3.4.4 加的篇幅规则。
+
+### 篇幅预算：规则起作用了，但「字」得定死
+
+3.4.4 给四个 agent 加了「调用方给了篇幅预算就遵守」。这轮 A/B：`framework` 同一任务，
+预算从 400 收到 300 ——
+
+| | 全字符 | 汉字 | 路径:行号 | tokens |
+|---|---|---|---|---|
+| 3.4.3（预算 400） | ≈900 | — | — | 160k |
+| 3.4.4（预算 300） | 676 | **203** | 270 | 116k |
+
+按汉字算守住了，按字符算还是 2.25×——超出的全是「证据只留路径:行号」这条要求
+本身带来的。`content` 同理：约 230 字符里 120 是它 Output Format 要求的绝对路径。
+规则压缩了正文，但「字」指汉字还是字符，agent 和调用方各解各的。现在定死：
+**按汉字数计，`路径:行号` 和标识符不计入**。
+
+### `content` agent 第一次写：32 项 schema 约束零失败
+
+搭了一个 git 管理的最小 Godot 风格数据工程（`project.godot` + `game-toolkit.yaml` +
+`docs/items-schema.md` + `data/items.json`），让它加 3 个鱼饵、其中 1 个稀有。
+机器判分：id 前缀/唯一、name ≤ 6、price 正整数、rarity 枚举且恰好 1 个 rare、desc ≤ 30
+且不含数字、字段恰好六个——全过；git diff 恰好 3 行、只动一个文件、连原文件
+「一物一行」的排版都跟上了。5 次工具调用、50k tokens。
+
+埋的坑它找到了：schema 说数值设计「另有文档」，工程里没有。它没编一条平衡规则，
+也没停下来问——**填了个值、标「定价待数值属主确认」**，正是 layer-contracts 说的
+「缺失语义由对应职责补全、列明来源及待定项」。
+
+### codex 第三轮：上轮 F2–F7 修透；F1 还剩同分钟碰撞；新发现 5 条
+
+**fix: 两个 `project_env write` 并发，后写的覆盖先写的**
+
+原子替换只保护「写出」那一步。两个 write 各自读到同一份快照、各改一个字段、
+先后 `os.replace`——后写的把先写的改动覆盖掉，**两边都报「更新」**。codex 在一个
+带 10000 个自定义字段的文件上同时起两个 write，5 次里 4 次丢一方。
+
+现在整个「读—改—写」加锁：`O_EXCL` 建 `game-toolkit.yaml.lock`（Windows / POSIX 都行，
+不用 fcntl），锁内**重新读一遍**再合并，锁外那份快照一律作废。等锁最多 5 秒，
+超过就报「另一个 write 正在改」退出；30 秒以上的锁当作上次崩溃留下的清掉。
+本地真·两进程并发复测 5 次 0 丢。
+
+**fix: `output_subdir: ../../x` 真能写到工程根外**
+
+`output_subdir` 是「子目录名」，但代码直接拼接 resolve 就 mkdir，`..` 一路往上
+没人拦。codex 实测 dry-run 已经把 `generate.log` 写到了工程外。现在解析后必须
+仍在 `output_root` 之内，否则该 category 报错不跑；绝对路径同理。
+
+**fix: 同一分钟内第三次跑 `sync-docs-ahead` 还是会覆盖**
+
+3.4.4 把同日重跑改到 `{date}-{HHMM}/`，但那个目录已存在时没有继续找——codex
+固定时间 19:45 演练，第三次跑覆盖了第二次带人工修订的报告。现在 `-2`、`-3`…
+递增到名字空闲为止；不变量写明：**永远不写进已存在的目录**。
+
+**fix: 只读文件 → 一屏 PermissionError**
+
+拒绝本身对（原文件字节未变、临时文件已清），但栈回溯代替了一句话。现在
+`OSError` 统一转「写不进去：…文件只读、目录没有写权限、或被别的程序占用」。
+
+**fix: Phase 3 `-A 7` 漏掉 Summary 的第八行**
+
+`Coverage of inspected` 是 3.4.1 加的第八行，收集模板还是 `-A 7`。改 `-A 8`。
+
+**查过没问题的**：tab 缩进（干净报错）、junction 工程根（探测到物理目录）、10000
+自定义字段（check 0.45s / write 0.95s）、`--force` 对损坏与数字版本两种拒绝的覆盖
+语义（明确接受，不伪装修好）、data_source 指目录、prompt 缺字段、category 名含
+空格/中文、真实 SDK dry-run。冷读 `design-iterate`（到派 agent 前）、`game-ui-design`
+（15 条规则对 UE 源码实跑，heuristic 命中按文档只提示复核）、`book-to-reference`
+（300 行假书 → 247 行产物合格式）——三个都没有新的插件缺陷。
+
+测试：`layer-contracts` 52（+4）、`generate-assets` 152（+3）、validations 66 用例 0 不符。
+
 ## 3.4.4 (2026-09-07)
 
 第二轮测试。上轮 14 条回归：12 条修干净，**2 条修法没贯通**。新发现 8 条

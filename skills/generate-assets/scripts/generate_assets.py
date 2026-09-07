@@ -402,6 +402,15 @@ def _run_category(
     # 解析 output_dir + 预建子目录
     out_subdir = cat_spec.get("output_subdir") or cat_name
     output_dir = (output_root / out_subdir).resolve()
+    # output_subdir 是「子目录名」，不是任意路径。`../../x` 会把图写到工程外面 ——
+    # 实测 dry-run 连 generate.log 都写出去了。解析后必须仍在 output_root 之内。
+    try:
+        output_dir.relative_to(Path(output_root).resolve())
+    except ValueError:
+        msg = (f"output_subdir={out_subdir!r} 解析到了 output_root 之外：{output_dir}。"
+               "子目录只能往下，不能用 .. 往上或写绝对路径；要换根目录改 output_root。")
+        print(f"[error] {msg}", file=sys.stderr)
+        return CategoryRunResult(name=cat_name, exit_code=1, summary=None, error=msg)
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
         asset_paths = [output_dir / a["filename"] for a in batch["assets"]]

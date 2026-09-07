@@ -435,3 +435,62 @@ def test_write_refuses_a_project_root_that_does_not_exist(tmp_path, capsys):
     assert rc == 1
     assert "不存在" in capsys.readouterr().err
     assert not (tmp_path / pe.CONFIG_NAME).exists()
+
+
+# -------------------- codex 第三轮：并发 write / 只读文件（3.4.5） --------------------
+
+_BASE = {"engine": "unreal", "engine_version": "5.8", "project_root": "."}
+
+
+def test_two_writers_both_survive(tmp_path):
+    """两个 write 各改一个字段：以前后写的覆盖先写的（5 次里 4 次丢一方），现在都留下。"""
+    import threading
+    _write_yaml(tmp_path, _BASE)
+    rcs = []
+    ts = [threading.Thread(target=lambda: rcs.append(pe.main(["write", str(tmp_path), "--verify-entry", "A"]))),
+          threading.Thread(target=lambda: rcs.append(pe.main(["write", str(tmp_path), "--tech-stack", "B"])))]
+    for t in ts:
+        t.start()
+    for t in ts:
+        t.join()
+    assert rcs == [0, 0]
+    data = _load(tmp_path)
+    assert data["verify_entry"] == "A" and data["tech_stack"] == "B"
+    assert not (tmp_path / pe.LOCK_NAME).exists()
+
+
+def test_write_waits_then_gives_up_when_lock_is_held(tmp_path, capsys, monkeypatch):
+    _write_yaml(tmp_path, _BASE)
+    (tmp_path / pe.LOCK_NAME).write_text("12345", encoding="utf-8")   # 新鲜的锁
+    monkeypatch.setattr(pe, "LOCK_TIMEOUT", 0.2)
+    assert pe.main(["write", str(tmp_path), "--verify-entry", "x"]) == 1
+    assert "另一个 write" in capsys.readouterr().err
+    assert "verify_entry" not in _load(tmp_path)          # 一个字没动
+
+
+def test_stale_lock_is_cleared(tmp_path):
+    import os
+    import time
+    _write_yaml(tmp_path, _BASE)
+    lock = tmp_path / pe.LOCK_NAME
+    lock.write_text("dead", encoding="utf-8")
+    old = time.time() - 120
+    os.utime(lock, (old, old))
+    assert pe.main(["write", str(tmp_path), "--verify-entry", "x"]) == 0
+    assert _load(tmp_path)["verify_entry"] == "x"
+    assert not lock.exists()
+
+
+def test_permission_error_is_a_clean_message(tmp_path, capsys, monkeypatch):
+    """只读文件：拒绝本身对，但曾是一屏 PermissionError traceback。"""
+    _write_yaml(tmp_path, _BASE)
+
+    def boom(*a, **k):
+        raise PermissionError(5, "拒绝访问")
+
+    monkeypatch.setattr(pe.os, "replace", boom)
+    assert pe.main(["write", str(tmp_path), "--verify-entry", "x"]) == 1
+    err = capsys.readouterr().err
+    assert "写不进去" in err and "Traceback" not in err
+    assert not list(tmp_path.glob(".game-toolkit-*.tmp"))
+    assert not (tmp_path / pe.LOCK_NAME).exists()

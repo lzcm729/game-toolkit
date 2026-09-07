@@ -29,7 +29,7 @@ Auto-discover design docs, spawn one `general-purpose` subagent per doc (needs W
    - If filename has a numeric prefix: strip it and use remainder (e.g., `00_核心愿景.md` → `CoreVision`)
    - Otherwise: use the filename without extension
 
-Pick the output directory **once** and reuse it in every phase below as `{OUTPUT_DIR}`: `docs/gap-analysis/{YYYY-MM-DD}/`, or — if that already exists (same-day re-run) — `docs/gap-analysis/{YYYY-MM-DD}-{HHMM}/`. `mkdir -p` it. **Never clear a previous run**: if the new analysis fails halfway, the old report is the only evidence left, and it may carry manual corrections. Every output path mentioned later in this skill means `{OUTPUT_DIR}` — choosing a fresh directory here while Phase 2 agents still write to the dated one silently overwrites the old reports (caught in testing).
+Pick the output directory **once** and reuse it in every phase below as `{OUTPUT_DIR}`: `docs/gap-analysis/{YYYY-MM-DD}/`, or — if that already exists (same-day re-run) — `docs/gap-analysis/{YYYY-MM-DD}-{HHMM}/`; if *that* exists as well (a third run inside the same minute), append `-2`, `-3`… until the name is free. `mkdir` it. The invariant is **never write into a directory that already exists** — a same-minute re-run overwrote a report with manual edits in testing. **Never clear a previous run**: if the new analysis fails halfway, the old report is the only evidence left, and it may carry manual corrections. Every output path mentioned later in this skill means `{OUTPUT_DIR}` — choosing a fresh directory here while Phase 2 agents still write to the dated one silently overwrites the old reports (caught in testing).
 
 ### Phase 2: Parallel Analysis
 
@@ -103,7 +103,7 @@ triggers a duplicate implementation. Never fold it into the other four.
 Wait for all subagents using `TaskOutput` with `block: true` on each. Then extract Summary sections from persisted files:
 
 ```
-Grep pattern="^### Summary$" with -A 7 on each file in {OUTPUT_DIR}/
+Grep pattern="^### Summary$" with -A 8 on each file in {OUTPUT_DIR}/ (the block is eight lines — five status counts, `Inspectable`, `Coverage of inspected`; `-A 7` silently dropped the last one)
 ```
 
 Parse summaries to build the overview table. Note any missing files as "TIMEOUT".
