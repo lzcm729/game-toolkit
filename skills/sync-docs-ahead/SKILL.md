@@ -29,6 +29,17 @@ Auto-discover design docs, spawn one `general-purpose` subagent per doc (needs W
    - If filename has a numeric prefix: strip it and use remainder (e.g., `00_核心愿景.md` → `CoreVision`)
    - Otherwise: use the filename without extension
 
+   **Nested mirrors are one system per directory, not one per file.** Wiki exports and similar
+   layouts put a system's entry page at `<系统>/<系统>.md`, its sub-specs beside it
+   (`<系统>/钓鱼规则.md`, `<系统>/多人附篇.md`), and its content tables as `*.csv` in the same
+   tree. Treat the directory as the system: the same-named `.md` is the entry, every other `.md`
+   in that directory is a sub-spec of the **same** system, and the `.csv` files (plus any
+   `*.embedded/*.csv`) are its content tables — hand all of them to that system's one subagent.
+   Index / overview pages (a `.md` whose directory holds the other systems, e.g. `GDD 系统分册.md`)
+   are not systems; skip them. If the directory carries a `_manifest.json` from an exporter, use
+   its node tokens as system identity rather than filenames — titles get renamed, tokens don't.
+   Caught in testing: a 21-file mirror produced 21 "systems" and lost every table.
+
 Pick the output directory **once** and reuse it in every phase below as `{OUTPUT_DIR}`: `docs/gap-analysis/{YYYY-MM-DD}/`, or — if that already exists (same-day re-run) — `docs/gap-analysis/{YYYY-MM-DD}-{HHMM}/`; if *that* exists as well (a third run inside the same minute), append `-2`, `-3`… until the name is free. `mkdir` it. The invariant is **never write into a directory that already exists** — a same-minute re-run overwrote a report with manual edits in testing. **Never clear a previous run**: if the new analysis fails halfway, the old report is the only evidence left, and it may carry manual corrections. Every output path mentioned later in this skill means `{OUTPUT_DIR}` — choosing a fresh directory here while Phase 2 agents still write to the dated one silently overwrites the old reports (caught in testing).
 
 ### Phase 2: Parallel Analysis
