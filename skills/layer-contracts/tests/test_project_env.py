@@ -494,3 +494,21 @@ def test_permission_error_is_a_clean_message(tmp_path, capsys, monkeypatch):
     assert "写不进去" in err and "Traceback" not in err
     assert not list(tmp_path.glob(".game-toolkit-*.tmp"))
     assert not (tmp_path / pe.LOCK_NAME).exists()
+
+
+# -------------------- 第四轮：真实 Godot 工程暴露的探测排除表（3.4.6） --------------------
+
+def test_detect_excludes_addons_godot_cache_and_claude_worktrees(tmp_path, capsys):
+    """真实工程：addons/ 里 82 个 .gd、.godot/ 的缓存、.claude/worktrees/ 的整份副本，
+    以前全算进 source_counts。"""
+    (tmp_path / "project.godot").write_text('config/features=PackedStringArray("4.6")\n', encoding="utf-8")
+    for rel in ("scripts/a.gd", "scenes/b.gd",
+                "addons/gut/x.gd", ".godot/imported/y.gd", ".claude/worktrees/w/scripts/a.gd"):
+        p = tmp_path / rel
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text("extends Node\n", encoding="utf-8")
+    out = _check(tmp_path, capsys)
+    det = out["detected"]
+    assert det["source_counts"] == {".gd": 2}
+    assert det["generated_or_ignored"] == {".gd": 3}
+    assert any("计数已排除" in e and "addons" in e and ".claude" in e for e in det["evidence"])

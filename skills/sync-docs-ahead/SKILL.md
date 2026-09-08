@@ -42,6 +42,7 @@ Analyze the gap between a design document and its code implementation.
 
 **Design document:** {docPath}
 **System name:** {systemName}
+**Project root:** {projectRoot}   ← the directory holding `game-toolkit.yaml`; do not make the subagent guess it from {docPath}
 **Output file:** {OUTPUT_DIR}/{systemName}.md
 
 Steps:
@@ -100,10 +101,10 @@ triggers a duplicate implementation. Never fold it into the other four.
 
 ### Phase 3: Collect Results
 
-Wait for all subagents using `TaskOutput` with `block: true` on each. Then extract Summary sections from persisted files:
+Wait until every subagent has reported back — in Claude Code that arrives as a task notification per agent; `TaskOutput` with `block: true` also works where that tool is available. Then extract Summary sections from the persisted files:
 
 ```
-Grep pattern="^### Summary$" with -A 8 on each file in {OUTPUT_DIR}/ (the block is eight lines — five status counts, `Inspectable`, `Coverage of inspected`; `-A 7` silently dropped the last one)
+Grep pattern="^### Summary$" with -A 8 on each file in {OUTPUT_DIR}/ (the block is eight lines — five status counts, `Inspectable`, `Coverage of inspected`; `-A 7` silently dropped the last one). On the two ratio lines take the **last** percentage: agents copy the formula verbatim and append `= 83.3%`, so the line carries two `%`
 ```
 
 Parse summaries to build the overview table. Note any missing files as "TIMEOUT".

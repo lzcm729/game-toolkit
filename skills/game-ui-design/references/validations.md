@@ -368,9 +368,9 @@ warning
 ### **Type**
 regex
 ### **Pattern**
-custom_minimum_size\s*=\s*Vector2\s*\(\s*[0-9]{3,}
+custom_minimum_size\s*=\s*Vector2\s*\(\s*(?:[0-9]{3,}|[0-9]+\s*,\s*[0-9]{3,})
 ### **Message**
-Large fixed minimum size on Godot Control node. May not scale properly.
+Large fixed minimum size (either axis) on Godot Control node. May not scale properly.
 ### **Fix Action**
 Use anchors, grow directions, and size flags for responsive UI
 ### **Applies To**
@@ -381,9 +381,12 @@ Use anchors, grow directions, and size flags for responsive UI
   #### **Should Match**
     - custom_minimum_size = Vector2(400, 200)
     - custom_minimum_size=Vector2( 320, 64 )
+    - custom_minimum_size = Vector2(0, 168)
+    - desc.custom_minimum_size = Vector2(360, 0)
   #### **Should Not Match**
     - custom_minimum_size = Vector2(64, 64)
     - custom_minimum_size = Vector2(0, 0)
+    - custom_minimum_size = Vector2(99, 99)
 
 ## Missing Reduced Motion Check
 

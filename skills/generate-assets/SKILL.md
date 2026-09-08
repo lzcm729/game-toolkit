@@ -43,6 +43,7 @@ description: |
 
 1. 读项目声明拿到 `project_root`（`../layer-contracts/scripts/project_env.py check`，相对**本 skill 目录** —— 它是兄弟 skill，不在本目录下）
 2. 解析成绝对路径，用 `--project-root` 传给本脚本
+   （声明还没有、但本次任务已经明确给了工程根 → 直接用任务给的，回报里标明来源；**不要替项目写声明** —— 那是主流程 check → 问人 → write 的事）
 
 不做这一步、又把 `asset-config.yaml` 放在子目录（如 `tools/`）时，脚本只能按
 config 位置推断工程根 —— 推出来的会是 `tools/`，相对路径全部错基准。

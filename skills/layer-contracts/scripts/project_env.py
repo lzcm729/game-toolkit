@@ -228,12 +228,29 @@ def detect(root: Path, scope: Path | None = None) -> dict:
 
     # 文件计数只作现场参考，不建议写进声明（会过期，且含生成物与第三方代码）
     counts, generated = {}, {}
-    noise = ("Intermediate", "Saved", "Binaries", "DerivedDataCache", "Build", ".git")
+    # 不算「本工程自己的源码」的顶层目录。原来只有 UE 那几个 —— 在真实 Godot 工程上
+    # addons/（GUT 等第三方）和 .godot/（导入缓存）全算进了源码，.claude/worktrees/
+    # 里的副本还会把计数翻倍。
+    noise = (
+        "Intermediate", "Saved", "Binaries", "DerivedDataCache", "Build",   # UE
+        ".godot", "addons", ".import",                                        # Godot
+        "Library", "Temp", "Logs", "obj", "Packages",                          # Unity / .NET
+        "node_modules", ".venv", "venv", ".git", ".claude",                    # 通用 / 工具副本
+    )
+    seen_noise = set()
     for ext in (".cpp", ".h", ".cs", ".gd", ".tscn", ".uasset", ".umap", ".prefab", ".unity"):
         for f in base.rglob("*" + ext):
             rel = f.relative_to(base).parts
-            bucket = generated if (rel and rel[0] in noise) else counts
+            if rel and rel[0] in noise:
+                seen_noise.add(rel[0])
+                bucket = generated
+            else:
+                bucket = counts
             bucket[ext] = bucket.get(ext, 0) + 1
+    if seen_noise:
+        found["evidence"].append(
+            "计数已排除 %s（第三方 / 生成物 / 工具副本）；声明的 source_scope 里也别把它们算进去"
+            % ", ".join(sorted(seen_noise)))
     if counts:
         found["source_counts"] = counts
         # 分两档，别一刀切成「都读不懂」：.tscn / .prefab / .unity 是文本序列化，

@@ -3,6 +3,78 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.4.6 (2026-09-08)
+
+第四轮测试，换真实 Godot 工程冷启动（`milk-tea-defense-godot`：Godot 4.6、1677 commits、
+596 行 14 类的真实 `asset-config.yaml`——插件示例就是从它裁的）。前三轮的 Godot 路径全是
+假 `project.godot` 或 `generic`，这是 Godot 适配器第一次碰真东西。
+
+### fix: 探测把工程规模报大了 8 倍
+
+`detect` 的排除表只有 UE 的 `Intermediate / Saved / Binaries / …`。真实 Godot 工程上
+`source_counts` 报 `.gd 4251`——其中 **3653 个在 `.claude/worktrees/`**（7 棵工作树的副本），
+82 个是 `addons/gut`；自有源码只有 **516**。`framework` agent 只读检查时自己一句
+「`.claude/worktrees` 副本未计」是线索，codex 独立数出了同一个数。
+
+排除表补 Godot（`.godot` `addons` `.import`）、Unity / .NET（`Library` `Temp` `Logs` `obj`
+`Packages`）、通用（`node_modules` `.venv` `.claude`），并在 evidence 里列出本次实际排除了哪些，
+提醒 `source_scope` 也别把它们算进去。补丁后同一工程：`.gd 516 / .tscn 26`。
+
+### fix: `godot-control-fixed-size` 只认宽度轴
+
+正则 `Vector2\(\s*[0-9]{3,}` 只看第一个数。`Vector2(0, 168)` 这种只有高度大的，
+真实工程里 **23 处全漏**（codex 找的，`scenes/ui/defeat_panel.tscn:170` 是真反例）。
+改成两轴任一 ≥ 100，用例 +3。
+
+### fix: `sync-docs-ahead` 真跑一遍暴露的三处
+
+第一次完整跑（3 份 GDD，各一个子 agent）：
+
+- 子 agent 模板**没有工程根槽位**。它让子 agent 读「project root 的 `game-toolkit.yaml`」，
+  却只给了 docPath——子 agent 得往上猜。补 `{projectRoot}`。
+- Phase 3 写「用 `TaskOutput` `block: true` 等」。Claude Code 里子 agent 完成是通知；
+  改成两种等法都写。
+- Summary 的百分比行，子 agent 会把公式原样抄上再写 `= 83.3%`（模板就是这么示范的），
+  行里有两个 `%`——收集时取最后一个。这条写进 Phase 3。
+
+报告本身两份严格格式全过：标题、五个状态枚举、8 行 Summary、五状态之和 = Total、
+表格行数 = Summary 计数、两个百分比算得对、扫描范围有说明。Godot 全文本可查，
+两份 `❓ Unverifiable` 都是 0——没有为了「显得谨慎」编一个。
+
+### `generate-assets` 桥接：声明还没有、任务已给根
+
+「调用前把工程根接上」那一步没说这种情况怎么办。codex 冷读停在这：
+「用本地 Docs、远程、还是先问」。补一句：用任务给的、标来源、**不替项目写声明**。
+
+### 查过没问题的
+
+- 声明冷启动全链路：`check` → 候选 `godot 4.6`（`project.godot` 的 `config/features`）→
+  AskUserQuestion 让人确认 → `write` 八个字段（含中文、全角冒号、`res://`、括号）→
+  `check` ok 0 冲突，读回逐字一致。
+- `framework` 在**没有声明**的工程上：报「`game-toolkit.yaml` 不存在、CLAUDE.md 无指针」，
+  退而按 CLAUDE.md 技术栈段做文本核对并明说这是退路，「缺口请补，我未代填」——
+  没 write、没猜。
+- 真实 Godot 配置：13 类正确（第 14 个「两空格键」是 `style.reference_paths`）；
+  `res://art` → 工程根；`.import` 扫描 94/94，且是 `rglob`，二级 `battle/*` 都在。
+- `split-doc-layers` 历史配置：「启动时自动读本文件」在正文 `:36-38` 有对应步骤；
+  三项 glob 命中 150 / 16 / 4。
+
+测试：`layer-contracts` 53（+1）、`generate-assets` 152、validations 69 用例（+3）0 不符。
+
+### `sync-docs-ahead` 第一次完整跑：3 份 GDD
+
+| System | Total | ✅ | ⚠️ | ❌ | 🔄 | ❓ | Inspectable | Coverage | tokens |
+|---|---|---|---|---|---|---|---|---|---|
+| inventory | 51 | 41 | 4 | 3 | 3 | 0 | 100% | 84.3% | 243k |
+| crafting-and-recipe | 48 | 37 | 6 | 2 | 3 | 0 | 100% | 83.3% | 261k |
+| wave-system | 76 | 62 | 5 | 2 | 7 | 0 | 100% | 84.9% | 312k |
+
+三份严格格式全过。三个子 agent 都按 `game-toolkit.yaml` 的 scope 排除了 worktrees /
+addons / .godot / art，都没编一个「查不了」；`wave-system` 还在 `.claude/worktrees/` 里
+撞到一份过期 `core.tres`（0.4 vs 根目录 0.5）并自己排除——排除表那条三方独立确认。
+成本是真的：一份 50–76 项的 GDD 对 516 个 `.gd`，每个子 agent 25–30 万 tokens。
+仓库留痕恰好是批准的两项（`game-toolkit.yaml`、`docs/gap-analysis/`），0 个跟踪文件被改。
+
 ## 3.4.5 (2026-09-07)
 
 第三轮测试。前两轮 agent 全是只读，这轮第一次测**写路径**，并实测 3.4.4 加的篇幅规则。
