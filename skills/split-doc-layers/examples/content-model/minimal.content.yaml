@@ -1,0 +1,43 @@
+schema_version: author-model/1
+sources:
+  - id: source.accepted
+    locator: project-owned/catalog.yaml
+    version: revision-demo-a
+  - id: source.notes
+    locator: author-discussion
+    version: draft-demo-a
+catalogs: []
+mechanisms: []
+instances:
+  - id: example.item
+    version: revision-demo-a
+    identity:
+      - id: example.name
+        classification: declarative
+        kind: value
+        value: 样例条目
+        sources: [source.accepted]
+        effective: 接受后的内容版本加载时读取。
+    adopted:
+      fields: []
+      branches: []
+    release: []
+    discussion:
+      - id: example.note
+        target: example.item
+        target_version: revision-demo-a
+        fields:
+          - id: example.note.text
+            classification: interpretive
+            owner: Interface
+            kind: value
+            value: 名称在窄屏是否易读？
+            sources: [source.notes]
+            effective: 未采纳讨论，不进入发布。
+publication_ir:
+  - id: example.projection
+    instance_id: example.item
+    fields:
+      - id: output.display_name
+        from: [example.name]
+    excluded: [example.note.text]

@@ -3,6 +3,73 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.4.7 (2026-09-08)
+
+Content 层的定位往前走了一步：内容设计文档不只是从引擎数据派生的读者目录，也是围绕
+实例组织的**作者工作台**。这版是从一段讨论长出来的——用户提出「机制文档 ↔ 代码是语义对应、
+内容文档 ↔ 表格是导出」，codex 咨询后修正为「结构正确只证明表达合法，不证明含义正确」，
+然后由 codex 落地、Claude 审核。
+
+### 新增：作者模型约定 `author-model/1`（`split-doc-layers/examples/content-model/`）
+
+- 四部分：实例身份与定位 / 已采纳定义 / 发布情况 / 讨论。所有业务字段同一种包装：
+  `id / classification / kind / value / sources / effective`。
+- 字段分两类：**声明性**（机械可校验）/ **解释性**（必填 `owner`：Framework / Interface / C）。
+- **作者模型 ≠ 发布 IR**：同身份、不同字段集合。发布映射必须显式覆盖或排除作者模型的
+  每一个字段（I ∪ E = A 且不相交）；解释性与讨论字段永远不能作为发布输入。
+- 来源与发布声明按**集合 / 字段组**：谁拥有、从哪个来源哪个版本读、哪些入口可提修改、
+  怎么接受、生成什么、何时生效——取代原拟的单值 `content_truth`。奶茶（git 内、`.tres`
+  覆盖 + 脚本默认）与 Catfishing（飞书拥有平衡字段、UE 拥有绑定字段）各一段示例。
+- 编辑器回流：基线 + 字段级提案 + 三方合并 + 跨字段约束复验；做不到这套时，
+  禁止编辑器改动直接成为发布输入。
+- 零硬编码：不预制技能 / Buff 大表，不写任何项目字段名进约定。
+
+### 新增：`check_content_model.py`——只承诺结构
+
+id 唯一、引用可解析（来源 / 机制 / 分支 / 集合）、字段有分类、解释性有 owner、
+声明值有来源与版本、讨论绑定实例或分支及版本、发布映射分区合法。**明确不做**：
+不判断含义、不比对引擎数据、不算往返、不解析条件。拒绝重复 YAML 键、循环别名、
+非有限数、无引号日期——不静默转型。126 个测试；审核时另做 12 组对抗输入
+（9 组破坏 / 1 组合法 / 2 组不可读）全部判对。
+
+### 新增：真实样板 `examples/content-model/ice/`
+
+奶茶项目的「冰块」一料：40 个字段、16 个来源（每个带 commit）、两个机制引用老实标
+`gap`、含 ice 的 12 份配方只存选择器和计数。`ice.workbench.md` 由 `render_workbench.py`
+从 YAML 生成。它把四轮测试没碰到的事摆出来了：
+
+- `data/config/core.tres` 序列化的是 06-25 de-smear 后**已弃用**的 tier3 字段（2.3 等），
+  现行 `tier3_ice_a_brittle_damage_mult = 1.5` 只在脚本默认里——按 `data_ssot: data/**/*.tres`
+  去查，拿到的是旧值。「有效值 = 覆盖还是默认」必须逐值标。
+- 卡片「冻结中的敌人受到攻击 → 碎裂」vs 代码「**含冰的**攻击命中已冻结敌」；
+  脆冻基数是原始 `a.damage`，不是主命中修改链后的 `dmg`。
+- 卡片「tier2 纯时长增量」vs 代码冻结结束仍生成冰区；GDD `:39` 写的是「决策 1：留冰区」——
+  这次是卡片过期。
+- HUD 标签 `effect = "冰冻1.5秒"` 把时长手抄进了展示字段。
+- 现行 A/B 规则：GDD 勘误行 `:37` 已登记、完整契约无家、正文 `:96 / :126` 还留旧例。
+- tier3 A/B 是玩家运行时选择（`purchased_tier3 / tier3_path`）——**状态**不是内容。
+
+### SKILL.md 五处（codex 提案、逐块审后套用）
+
+`split-doc-layers`：加「作者工作台模式」；`data_ssot` 改口为「既有读取定位，有效值须按
+来源声明核对覆盖与默认」；「逐字搬 = 零漂移」收回（只防本次转述偏差）；auto-dump 不证明
+语义。`layer-contracts`：Content 那行补作者模型 / 发布 IR 边界三条。
+
+### 方法
+
+codex 只读咨询（6 问，逐条给立场与两个项目的反例）→ 用户接受修正版 → codex 落地
+（受保护路径清单、写入白名单、不许 commit）→ Claude 审核：写入边界 → 126 + 205 测试 →
+脚本卫生 → 15 条事实对着奶茶工程逐条核 → 12 组对抗输入 → 提案逐块读。codex 纠正了
+简报里两处事实（GDD `:37` 是勘误行；脆冻门控不依赖 effects 块），四条额外发现全部核实。
+
+### 已知欠账
+
+每个字段 6 行包装，一料 543 行——**手编重**。节级默认（`classification / sources / effective`
+可继承）要不要加，待定；作者工作台的编辑面本来就该是渲染视图，不是裸 YAML。
+来源与发布声明还没接进 `split-doc-layers.config.yaml`，目前是项目侧记录格式。
+
+测试：`split-doc-layers` 126（新）、`layer-contracts` 53、`generate-assets` 152、validations 69 用例 0 不符。
+
 ## 3.4.6 (2026-09-08)
 
 第四轮测试，换真实 Godot 工程冷启动（`milk-tea-defense-godot`：Godot 4.6、1677 commits、
