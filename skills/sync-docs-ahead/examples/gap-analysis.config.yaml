@@ -1,0 +1,23 @@
+# 复制到工程根，替换占位系统与路径；路径中不夹带说明，说明放 scope。
+$schema_version: 1
+docs_root: design-export
+# manifest: design-export/_manifest.json  # 可选；缺省读 docs_root/_manifest.json
+systems:
+  - name: 系统甲-核心
+    docs:
+      - 系统甲/总览.md
+      - 系统甲/规则.md
+      - 系统甲/内容表/*.csv
+    refs: [参考/参数依据.md]
+    scope: 规则页核心流程与内容表；扩展协作章节由另一系统评分，总览只补充上下文。
+    code: [src/system-a/core/, src/shared/items/**, config/rules.yaml]
+  - name: 系统甲-扩展
+    docs: [系统甲/规则.md, 系统甲/扩展.md]
+    refs: [参考/参数依据.md]
+    scope: 只评规则页扩展协作章节与扩展页，避免与核心重复计数。
+    code: [src/system-a/extension/**, src/shared/items/**]
+  - name: 系统乙
+    docs: [系统乙/规格.md, 系统乙/规格.embedded/*.csv]
+    refs: []
+    scope: 规格页与嵌入内容表全篇。
+    code: [src/system-b/, scripts/check_system_b.py]

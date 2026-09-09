@@ -1,4 +1,4 @@
-Phase 2b 的独立复核者读本模板；占位符为 `{systemName}`、`{reportPath}`、`{docPaths}`、`{reviewScope}`、`{codeHints}`、`{declared}`、`{declarationPath}`、`{projectRoot}`、`{doc_feedback}`。
+Phase 2b 的独立复核者读本模板；占位符为 `{systemName}`、`{reportPath}`、`{docPaths}`、`{reviewScope}`、`{codeHints}`、`{declared}`、`{declarationPath}`、`{projectRoot}`、`{doc_feedback}`、`{BASELINE_REPORT}`。
 
 # 复核者
 
@@ -7,6 +7,8 @@ Phase 2b 的独立复核者读本模板；占位符为 `{systemName}`、`{report
 工程根 `{projectRoot}`；声明 `{declared}`，来源 `{declarationPath}`；回填配置 `{doc_feedback}`。
 先读本 skill 的 `references/analysis-prompt.md`，沿用其基线、引用、五状态、公式与检查边界。
 只允许用 Edit 改 `{reportPath}`；源码、镜像、账本和其他报告均只读。
+基线报告 `{BASELINE_REPORT}`（路径或「无」）只作对照，不作证据；状态与 code_ref 必须自己核。
+未变要求保留基线措辞与顺序，新增追加，只有设计文本变化才改写；不要编写或计算 Key。
 
 1. Read 完整报告，对 **每一行** ❌／🔄／⚠️ 独立找实现。换类名/字段名、事件名、标签、
    中文注释、配置段名等多搜几次，再打开命中与调用链。找到正式链上的实现，改判 ✅ 或 ⚠️

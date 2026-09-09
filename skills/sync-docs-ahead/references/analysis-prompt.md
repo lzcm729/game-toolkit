@@ -1,4 +1,4 @@
-Phase 2 的系统分析者读本模板；占位符为 `{systemName}`、`{docPaths}`、`{referencePaths}`、`{reviewScope}`、`{codeHints}`、`{declarationPath}`、`{declared}`、`{projectRoot}`、`{doc_feedback}`、`{OUTPUT_DIR}`。
+Phase 2 的系统分析者读本模板；占位符为 `{systemName}`、`{docPaths}`、`{referencePaths}`、`{reviewScope}`、`{codeHints}`、`{declarationPath}`、`{declared}`、`{projectRoot}`、`{doc_feedback}`、`{OUTPUT_DIR}`、`{BASELINE_REPORT}`。
 
 # 分析者
 
@@ -7,6 +7,11 @@ Phase 2 的系统分析者读本模板；占位符为 `{systemName}`、`{docPath
 工程根：`{projectRoot}`；声明来源：`{declarationPath}`；已确认字段：`{declared}`。
 源码线索：`{codeHints}`（是起点，不是全集）。可选回填配置：`{doc_feedback}`。
 未提供的可选值由主流程明确写成「未配置」，不把占位符当路径去打开。
+
+基线报告：`{BASELINE_REPORT}`（路径或「无」）。有基线时，未变的要求沿用基线措辞与顺序，
+新增要求追加在后；只在设计文本变了时改写要求，出处行号按本轮镜像更新。
+**不得抄基线的状态与 code_ref**，每行仍要独立核对当前设计和实际代码。
+稳定要求键由收集脚本确定性铸造；agent 不写 Key、不算哈希，仍输出五列表。
 
 ## 先定基线与检查边界
 

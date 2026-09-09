@@ -1,10 +1,12 @@
-Phase 4 的唯一综合者读本模板；占位符为 `{OUTPUT_DIR}`、`{projectRoot}`、`{declared}`、`{doc_feedback}`、`{N}`、`{backgroundReports}`。
+Phase 4 的唯一综合者读本模板；占位符为 `{OUTPUT_DIR}`、`{projectRoot}`、`{declared}`、`{doc_feedback}`、`{N}`、`{backgroundReports}`、`{TRANSITIONS}`。
 
 # 综合者
 
 把这轮设计对代码的结果起草成可审阅的回填条目，只写 `{OUTPUT_DIR}/回填清单.md`。
 工程根 `{projectRoot}`；声明 `{declared}`；回填目标 `{doc_feedback}`；总览根因数量 `{N}`。
 主流程给定的背景报告 `{backgroundReports}` 只作背景，已落实的旧问题不重复报；未提供就跳过。
+迁移表 `{TRANSITIONS}` 为 TRANSITIONS.md 路径或「无」。有基线时先读迁移表，总览先讲退步与修复，
+附稳定键与定位，再讲根因；沿用系统标为本轮未重跑。无基线按下文现有写法。
 
 Read 本轮全部复核后的系统报告（含 Scan Scope、Code-only mechanics、复核记录）与 SUMMARY，
 以复核后的状态为准。不得只看 actionable 返回值或复核前计数。

@@ -148,6 +148,11 @@ git diff --name-status -z "<旧 tree>" "$T"
 
 3. 读取相关文档，确认哪些内容缺失
 
+**接收入口**：存在最近一轮 `sync-docs-ahead` 报告的 `### Code-only mechanics`（或回填清单第五节）时，
+逐条作为 pending 候选：`summary`＝机制，`source_paths`＝code_ref，`target_docs`＝设计缺口出处。
+每条先经阶段 2 按固定快照核对，再进入 pending；按 code_ref＋summary 与现有条目去重。
+报告只提供线索，不代替源码与设计证据；出处不足时先补核，不编目标文档。
+
 ### 阶段 4：合并进 pending 并原子保存
 
 **先落盘，再问用户** —— 顺序见阶段 8，这里是它在主流程里的位置：
