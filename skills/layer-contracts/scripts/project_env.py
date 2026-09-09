@@ -39,7 +39,7 @@ import re
 import sys
 import tempfile
 import time
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 try:
     import yaml
@@ -58,6 +58,7 @@ FIELDS = [
     ("inspectability", "可检查程度：按「检查动作」分档，不要只按扩展名一刀切", False),
     ("verify_entry", "验证入口：构建/测试/导出检查怎么跑。同一引擎不同项目可以完全不同", False),
     ("asset_config", "资源配置：asset-config.yaml 的位置", False),
+    ("doc_feedback", "文档回填目标：可选映射；路径相对 project_root，排除词为字符串列表", False),
 ]
 KEYS = [k for k, _, _ in FIELDS]
 REQUIRED = [k for k, _, req in FIELDS if req]
@@ -113,7 +114,7 @@ def load_config(root: Path):
     if not p.exists():
         return None, None
     try:
-        data = yaml.safe_load(p.read_text(encoding="utf-8", errors="replace"))
+        data = yaml.safe_load(p.read_text(encoding="utf-8-sig", errors="replace"))
     except yaml.YAMLError as exc:
         mark = getattr(exc, "problem_mark", None)
         where = " 第 %d 行第 %d 列" % (mark.line + 1, mark.column + 1) if mark else ""
@@ -127,7 +128,7 @@ def load_config(root: Path):
     return data, None
 
 
-def validate(data: dict) -> list:
+def validate(data: dict, root: Path | None = None) -> list:
     """字段类型校验。返回问题列表；空表示通过。
 
     `check` 报 ok 却让 `engine: []` 或 `engine_version: false` 过关，等于什么也没保证。
@@ -137,6 +138,33 @@ def validate(data: dict) -> list:
         if key not in data:
             continue
         v = data[key]
+        if key == "doc_feedback":
+            if not isinstance(v, dict):
+                issues.append("doc_feedback 应为 mapping（键值映射）")
+                continue
+            for field in ("rulings_ledger", "decision_ledger", "engineering_log", "owners"):
+                if field not in v:
+                    continue
+                value = v[field]
+                label = "doc_feedback." + field
+                if not isinstance(value, str) or not value.strip():
+                    issues.append("%s 应为非空相对路径字符串" % label)
+                    continue
+                # 在非 Windows 主机上也识别盘符、UNC 和反斜线。
+                win = PureWindowsPath(value)
+                if win.drive or win.root or Path(value).is_absolute():
+                    issues.append("%s 应为相对 project_root 的路径：%s" % (label, value))
+                    continue
+                pr = data.get("project_root")
+                if root is not None and isinstance(pr, str) and not _is_blank(pr):
+                    target = (root / pr / Path(value.replace("\\", "/"))).resolve()
+                    if not target.exists():
+                        issues.append("%s 路径不存在：%s" % (label, target))
+            if "exclude_markers" in v:
+                markers = v["exclude_markers"]
+                if not isinstance(markers, list) or not all(isinstance(x, str) for x in markers):
+                    issues.append("doc_feedback.exclude_markers 应为字符串列表")
+            continue
         if v is None:
             continue
         if key == "engine_version" and isinstance(v, (int, float)) and not isinstance(v, bool):
@@ -302,7 +330,7 @@ def _json_safe(value):
 def _field_line(key: str, value) -> str:
     """一个字段的 YAML 文本。交给 yaml 序列化 —— 手拼块标量会在首行带缩进时炸。"""
     return yaml.safe_dump({key: value}, allow_unicode=True,
-                          default_flow_style=False, width=10 ** 6).rstrip("\n")
+                          default_flow_style=False, sort_keys=False, width=10 ** 6).rstrip("\n")
 
 
 def render(values: dict) -> str:
@@ -454,7 +482,7 @@ def _do_write(root: Path, declared, err, given: dict, force: bool) -> int:
     # engine_version: 5.10 没加引号，读进来是浮点 5.1，写回去就成了 5.1 ——
     # check 早就会报这条，但 write 曾经照写不误。凡 validate 不过的一律拒绝，
     # 除非本次 write 把那个字段一起改了（命令行来的值是字符串，自然就修好了）。
-    issues = validate(merged)
+    issues = validate(merged, root)
     pr = merged.get("project_root")
     if isinstance(pr, str) and not _is_blank(pr) and not (root / pr).resolve().is_dir():
         # check 会报这条；write 也拦，否则 --project-root 打错字要到下次 check 才发现
@@ -492,7 +520,7 @@ def main(argv=None) -> int:
     declared, err = load_config(root)
 
     if args.cmd == "check":
-        issues = validate(declared) if declared else []
+        issues = validate(declared, root) if declared else []
         scope = None
         if declared and isinstance(declared.get("project_root"), str) \
                 and not _is_blank(declared["project_root"]):
@@ -541,6 +569,15 @@ def main(argv=None) -> int:
         return 0 if status in ("ok", "incomplete", "missing") else 1
 
     given = {k: getattr(args, k) for k in KEYS}
+    if given["doc_feedback"] is not None:
+        try:
+            given["doc_feedback"] = yaml.safe_load(given["doc_feedback"])
+        except yaml.YAMLError as exc:
+            print("doc_feedback YAML 解析失败：%s" % exc, file=sys.stderr)
+            return 1
+        if not isinstance(given["doc_feedback"], dict) or _has_cycle(given["doc_feedback"]):
+            print("doc_feedback 应为无循环引用的 mapping（键值映射）", file=sys.stderr)
+            return 1
     if not any(v is not None for v in given.values()):
         print("write 至少要给一个字段", file=sys.stderr)
         return 2

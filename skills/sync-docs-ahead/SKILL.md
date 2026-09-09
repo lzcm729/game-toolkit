@@ -9,126 +9,108 @@ description: >
   "哪些功能还没实现", "实现了多少", "代码覆盖了哪些设计".
 ---
 
-# Gap Analysis
+# 设计对代码差距分析
 
-Auto-discover design docs, spawn one `general-purpose` subagent per doc (needs Write tool), each writes report to disk. Main agent extracts summaries from files into a consolidated report.
+按系统发现文档，每系统一名分析者落盘、一名独立复核者改判，脚本校验后按根因综合。
+主流程只协调任务与读取产物，不凭子 agent 的口头计数发布结论。
 
 ## Workflow
 
-### Phase 1: Auto-Discover
+### Phase 1：发现
 
-1. Read CLAUDE.md to find the design documents directory (look for "Design Documents" section or similar).
-   **If CLAUDE.md names no local directory** (the project keeps its design docs in Feishu, Notion,
-   a wiki…): stop and ask the user for a local export directory or the remote location. Do not
-   treat "no local docs" as "no design" — nothing downstream can be judged missing from an empty
-   input. Exporting from Feishu is the user's `lark-doc` / `feishu-doc-sync` skills' job, not this
-   skill's; once the export exists, have it declared in CLAUDE.md and continue from step 2.
-2. Glob `**/*.md` under that directory to discover all design documents.
-3. Derive system name from each filename:
-   - If filename contains English in parentheses: extract it (e.g., `鉴定系统 (Appraisal System).md` → `Appraisal`)
-   - If filename has a numeric prefix: strip it and use remainder (e.g., `00_核心愿景.md` → `CoreVision`)
-   - Otherwise: use the filename without extension
+1. 读项目根的 `game-toolkit.yaml`：通过 `layer-contracts` 的 `scripts/project_env.py check`
+   获取 `declared` 与来源，按其「项目环境声明」节处理缺项与冲突。声明文件所在目录与
+   `project_root` 解析后的工程根分开传递；后者统一记作 `{projectRoot}`。
+   同时读可选 `doc_feedback`，各路径相对工程根解析。缺块时后续只写报告，不路由账本；
+   块内缺某个目标就只省略该路由，路径报错则明示该目标不可用，不自行猜位置。
+2. Read CLAUDE.md，沿设计文档指针找到目录；项目已有文档位置与出处规则沿指针读取，
+   不在 skill 内指定项目路径。若没有本地目录（设计保存在远程文档或知识库），先取得
+   用户提供的本地导出目录或远程位置。**没有本地文档不等于没有设计**，不能拿空输入判缺失。
+   远程导出由项目相应文档同步 skill 负责，导出后在 CLAUDE.md 登记指针，再从下一步继续。
+3. Glob 设计目录下全部 `**/*.md`，并纳入各系统的 CSV 内容表。按文件名取系统名：
+   括号里有英文时取英文系统名；有数字前缀时去掉前缀、使用余下名称；否则用去扩展名的文件名。
+   不凭空翻译成另一套系统身份。将实际系统清单留给 Phase 3 的 `--expect`。
 
-   **Nested mirrors are one system per directory, not one per file.** Wiki exports and similar
-   layouts put a system's entry page at `<系统>/<系统>.md`, its sub-specs beside it
-   (`<系统>/钓鱼规则.md`, `<系统>/多人附篇.md`), and its content tables as `*.csv` in the same
-   tree. Treat the directory as the system: the same-named `.md` is the entry, every other `.md`
-   in that directory is a sub-spec of the **same** system, and the `.csv` files (plus any
-   `*.embedded/*.csv`) are its content tables — hand all of them to that system's one subagent.
-   Index / overview pages (a `.md` whose directory holds the other systems, e.g. `GDD 系统分册.md`)
-   are not systems; skip them. If the directory carries a `_manifest.json` from an exporter, use
-   its node tokens as system identity rather than filenames — titles get renamed, tokens don't.
-   Caught in testing: a 21-file mirror produced 21 "systems" and lost every table.
+   **目录即系统，不是一文件一系统。** 嵌套镜像把入口放在 `<系统>/<系统>.md`，
+   同目录其他 `.md` 是该系统的子规格，树内 `.csv`（含 `*.embedded/*.csv`）是内容表；
+   全部交给同一个系统分析者。容纳其他系统目录的索引或总览页不是独立系统，跳过评分。
+   导出目录有 `_manifest.json` 时用节点 token 维持系统身份，标题改名不改身份。
+   曾把一棵镜像的每个文件各当一个系统，既重复分析，又漏掉全部内容表。
+   同名系统用身份映射消歧，落盘名须是合法单个文件名；报告标题与落盘名保持一致。
+4. 文档名或首行状态的默认排除词为「已废弃」「勿引」「旧版」「Demo 不做」「候选」「不是 SSOT」；
+   `{doc_feedback.exclude_markers}` 若给出则整体覆盖，空列表也有效。归档页排除并留清单，
+   版本历史只作溯源；草稿单列为参考，不能把未定草稿当现行需求基线。
+   有 `{doc_feedback.rulings_ledger}` 就读裁决日期，最新为准；已建专表的数值以专表为准、汇总页只留依据，
+   规格页与总览的权威关系从项目指针和页内声明读取，不写死页面名。
 
-Pick the output directory **once** and reuse it in every phase below as `{OUTPUT_DIR}`: `docs/gap-analysis/{YYYY-MM-DD}/`, or — if that already exists (same-day re-run) — `docs/gap-analysis/{YYYY-MM-DD}-{HHMM}/`; if *that* exists as well (a third run inside the same minute), append `-2`, `-3`… until the name is free. `mkdir` it. The invariant is **never write into a directory that already exists** — a same-minute re-run overwrote a report with manual edits in testing. **Never clear a previous run**: if the new analysis fails halfway, the old report is the only evidence left, and it may carry manual corrections. Every output path mentioned later in this skill means `{OUTPUT_DIR}` — choosing a fresh directory here while Phase 2 agents still write to the dated one silently overwrites the old reports (caught in testing).
+只选择一次输出目录，之后每阶段统一使用 `{OUTPUT_DIR}`。输出基目录默认是工程根下的
+`docs/gap-analysis/`（description 里的约定），本次任务或项目文档另有指定时从其指定。
+在基目录下以本次日期建新目录；同日重跑加时间，同分钟重跑再加递增后缀，直到名称未被占用。
+创建时若发现已存在就重新选名。**绝不写进已经存在的运行目录，也不清空旧结果**：旧报告可能有
+人工改判，新一轮失败时它还是唯一证据。后续子任务不得自行拼另一条带日期的路径。
 
-### Phase 2: Parallel Analysis
+### Phase 2：分析
 
-Launch ALL subagents in a single message (`subagent_type: "general-purpose"`, `run_in_background: true`).
+每系统启动一个可 Read / Glob / Grep / Write 的 `general-purpose` 子 agent，
+使用本 skill 的 [references/analysis-prompt.md](references/analysis-prompt.md)。传入文档全集、
+参考清单、评分范围、源码线索、声明与出处、工程根、系统名和同一个 `{OUTPUT_DIR}`。
+源码线索只是搜索起点，不是源码全集。每份报告必须有 `### Features`、`### Summary`、
+`### Scan Scope`、`### Code-only mechanics`；严格表格、五状态和出处格式以模板为准。
+子 agent 缺声明时把结构化缺口交回主流程，不猜引擎、不把未知当未实现。
 
-Subagent prompt template:
+### Phase 2b：复核
 
-```
-Analyze the gap between a design document and its code implementation.
+每份报告完成后交给另一名复核者，使用本 skill 的
+[references/verify-prompt.md](references/verify-prompt.md)。逐行驳 ❌／🔄／⚠️，换关键词多搜；
+从 ✅ 至少抽五行核 file:line，从 ❓ 至少抽五行查是否把可文本检查的推给「查不了」；
+某状态不足五行则全查并记实际数量。补漏行，只用 Edit 改自己那份报告，重算 Summary 八行。
+文末必须有 `### 复核记录` 表（# | 原判 | 改判 | 依据），即使没有改判也记抽验行与依据。
 
-**Design document:** {docPath}
-**System name:** {systemName}
-**Project root:** {projectRoot}   ← the directory holding `game-toolkit.yaml`; do not make the subagent guess it from {docPath}
-**Output file:** {OUTPUT_DIR}/{systemName}.md
+### Phase 3：收集
 
-Steps:
-1. Read the entire design document
-2. Extract every distinct feature/requirement/mechanic described
-3. Search the project's source code using Glob and Grep. Read the scope from the project's
-   **`game-toolkit.yaml`** at the project root (format and rules: invoke `game-toolkit:layer-contracts`) —
-   engine, 工程根, 技术栈, 源码范围, 可检查程度. Do not detect the engine yourself; if the
-   declaration is missing or the needed field is 未知, ask the user rather than guessing.
+等全部分析和复核完成后运行本 skill 的脚本：
 
-   **Honour 可检查程度 — this is the part that silently corrupts a gap report.** Some sources
-   can be Glob'd but not read: Blueprint graphs, prefab wiring, visual-script assets. Finding
-   `.uasset` files does not mean their logic was inspected.
-   - source is text and in scope → rate it normally
-   - source exists but **查不了** (needs the engine / an export to inspect) → rate it
-     `无法检查`, never `missing`. A feature reported missing because its logic lives in a
-     binary asset triggers a duplicate implementation.
-   - source language was **not in scope** at all → say so; a "missing" verdict is only
-     meaningful when the language was actually searched.
-
-   State in the report which directories, file types, and check methods were used.
-4. Rate each feature's implementation status
-5. Write report to the output file using the Write tool
-
-Report format (strict):
-
-## {systemName}
-
-### Features
-
-| # | Design Requirement | Status | Code Reference | Notes |
-|---|-------------------|--------|---------------|-------|
-| 1 | [requirement summary] | [status] | [file:line or "—"] | [note] |
-
-Status values: ✅ Implemented, ⚠️ Partial, ❌ Missing, 🔄 Divergent, ❓ Unverifiable
-
-`❓ Unverifiable` = the feature's source exists but **cannot be inspected by the means
-available** (Blueprint graphs, prefab wiring, binary assets — see 可检查程度 in the
-project declaration). It is **not** a synonym for Missing: reporting it as Missing
-triggers a duplicate implementation. Never fold it into the other four.
-
-### Summary
-- Total features: N
-- ✅ Implemented: N
-- ⚠️ Partial: N
-- ❌ Missing: N
-- 🔄 Divergent: N
-- ❓ Unverifiable: N
-- Inspectable: (Total - Unverifiable) / Total * 100%   ← 这次**能**下结论的比例
-- Coverage of inspected: (Implemented + 0.5 * Partial) / (Total - Unverifiable) * 100%
-
-两个百分比都要给，不要只报一个。Unverifiable 既不算实现、也不算缺失 ——
-把它塞进分母会让 Blueprint 重的系统凭空显得完成度很低；把它排除后又宣称
-「全项目已完成」同样是错的。
+```bash
+python <本 skill>/scripts/collect_gap.py {OUTPUT_DIR} --write-summary [--out DIR] [--expect 系统A,系统B,…]
 ```
 
-### Phase 3: Collect Results
+方括号表示可选参数，不原样传给 shell；带空格的路径加引号。主流程将 Phase 1 的实际系统名
+用逗号连接传给 `--expect`，缺产物、超时或未复核均不能藏进合计。脚本校验 Features 表、
+Summary 八行、五状态计数、两个比例、非空 Scan Scope 与复核记录，跳过汇总、回填清单与
+下划线开头的辅助文件。无 `--expect` 时仅检查现有报告。默认写 `{OUTPUT_DIR}/SUMMARY.md`，
+`--out DIR` 只把汇总写到 DIR。退出码非零时交回对应复核者修正，再收集；不得进入成功综合。
+汇总合计从行数重算，不平均各系统百分比；「复核改判」按原判与改判两格不同的行数统计。
 
-Wait until every subagent has reported back — in Claude Code that arrives as a task notification per agent; `TaskOutput` with `block: true` also works where that tool is available. Then extract Summary sections from the persisted files:
+### Phase 4：综合
 
-```
-Grep pattern="^### Summary$" with -A 8 on each file in {OUTPUT_DIR}/ (the block is eight lines — five status counts, `Inspectable`, `Coverage of inspected`; `-A 7` silently dropped the last one). On the two ratio lines take the **last** percentage: agents copy the formula verbatim and append `= 83.3%`, so the line carries two `%`
-```
+只启动一个综合者，使用本 skill 的
+[references/synthesis-prompt.md](references/synthesis-prompt.md)，读全部复核报告与 SUMMARY，
+按根因聚类（一根因可关联多系统多行），写 `{OUTPUT_DIR}/回填清单.md` 五节：
+总览、需确认的方向性问题、决策台账回写、设计已定代码未跟、代码超前于设计。
+有 `decision_ledger` 时注明第二节可追加到该目标，有 `engineering_log` 时注明第三节
+可追加说明到该目标（已有编号只提状态与说明更新）。**综合者不改任何账本**，只生成可审阅草稿；
+改不改由主流程和用户决定。缺块或目标时仍完成五节报告，明示该节未配置回填目标。
 
-Parse summaries to build the overview table. Note any missing files as "TIMEOUT".
+### Phase 5：给用户
 
-### Phase 4: Write SUMMARY.md
+给出根因 Top N，每个根因带一个可跳转定位及依赖行数（按系统＋行号去重），N 由本次任务
+指定或按实际重要根因数量选择。同时给出合计 Total、五状态、可检查比例和可检查部分覆盖率，
+附 SUMMARY 与回填清单位置。一个报告行可依赖多个根因，依赖行数不可当总行数累加。
+不得用最低覆盖率系统榜代替根因解释，不能把可检查部分的比例说成全项目完成度。
 
-Write overview table to `{OUTPUT_DIR}/SUMMARY.md`. Per-system reports are already in the same folder.
+## 编排
 
-### Phase 5: User Summary
-
-Print overview table to user. Highlight top 5 systems with lowest coverage.
+有 Workflow 工具时，对系统清单执行 `pipeline(分析 → 复核)`；一个系统分析落盘即可进入它的复核，
+所有分支完成并通过 Phase 3 后再综合。没有时用后台子 agent，依赖顺序相同：独立系统可并发，
+同一报告不能被分析者与复核者同时写。并发上限按环境，不写死模型、线程数或系统数。
+通过任务通知或可用的 TaskOutput 等待结束，核对预期系统和实际产物；失败分支标出原因并续做，
+不得因为收到了部分通知就发布成功总评。已有失败产物保留在本轮目录内供修正。
 
 ## Notes
 
-- Read-only — never modifies source code or design docs (only writes to `docs/`)
-- For cross-cutting docs (CoreVision), check overall architecture patterns rather than specific features
+- 只读源码、设计文档和项目账本；写入仅限本轮报告目录及显式 `--out` 的汇总目录。
+- 跨系统总纲检查整体架构模式，不强行拆成具体功能条目。
+- 项目声明范围内的测试文件只作旁证，不算运行链；仅在测试或未接入的旧模型中出现、
+  正式链路没接的算 ⚠️，写清缺的接线。测试目录位置来自 `source_scope`，不按某个引擎目录猜。
+- `❓` 定义不变：源存在但当前手段查不了。它不等于未实现、没搜过或不在扫描范围；
+  能读出结构不等于能证明运行行为，能用文本核的部分也不能整个推给「查不了」。

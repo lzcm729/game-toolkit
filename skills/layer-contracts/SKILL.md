@@ -132,8 +132,32 @@ verify_entry: 尚未登记，使用前读项目构建说明
 | `engine_version` | 具体版本号；确实不知道写「待核实」，不要留空 |
 | `project_root` | 相对 `game-toolkit.yaml` 的路径。仓库根 ≠ 工程根时尤其要写 |
 
-**可选**（缺了按「未知」处理）：`tech_stack`、`source_scope`、`inspectability`、`verify_entry`、`asset_config`。
+**可选**（缺了按「未知」处理）：`tech_stack`、`source_scope`、`inspectability`、`verify_entry`、`asset_config`、`doc_feedback`。
 已有 Architecture 或构建文档就引用它们，不要复制出第二份真值。
+
+### 文档回填目标
+
+`doc_feedback` 是可选 mapping，所有子项也可省略。路径相对声明的 `project_root`，
+不是相对镜像目录或 skill 目录。两个对表 skill 都通过本 skill 的 `scripts/project_env.py`
+读取；缺块时只写报告，不推测账本位置、不路由回填。
+
+```yaml
+doc_feedback:
+  rulings_ledger: <相对 project_root 的路径>  # 设计裁决账本，按日期记录、最新为准
+  decision_ledger: <路径>                   # 方向性问题去哪
+  engineering_log: <路径>                   # 工程自补决策台账
+  owners: <路径>                            # 属主表所在页
+  exclude_markers: [已废弃, 勿引, 旧版, Demo 不做, 候选, 不是 SSOT]  # 覆盖默认排除词
+```
+
+`exclude_markers` 必须是字符串列表；给出时整组覆盖默认值，空列表表示不按排除词过滤。
+路径不存在时 `check` 在 `issues` 逐项报错，仍输出其他声明字段供不依赖该路径的工作使用；
+不得静默把错误路径当成未配置。账本只提供裁决和路由依据，声明路径不等于授权改账本。
+综合者只起草条目，是否回写由主流程与用户决定；状态词、现有编号与属主从对应页读取。
+
+`write` 合并并保留已有 mapping（包括未知子项），整文件重渲染时保留字段说明注释，
+不保留原文件的任意手写注释。需要设置整个块时，`--doc-feedback` 接受 YAML mapping；
+只更新其他字段时无须传它，原有块会原样回读。
 
 **三种「没有」必须分开写**，不能混成一句「不支持」：
 

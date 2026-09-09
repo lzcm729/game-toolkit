@@ -51,6 +51,66 @@ def test_complete_declaration_is_ok(tmp_path, capsys):
     assert out["declared"]["engine"] == "unreal"
 
 
+def test_doc_feedback_absent_is_ok(tmp_path, capsys):
+    _write_yaml(tmp_path, {"engine": "无", "engine_version": "不适用", "project_root": "."})
+    out = _check(tmp_path, capsys)
+    assert out["status"] == "ok"
+    assert "doc_feedback" not in out["declared"]
+
+
+def test_doc_feedback_missing_paths_collect_all_errors(tmp_path, capsys):
+    _write_yaml(tmp_path, {"engine": "无", "engine_version": "不适用", "project_root": ".",
+                           "doc_feedback": {"rulings_ledger": "不存在.md", "owners": "属主.md"},
+                           "tech_stack": []})
+    out = _check(tmp_path, capsys)
+    assert out["status"] == "invalid"
+    assert len(out["issues"]) == 3
+    assert any("doc_feedback.rulings_ledger 路径不存在" in p for p in out["issues"])
+    assert any("doc_feedback.owners 路径不存在" in p for p in out["issues"])
+    assert out["declared"]["engine"] == "无"
+
+
+def test_doc_feedback_check_and_write_roundtrip(tmp_path, capsys):
+    project = tmp_path / "工程"
+    project.mkdir()
+    (project / "资料").mkdir()
+    (project / "资料" / "账本.md").write_text("账本", encoding="utf-8")
+    feedback = {key: "资料\\账本.md" for key in ("rulings_ledger", "decision_ledger", "engineering_log", "owners")}
+    feedback.update(exclude_markers=["已废弃", "勿引"], custom={"nullable": None, "说明": "保留\n缩进"})
+    _write_yaml(tmp_path, {"engine": "无", "engine_version": "不适用", "project_root": "工程", "doc_feedback": feedback})
+    out = _check(tmp_path, capsys)
+    assert out["status"] == "ok"
+    assert out["declared"]["doc_feedback"] == feedback
+    assert pe.main(["write", str(tmp_path), "--tech-stack", "文本"]) == 0
+    capsys.readouterr()
+    assert _load(tmp_path)["doc_feedback"] == feedback
+    assert _check(tmp_path, capsys)["status"] == "ok"
+    assert "# 文档回填目标" in (tmp_path / pe.CONFIG_NAME).read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("feedback", [None, [], "路径", {"exclude_markers": "旧版"},
+                                     {"exclude_markers": [1]}, {"owners": None}, {"owners": ""},
+                                     {"owners": "C:\\ledger.md"}, {"owners": "/ledger.md"}])
+def test_doc_feedback_invalid_types_and_absolute_paths(tmp_path, feedback):
+    data = {"engine": "无", "engine_version": "不适用", "project_root": ".", "doc_feedback": feedback}
+    assert pe.validate(data, tmp_path)
+
+
+def test_doc_feedback_cli_mapping_and_empty_override(tmp_path, capsys):
+    _write_yaml(tmp_path, {"engine": "无", "engine_version": "不适用", "project_root": "."})
+    assert pe.main(["write", str(tmp_path), "--doc-feedback", "{exclude_markers: []}"]) == 0
+    capsys.readouterr()
+    assert _check(tmp_path, capsys)["declared"]["doc_feedback"] == {"exclude_markers": []}
+
+
+@pytest.mark.parametrize("value", ["[broken", "null", "[]", "{x: &x [*x]}"])
+def test_doc_feedback_cli_invalid_mapping_preserves_file(tmp_path, value):
+    _write_yaml(tmp_path, {"engine": "无", "engine_version": "不适用", "project_root": "."})
+    before = (tmp_path / pe.CONFIG_NAME).read_bytes()
+    assert pe.main(["write", str(tmp_path), "--doc-feedback", value]) == 1
+    assert (tmp_path / pe.CONFIG_NAME).read_bytes() == before
+
+
 def test_placeholder_counts_as_missing(tmp_path, capsys):
     """写「待核实」不等于填了。"""
     _write_yaml(tmp_path, {"engine": "unreal", "engine_version": "待核实", "project_root": "."})

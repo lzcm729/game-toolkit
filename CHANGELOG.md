@@ -3,6 +3,65 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.5.0 (2026-09-09)
+
+两轮实战（09-08 文档一致性、09-09 设计对代码）证明两个 skill 的骨架能跑，但结果可信靠的是
+骨架外的补件：复核阶段改判 103/645 行，根因综合把 645 行变成 8 个方向性问题、17 条台账回写、
+91 条待办，判分脚本和流水线编排在 scratchpad 里，项目规则硬写在提示词里。这版把补件并进
+skill，项目差异进配置。codex 实现（workspace-write、受保护路径清单、不许 git 操作），
+Claude 逐块审、跑套件、对着两个验证工程核；审后改了三处：判分脚本对同目录补充材料的处理、
+输出目录默认值、以及把「专表优先于参数页」这类项目词汇改成通用说法。
+
+### `sync-docs-ahead`：五阶段管线
+
+- **Phase 2b 复核**（新）：每份报告一名独立复核者，逐行驳 ❌／🔄／⚠️、从 ✅ 与 ❓ 各抽五行、
+  补漏行、只 Edit 自己那份报告、重算 Summary、文末必有「复核记录」表。09-09 实战里这一步
+  改判了 103 行，占 16%——没有它的报告不能拿去派活。
+- **Phase 4 综合**（新）：一名综合者按根因聚类写 `回填清单.md` 五节（总览／需确认的方向性问题／
+  决策台账回写／设计已定代码未跟／代码超前于设计）；路由目标来自 `doc_feedback`，综合者不改账本。
+- **Phase 5** 改成根因 Top N 带依赖行数，删掉「覆盖率最低五系统」——覆盖率解释不了任何事。
+- **`scripts/collect_gap.py`**（新，31 个测试）：校验三标题、五状态、Summary 八行与计数、两个比例、
+  非空 Scan Scope、复核记录；识别转义竖线；`--expect` 报缺失；`--out` 不写回源目录；合计从行数重算。
+  同目录里没有任何报告标题的补充材料跳过并打印说明，有报告标题但残缺的仍报错。
+- 报告格式加两个必选节：`### Scan Scope`、`### Code-only mechanics`（代码有、设计没写的机制，
+  反向通道）；出处括注改「文件:行」与「第 N 行 列名」，不写列字母。
+- 三份提示词移到 `references/`（analysis / verify / synthesis），内嵌模板退役。
+- 编排一段：有 Workflow 工具走 `pipeline(分析→复核)` 再综合；没有就后台子 agent 同序。
+
+### `doc-consistency-check`：三镜头与复核
+
+- 阶段 2 改三镜头并行（数值与枚举／术语流程接口／跨组数值机械扫描）后合并去重、C 编号；
+  提示词在 `references/cross-lenses.md`。
+- **阶段 2b 复核**（新）：每六条一名复核者打开两边引证（±3 行）、查裁决账本、判同名异义，
+  verdict 五值。09-08 实战淘汰 3 条、降级 12 条。
+- 报告加「草稿冲突」「复核淘汰」两节；修正清单加「需属主判断？」列，机械项执行者可直接做并知会。
+- 交互模式先确认分组；自动模式把分组方案写进报告头。
+
+### `layer-contracts`：可选 `doc_feedback` 块
+
+```yaml
+doc_feedback:
+  rulings_ledger: …   # 设计裁决账本，按日期最新为准
+  decision_ledger: …  # 方向性问题去哪
+  engineering_log: …  # 工程自补决策台账
+  owners: …           # 属主表所在页
+  exclude_markers: [已废弃, 勿引, 旧版, Demo 不做, 候选, 不是 SSOT]
+```
+
+全部可选，路径相对 `project_root`；`project_env.py` 校验路径存在与列表类型（20 个新测试），
+`write` 保留 mapping。缺块时两个 skill 退化为只写报告不路由。声明路径不等于授权改账本。
+
+### 实测
+
+CatFishing（UE 5.8）：`collect_gap.py` 复现 09-09 的 11 份报告，合计 645、✅200 ⚠️132 ❌167 🔄114 ❓32，
+Inspectable 95.0%、Coverage 43.4%；两个验证工程 `project_env.py check` 均通过。
+
+### 欠账
+
+稳定要求 ID 与基线对比、增量模式；Unity 验证工程；`sync-code-ahead` 未同步这套结构。
+
+测试：`layer-contracts` 70、`generate-assets` 152、`split-doc-layers` 126、`sync-docs-ahead` 31、validations 69 用例 0 不符。
+
 ## 3.4.8 (2026-09-08)
 
 第五轮测试：CatFishing（UE 5.8，Blueprint 重）第一次有了**本地设计文档**——飞书知识库导出成
