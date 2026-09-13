@@ -56,19 +56,24 @@ description: >
 
 ```bash
 python <本 skill>/scripts/collect_gap.py --plan --baseline DIR --config FILE --project-root DIR [--docs-root DIR] [--force 系统A,系统B] [--json]
-python <本 skill>/scripts/collect_gap.py --carry --baseline DIR --systems 系统A,系统B {OUTPUT_DIR}
+python <本 skill>/scripts/collect_gap.py --carry --baseline DIR --systems 系统A,系统B --project-root DIR {OUTPUT_DIR}
 ```
 
 只对 `rerun` 系统执行分析与复核；`carry` 用脚本复制，第二行标注本轮未重跑，已有同名文件拒绝覆盖。
 无配置、无基线、基线无 RUN.json 或 Git 不可用时全部重跑并说明原因；无配置时可用 `--expect`
-传入实际系统名。计划只比较文档版本与已提交的代码，工作区修改要纳入本轮时用 `--force`。
+传入实际系统名。计划比较实际输入文件指纹与代码依赖；manifest 版本只作元数据，token 负责身份。
+评分文件、参考文件、声明及配置的裁决/账本、报告补读参考均参与失效。旧 RUN 缺输入记录时保守重跑。
+代码依赖覆盖 gap-inputs 的实际搜索范围；不能唯一覆盖代码证据时扩大到全工程。
+已提交差异、依赖内未提交或未跟踪代码都重跑；无法确认范围时不以 codeHints 证明可沿用。
 沿用完成后仍执行 Phase 3，全系统（含沿用）的实际清单都传给 `--expect`。
 
 ### Phase 2：分析
 
-每系统启动一个可 Read / Glob / Grep / Write 的 `general-purpose` 子 agent，
+每系统启动一个可 Read / Glob / Grep / Write / Bash 的 `general-purpose` 子 agent，
 使用本 skill 的 [references/analysis-prompt.md](references/analysis-prompt.md)。传入文档全集、
 参考清单、评分范围、源码线索、声明与出处、工程根、系统名和同一个 `{OUTPUT_DIR}`。
+给分析者与复核者传 `{collectorPath}`（本 skill `scripts/collect_gap.py` 的绝对路径），允许 Bash
+只读执行该脚本；返回前分别用 `--report FILE --stage analysis` / `--stage review` 自检。
 同时给分析者与复核者传 `{BASELINE_REPORT}`（对应基线报告路径或「无」）；未变要求保留措辞和顺序，
 新增追加，状态和 code_ref 每行重新核。agent 不写键、不算哈希。
 源码线索只是搜索起点，不是源码全集。每份报告必须有 `### Features`、`### Summary`、
@@ -93,17 +98,23 @@ python <本 skill>/scripts/collect_gap.py {OUTPUT_DIR} --write-summary [--out DI
 
 方括号表示可选参数，不原样传给 shell；带空格的路径加引号。主流程将 Phase 1 的实际系统名
 用逗号连接传给 `--expect`，缺产物、超时或未复核均不能藏进合计。脚本校验 Features 表、
-Summary 八行、五状态计数、两个比例、非空 Scan Scope 与复核记录，跳过汇总、回填清单与
+Summary 八行、五状态计数、两个比例、非空 Scan Scope、出处可解析、Code-only 节与复核记录，跳过汇总、回填清单与
 下划线开头的辅助文件。无 `--expect` 时仅检查现有报告。默认写 `{OUTPUT_DIR}/SUMMARY.md`，
 `--out DIR` 把汇总与运行记录写到 DIR。退出码非零时交回对应复核者修正，再收集；不得进入成功综合。
-汇总合计从行数重算，不平均各系统百分比；「复核改判」按原判与改判两格不同的行数统计。
+汇总合计从行数重算，不平均各系统百分比；「复核改判」只计五状态之间变化，要求补行和其他复核差异另列。
 
 校验接受五列与加了第六列 `Key` 的报告；键只由脚本铸造，默认不改报告，`--stamp-keys` 才落列。
 `--docs-root` 提供标题锚点与 manifest 身份；键为 `<doc>#<anchor>#<h8>`，数值变化不换键。
-`--write-summary` 同时写 `RUN.json`，记录文档版本、`--project-root` 的 HEAD、逐行键与状态、沿用来源。
-有 `--baseline` 时优先读基线 RUN.json，没有则现场从报告铸键；同键优先，同文档同锚点再按相似度
-贪心一对一匹配（`--match-threshold` 默认 0.6），其余记新增／消失。汇总目录同时写 `TRANSITIONS.md`，
+`--write-summary` 同时写 `RUN.json`，记录实际输入指纹、版本元数据、`--project-root` 的 HEAD、逐行键与状态、沿用来源。
+有 `--baseline` 时优先读基线 RUN.json，没有则现场从报告铸键；同键优先，然后同文档同 h8 唯一配对
+找回锚点漂移（排除 unknown、多候选不盲配），再同文档同锚点按相似度贪心一对一匹配
+（`--match-threshold` 默认 0.6），其余记新增／消失。汇总目录同时写 `TRANSITIONS.md`，
 stdout 给各系统变化小计与稳定率；稳定率为一级匹配行数 ÷ 基线总行数，不代表实现覆盖率。
+锚点漂移找回独立计数，不进入一级稳定率；Code-only 的文字集合差仅作「描述差异、待核机制变化」，保留 code_ref。
+
+新报告默认严格校验；只在重读历史产物时使用 `--legacy`（可配 `--write-summary --out DIR`），
+旧基线/旧沿用报告自动兼容并明确告警。历史 RUN 的行键保留，不补历史输入指纹、不升级成新校验版本，
+不能用兼容开关为新报告免检；历史重汇总不使用 `--stamp-keys`。单报告阶段入口不会读同目录其他报告。
 
 ### Phase 4：综合
 

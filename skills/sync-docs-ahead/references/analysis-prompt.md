@@ -94,6 +94,21 @@ Phase 2 的系统分析者读本模板；占位符为 `{systemName}`、`{docPath
 没有代码超前项时在该节写「未发现」及反向查阅范围，不造占位数据行。
 表内字面竖线一律转义成 `\|`；Features 表只放设计要求，不夹带第二张表。
 Design Requirement 末尾必须括注出处；Markdown 用文件:行，CSV 用第 N 行＋列名，不用列字母。
+每行都写完整文件名，不沿用上一行省成 `:65`。支持 `规格.md rev106:65-70`、
+`规格.md（revision_id: 106）:65`、`表.csv 第2-6行 名称列`；范围用起始行定位锚点。
+
+在 Scan Scope 内附一个机器可读的依赖块（JSON，两组路径均相对工程根）：
+
+```gap-inputs
+{"code": ["src/system/", "config/rules.yaml"], "refs": ["docs/architecture/system.md"]}
+```
+
+示例路径须替换成实际路径。`code` 包含全部实际搜索目录、补扫与零命中搜索的范围；
+不能只抄 codeHints 或列命中文件。`refs` 包含评分清单以外所有实际补读的设计/技术参考，
+没有才写 `[]`；配置中的 docs、refs 与 game-toolkit.yaml 中的裁决/账本由脚本另行收集。
+声明文件不在工程根时把它也放入 refs；根外或其他无法记录的依赖写入可选 `unresolved` 字符串列表
+（例如 `"unresolved": ["<引擎根>/私有适配源码无法快照"]`），向主流程明示，脚本据此保守重跑。
+复核者补扫后同步更新此块。缺块或依赖不完整仍可产出报告，但后续增量不能证明可沿用。
 
 Status **只允许**：`✅ Implemented`、`⚠️ Partial`、`❌ Missing`、`🔄 Divergent`、`❓ Unverifiable`。
 状态列不加解释，补充放 Notes。
@@ -106,6 +121,15 @@ Summary 恰好八个非空列表行。`Inspectable = (Total - Unverifiable) / To
 分母为零时相应比例写 0.0%，同时在 Scan Scope 说明没有可评分/可检查项。保留公式时末尾必须
 追加计算结果，脚本取最后一个百分比。两个都要给：❓ 既不算实现也不算缺失；把它塞进覆盖率
 分母会使不可读资产多的系统显得完成度很低，排除后又宣称「全项目已完成」同样是错的。
+
+返回前用 Bash 执行本 skill 的脚本，只校验自己这一份；`{collectorPath}` 由主流程传入脚本绝对路径：
+
+```bash
+python "{collectorPath}" --report "{OUTPUT_DIR}/{systemName}.md" --stage analysis
+```
+
+此阶段不要求复核记录，仍检查出处、Code-only 节、五状态、汇总与范围。退出码非零就修正并重跑；
+无法运行时返回未完成及原因。不得使用 `--legacy` 绕过新报告校验，也不要扫描同目录正在写的报告。
 
 返回结构：`system`、`output_file`、`total`、`implemented`、`partial`、`missing`、`divergent`、
 `unverifiable`、`scan_scope`、`actionable`（所有 ❌/🔄/⚠️ 行的 `id / requirement / status / code_ref / note`）。

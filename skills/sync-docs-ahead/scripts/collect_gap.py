@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from difflib import SequenceMatcher
 import hashlib
 import json
@@ -79,16 +79,40 @@ class Report:
     counts: Counter
     changed: int
     problems: list[str]
+    added: int = 0
+    other: int = 0
+    warnings: list[str] = field(default_factory=list)
 
 
-def inspect_report(path: Path) -> Report:
+def review_status(value: str) -> str | None:
+    """兼容旧复核表的图标、加粗与明确改判前缀；组合状态/自然语言不猜。"""
+    value = re.sub(r"^(?:改判|维持|补行)\s*", "", value.strip(" *`"))
+    for status in STATUSES:
+        icon, label = status.split()
+        if re.match(rf"^{re.escape(icon)}(?:\s+{label})?(?=\s*[（(]|\s*维持|$)", value):
+            return status
+    return None
+
+
+def review_addition(value: str) -> bool:
+    return bool(re.fullmatch(r"新增|[（(]原(?:稿|报告)无此行[）)]|—[（(](?:漏列|漏项|漏|缺行)[）)]|[（(]漏收，新增[）)]",
+                             value.strip(" *`")))
+
+
+def inspect_report(path: Path, stage: str = "review", legacy: bool = False) -> Report:
+    if stage not in ("analysis", "review"):
+        raise ValueError("stage 须为 analysis 或 review")
     problems: list[str] = []
+    warnings = ["旧报告兼容读取；新语义约束只告警，不追认历史输入指纹。"] if legacy else []
     counts: Counter = Counter({status: 0 for status in STATUSES})
     try:
         lines = path.read_text(encoding="utf-8-sig").splitlines()
     except (OSError, UnicodeError) as exc:
         return Report(path.stem, counts, 0, [f"读取失败：{exc}"])
-    for heading in (f"## {path.stem}", "### Features", "### Summary", "### Scan Scope", "### 复核记录"):
+    headings = [f"## {path.stem}", "### Features", "### Summary", "### Scan Scope"]
+    if stage == "review":
+        headings.append("### 复核记录")
+    for heading in headings:
         occurrences = sum(line.strip() == heading for line in lines)
         if not occurrences:
             problems.append(f"缺标题 {heading}")
@@ -96,6 +120,12 @@ def inspect_report(path: Path) -> Report:
             problems.append(f"标题重复：{heading}")
     if not any(line.strip() for line in section(lines, "### Scan Scope")):
         problems.append("Scan Scope 扫描范围必须非空")
+    semantic = warnings if legacy else problems
+    occurrences = sum(line.strip() == "### Code-only mechanics" for line in lines)
+    if occurrences != 1:
+        semantic.append("缺标题 ### Code-only mechanics" if not occurrences else "标题重复：### Code-only mechanics")
+    elif not any(line.strip() for line in section(lines, "### Code-only mechanics")):
+        semantic.append("Code-only mechanics 必须填写机制或未发现及查阅范围")
 
     rows = table_rows(section(lines, "### Features"))
     valid_header = bool(rows) and rows[0] in (FEATURE_HEADER, FEATURE_HEADER + ["Key"])
@@ -109,6 +139,11 @@ def inspect_report(path: Path) -> Report:
             continue
         if width == 6 and not re.fullmatch(r"[^#]+#[^#]+#[0-9a-f]{8}", cells[5]):
             problems.append(f"Features 第 {number} 行 Key 格式错误")
+        file, line, _ = source_ref(cells[1])
+        if file == "unknown" or line < 1:
+            semantic.append(f"Features 第 {number} 行出处无法解析：须逐行写文件名和正行号，不得省成 :行号")
+        if width == 6 and cells[5].split("#", 1)[0] == "unknown":
+            semantic.append(f"Features 第 {number} 行 Key 使用 unknown 身份")
         if cells[2] not in STATUSES:
             problems.append(f"Status 不在五个允许值内：{cells[2]}")
         else:
@@ -143,7 +178,7 @@ def inspect_report(path: Path) -> Report:
         if value is None or not 0 <= value <= 100 or abs(value - expected) > 1 + 1e-9:
             problems.append(f"{key} 百分比 {value} 应为 {expected:.1f}%（容差 ±1%）")
 
-    changed = 0
+    changed = added = other = 0
     review = section(lines, "### 复核记录")
     found_review = False
     in_review = False
@@ -157,37 +192,49 @@ def inspect_report(path: Path) -> Report:
         elif cells and all(re.fullmatch(r":?-{3,}:?", c) for c in cells):
             continue
         elif in_review and len(cells) >= 4:
-            # 旧报告的依据里可能有未转义的管道命令；只比较前两格状态。
+            # 旧报告的依据里可能有未转义的管道命令；仅分类原判、改判。
             # 空行之后的独立抽验表没有「改判」列，不参与统计。
             if cells[1] != cells[2]:
-                changed += 1
-    if not found_review:
+                before, after = review_status(cells[1]), review_status(cells[2])
+                if before and after and before != after:
+                    changed += 1
+                elif review_addition(cells[1]) and after:
+                    added += 1
+                else:
+                    other += 1
+    if stage == "review" and not found_review:
         problems.append("复核记录缺少四列表头（# | 原判 | 改判 | 依据）")
-    return Report(path.stem, counts, changed, problems)
+    return Report(path.stem, counts, changed, problems, added, other, warnings)
 
 
 def summary_text(reports: list[Report], missing: list[str]) -> str:
     lines = ["# 差距分析汇总", "",
-             "| 系统 | Total | ✅ | ⚠️ | ❌ | 🔄 | ❓ | Inspectable | Coverage of inspected | 复核改判 | 校验 |",
-             "|---|---|---|---|---|---|---|---|---|---|---|"]
+             "| 系统 | Total | ✅ | ⚠️ | ❌ | 🔄 | ❓ | Inspectable | Coverage of inspected | 复核改判 | 要求补行 | 其他复核差异 | 校验 |",
+             "|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
 
-    def row(name, counts, changed, verdict):
+    def row(name, counts, changed, added, other, verdict):
         insp, cov = ratios(counts)
         name = name.replace("|", r"\|")
         values = [name, str(sum(counts.values())), *(str(counts[s]) for s in STATUSES),
-                  f"{insp:.1f}%", f"{cov:.1f}%", str(changed), verdict]
+                  f"{insp:.1f}%", f"{cov:.1f}%", str(changed), str(added), str(other), verdict]
         return "| " + " | ".join(values) + " |"
 
     total: Counter = Counter({status: 0 for status in STATUSES})
     for report in reports:
-        lines.append(row(report.name, report.counts, report.changed, "不通过" if report.problems else "通过"))
+        lines.append(row(report.name, report.counts, report.changed, report.added, report.other,
+                         "不通过" if report.problems else "通过（有警告）" if report.warnings else "通过"))
         total.update(report.counts)
     for name in missing:
-        lines.append("| " + name.replace("|", r"\|") + " | 未产出 | | | | | | | | | 不通过 |")
+        lines.append("| " + name.replace("|", r"\|") + " | 未产出 | | | | | | | | | | | 不通过 |")
     passed = not missing and bool(reports) and not any(r.problems for r in reports)
-    lines.append(row("合计", total, sum(r.changed for r in reports), "通过" if passed else "不通过"))
+    lines.append(row("合计", total, sum(r.changed for r in reports), sum(r.added for r in reports),
+                     sum(r.other for r in reports), "通过（有警告）" if passed and any(r.warnings for r in reports)
+                     else "通过" if passed else "不通过"))
     lines += ["", "合计按 Features 表中合法状态重算；比例以合计计数计算，不平均系统百分比。",
-              "复核改判按复核表中「原判 ≠ 改判」的行数计，旧报告的附注差异也会计入。"]
+              "复核改判只计五状态之间变化；要求补行计「新增 → 五状态」；其余两格不同单列其他复核差异。",
+              "旧复核表兼容单状态图标、加粗/改判前缀与明确漏行标记；组合状态或仅写维持不推断改判。"]
+    for report in reports:
+        lines.extend(f"- 警告 {report.name}：{warning}" for warning in report.warnings)
     if not passed:
         lines += ["", "校验未通过：以下数字仅供排错，不作为完成结论。"]
         for report in reports:
@@ -222,11 +269,19 @@ def normalized(text: str) -> str:
 def source_ref(requirement: str) -> tuple[str, int, bool]:
     _, citation = split_requirement(requirement)
     first = re.split("[；;]", citation, maxsplit=1)[0]
-    match = re.search(r"(.+?\.(md|csv))\s*(?:[:：]\s*(\d+)|第\s*(\d+)\s*行)", first, re.I)
+    # 只读第一个明确出处，范围以首行铸锚点；版本属于出处元数据，不属于文件名。
+    version = r"(?:rev(?:ision(?:_id)?)?\s*[:=]?\s*\d+|v\d+(?:\.\d+)*)"
+    match = re.fullmatch(
+        rf'\s*(.+?\.(md|csv))[`"”」]*\s*(?:(?:[（(]\s*{version}\s*[）)]|{version})\s*)?'
+        r"(?:[:：]\s*(\d+)(?:\s*[-–—~～至]\s*(\d+))?|第\s*(\d+)(?:\s*[-–—~～至]\s*(\d+))?\s*行).*",
+        first, re.I)
     if not match:
         return "unknown", 0, False
-    file, ext, md_line, csv_line = match.groups()
-    return file.strip(" `\"“”「」"), int(md_line or csv_line), ext.lower() == "csv"
+    file, ext, md_line, md_end, csv_line, csv_end = match.groups()
+    start, end = int(md_line or csv_line), md_end or csv_end
+    if start < 1 or end and int(end) < start:
+        return "unknown", 0, False
+    return file.strip(" `\"“”「」"), start, ext.lower() == "csv"
 
 
 def posix(path: str) -> str:
@@ -348,9 +403,12 @@ def report_data(path: Path, docs: Documents, use_stamped: bool = False) -> dict:
                      "match_text": normalized(split_requirement(cells[1])[0])})
     mechanics = table_rows(section(lines, "### Code-only mechanics"))
     mechanism_column = mechanics[0].index("机制") if mechanics and "机制" in mechanics[0] else 0
+    reference_column = mechanics[0].index("code_ref") if mechanics and "code_ref" in mechanics[0] else None
     carried = next((re.fullmatch(r"> 沿用基线 (.+)，本轮未重跑：文档与代码均未变", line) for line in lines
                     if line.startswith("> 沿用基线 ")), None)
-    return {"rows": rows, "code_only": [row[mechanism_column] for row in mechanics[1:] if len(row) > mechanism_column],
+    return {"rows": rows, "code_only": [{"mechanism": row[mechanism_column],
+            "code_ref": row[reference_column] if reference_column is not None and len(row) > reference_column else None}
+            for row in mechanics[1:] if len(row) > mechanism_column],
             "code_only_present": "### Code-only mechanics" in lines,
             "carried_from": carried[1] if carried else None}
 
@@ -371,22 +429,45 @@ def load_baseline(directory: Path, docs: Documents) -> dict:
                         or "#" not in row or row["status"] not in STATUSES
                         or not re.fullmatch(r"[^#]+#[^#]+#[0-9a-f]{8}", row["key"])):
                     raise ValueError(f"RUN.json 行记录格式错误：{name}")
+            legacy = data.get("validation_version", 1) < 2
+            if legacy:
+                print(f"警告：基线 {name} 为旧 RUN，兼容读取；历史输入依赖不追认。", file=sys.stderr)
+            unknown = sum(row["key"].split("#", 1)[0] == "unknown" for row in data["rows"])
+            if unknown:
+                if not legacy:
+                    raise ValueError(f"新 RUN {name} 含 {unknown} 行 unknown 身份")
+                print(f"警告：基线 {name} 含 {unknown} 行 unknown 身份，保留旧键。", file=sys.stderr)
             path = directory / (name + ".md")
-            if "code_only_present" not in data and path.is_file():
+            if path.is_file():
                 extra = report_data(path, docs)
-                data.update({k: extra[k] for k in ("code_only", "code_only_present")})
+                if "code_only_present" not in data:
+                    data.update({k: extra[k] for k in ("code_only", "code_only_present")})
+                else:
+                    # 旧 RUN 仅存描述：只为同描述补回当轮 Markdown 的证据，绝不从当前源码补历史事实。
+                    refs = {item["mechanism"]: item["code_ref"] for item in extra["code_only"]}
+                    data["code_only"] = [{**item, "code_ref": item.get("code_ref") or refs.get(item["mechanism"])}
+                                         for item in code_only_entries(data)]
+            if not data.get("code_only_present", False):
+                if not legacy:
+                    raise ValueError(f"新 RUN {name} 缺少 Code-only mechanics")
+                print(f"警告：基线 {name} 没有 Code-only mechanics，无法确认历史机制差异。", file=sys.stderr)
         return run
     systems = {}
     for path in report_paths(directory)[0]:
-        report = inspect_report(path)
+        report = inspect_report(path, legacy=True)
         if report.problems:
             raise ValueError(f"基线 {path.stem} 校验不通过：{'；'.join(report.problems)}")
+        for warning in report.warnings:
+            print(f"警告：基线 {path.stem}：{warning}", file=sys.stderr)
         systems[path.stem] = report_data(path, docs, use_stamped=True)
     return {"systems": systems}
 
 
 def match_rows(current: list[dict], baseline: list[dict], threshold: float = .6) -> list[tuple[dict | None, dict | None, int]]:
-    """先耗尽一级，再全局按相似度贪心二级；下标打破平分，重复键也一对一。"""
+    """同键 → 同 doc/h8 唯一漂移 → 同 doc/anchor 相似度 → 剩余；每行只用一次。
+
+    漂移的标记为 4，保留既有 1/2/3 的接口含义；执行顺序并非标记数值顺序。
+    """
     used_current, used_baseline, matches = set(), set(), []
     for ci, row in enumerate(current):
         bi = next((i for i, old in enumerate(baseline) if i not in used_baseline and old["key"] == row["key"]), None)
@@ -394,6 +475,22 @@ def match_rows(current: list[dict], baseline: list[dict], threshold: float = .6)
             used_current.add(ci)
             used_baseline.add(bi)
             matches.append((row, baseline[bi], 1))
+    def identities(rows, used):
+        groups = {}
+        for i, row in enumerate(rows):
+            doc, anchor, digest = row["key"].split("#")
+            if i not in used and doc != "unknown":
+                groups.setdefault((doc, digest), []).append(i)
+        return groups
+    current_groups = identities(current, used_current)
+    baseline_groups = identities(baseline, used_baseline)
+    for identity, candidates in current_groups.items():
+        previous = baseline_groups.get(identity, [])
+        if len(candidates) == len(previous) == 1:
+            ci, bi = candidates[0], previous[0]
+            used_current.add(ci)
+            used_baseline.add(bi)
+            matches.append((current[ci], baseline[bi], 4))
     candidates = []
     for ci, row in enumerate(current):
         if ci in used_current:
@@ -419,13 +516,20 @@ def md_cell(value: str) -> str:
     return str(value).replace("|", r"\|").replace("\n", " ")
 
 
-TRANSITION_COUNTS = ("未变", "退步", "修复", "其他变化", "改写", "新增", "消失")
+TRANSITION_COUNTS = ("未变", "退步", "修复", "其他变化", "改写", "锚点漂移", "新增", "消失")
+
+
+def code_only_entries(data: dict) -> list[dict]:
+    """兼容旧 RUN 的字符串；缺失证据保留未知。"""
+    return [dict(item) if isinstance(item, dict) else {"mechanism": item, "code_ref": None}
+            for item in data.get("code_only", [])]
 
 
 def transitions_text(current: dict, baseline: dict, baseline_dir: Path, threshold: float = .6,
                      root: Path | None = None) -> tuple[str, list[str]]:
     lines = ["# 基线迁移", "", f"基线：{display_path(baseline_dir, root)}", "",
-             "改写是二级匹配的独立计数，可同时计入退步／修复／其他变化；同状态改写不计未变。", ""]
+             "匹配顺序：完全同键 → 同文档同 h8 唯一锚点漂移 → 同文档同锚点措辞改写 → 新增／消失。",
+             "改写与锚点漂移独立计数，可同时计入状态变化；只有一级同键同状态计未变。", ""]
     notices, carried, totals = [], [], Counter()
     for name in sorted(current.keys() | baseline.keys()):
         now, old = current.get(name, {}), baseline.get(name, {})
@@ -439,6 +543,8 @@ def transitions_text(current: dict, baseline: dict, baseline_dir: Path, threshol
             else:
                 if level == 2:
                     counts["改写"] += 1
+                elif level == 4:
+                    counts["锚点漂移"] += 1
                 before, after = previous["status"], row["status"]
                 if before != after:
                     category = ("退步" if before == STATUSES[0] else "修复"
@@ -449,7 +555,9 @@ def transitions_text(current: dict, baseline: dict, baseline_dir: Path, threshol
                     continue
             display = row or previous
             changed.append("| " + " | ".join(map(md_cell, [display["key"], display["requirement"],
-                           f"{previous['status'] if previous else '—'} → {row['status'] if row else '—'}", "①②③"[level - 1]])) + " |")
+                           f"{previous['status'] if previous else '—'} → {row['status'] if row else '—'}",
+                           f"锚点漂移（{previous['key']} → {row['key']}）" if level == 4
+                           else {1: "①", 2: "② 措辞改写", 3: "③"}[level]])) + " |")
         totals.update(counts)
         subtotal = "／".join(f"{key} {counts[key]}" for key in TRANSITION_COUNTS)
         notices.append(f"{name}：{subtotal}")
@@ -457,33 +565,39 @@ def transitions_text(current: dict, baseline: dict, baseline_dir: Path, threshol
                   "### Code-only mechanics", ""]
         if not old.get("code_only_present", False):
             lines.append("基线报告没有该节，无法确认机制新增／消失。")
-        elif name in current and not now.get("code_only_present", False):
+        elif not now.get("code_only_present", False):
             lines.append("本轮报告没有该节，无法确认机制新增／消失。")
         else:
-            added = sorted(set(now.get("code_only", [])) - set(old.get("code_only", [])))
-            removed = sorted(set(old.get("code_only", [])) - set(now.get("code_only", [])))
-            lines += ["| 变化 | 机制 |", "|---|---|", *(f"| 新增 | {md_cell(x)} |" for x in added),
-                      *(f"| 消失 | {md_cell(x)} |" for x in removed)]
+            current_entries, old_entries = code_only_entries(now), code_only_entries(old)
+            current_descriptions = {item["mechanism"] for item in current_entries}
+            old_descriptions = {item["mechanism"] for item in old_entries}
+            added = [item for item in current_entries if item["mechanism"] not in old_descriptions]
+            removed = [item for item in old_entries if item["mechanism"] not in current_descriptions]
+            lines += ["描述差异、待核机制变化：以下仅对比文字，由复核／综合核源码与属主裁决后确认。",
+                      "| 描述来源 | 机制描述 | code_ref |", "|---|---|---|"]
+            for label, items in (("本轮独有描述", added), ("基线独有描述", removed)):
+                lines.extend(f"| {label} | {md_cell(item['mechanism'])} | {md_cell(item.get('code_ref') or '旧记录未保存，待核')} |"
+                             for item in items)
             if not added and not removed:
-                lines.append("未变。")
+                lines.append("描述无差异；不据此断言机制未变。")
         lines.append("")
         if now.get("carried_from"):
             carried.append(f"- {name}：{now['carried_from']}")
     total_rows = sum(len(s.get("rows", [])) for s in baseline.values())
     stability = f"{100 * totals['level1'] / total_rows:.1f}%" if total_rows else "不适用（基线总行数为 0）"
     total = ("合计：" + "／".join(f"{key} {totals[key]}" for key in TRANSITION_COUNTS)
-             + f"；稳定率 {stability}（一级 {totals['level1']} ÷ 基线 {total_rows}）；二级 {totals['level2']}，新增 {totals['新增']}，消失 {totals['消失']}")
+             + f"；稳定率 {stability}（一级 {totals['level1']} ÷ 基线 {total_rows}）；锚点漂移找回 {totals['level4']}，二级改写 {totals['level2']}，新增 {totals['新增']}，消失 {totals['消失']}")
     lines += ["## 沿用基线的系统", "", *(carried or ["无。"]), "", total]
     return "\n".join(lines) + "\n", notices + [total]
 
 
-def git_output(root: Path | None, *args: str) -> str | None:
+def git_output(root: Path | None, *args: str, input_text: str | None = None) -> str | None:
     if root is None or not root.is_dir():
         return None
     try:
         # 仅本次只读调用信任显式工程根，不改用户的全局 Git 配置。
         result = subprocess.run(["git", "-c", f"safe.directory={root.resolve().as_posix()}", "-C", str(root), *args],
-                                capture_output=True, encoding="utf-8", errors="replace", timeout=30)
+                                input=input_text, capture_output=True, encoding="utf-8", errors="replace", timeout=30)
         return result.stdout.strip() if result.returncode == 0 else None
     except (OSError, subprocess.TimeoutExpired):
         return None
@@ -535,11 +649,132 @@ def document_revisions(system: dict, docs: Documents) -> tuple[list[dict], list[
         # 版本快照必须按完整相对路径，不能把同名 CSV 的版本混起来。
         entry = next((e for e in docs.entries if posix(e["file"]) == file), None)
         fields = {key: entry[key] for key in ("revision_id", "revision") if entry and entry.get(key) is not None}
-        if fields:
-            revisions.append({"file": file, **fields})
-        else:
-            problems.append(f"manifest 缺少版本：{file}")
+        fingerprint = file_fingerprint(docs.root / file, file, problems)
+        revisions.append({**fingerprint, **fields,
+                          "identity": (entry or {}).get("node_token") or PurePosixPath(file).stem})
     return revisions, problems
+
+
+def file_fingerprint(path: Path, name: str, problems: list[str], optional: bool = False) -> dict:
+    try:
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    except FileNotFoundError:
+        digest = None
+        if not optional:
+            problems.append(f"输入文件不存在：{name}")
+    except OSError as exc:
+        digest = None
+        problems.append(f"输入文件无法读取：{name}：{exc}")
+    return {"file": name, "sha256": digest}
+
+
+def safe_patterns(values) -> bool:
+    return (isinstance(values, list) and all(isinstance(v, str) and v.strip()
+            and not PureWindowsPath(v).drive and not PurePosixPath(posix(v)).is_absolute()
+            and ".." not in PurePosixPath(posix(v)).parts for v in values))
+
+
+def scan_inputs(path: Path) -> tuple[dict | None, list[str]]:
+    """扫描者声明搜索范围（包括零命中的搜索）与补读参考，不从自然语言猜完整性。"""
+    scope = "\n".join(section(path.read_text(encoding="utf-8-sig").splitlines(), "### Scan Scope"))
+    blocks = re.findall(r"^```gap-inputs\s*\n(.*?)\n```\s*$", scope, re.M | re.S)
+    if len(blocks) != 1:
+        return None, ["Scan Scope 缺少唯一 gap-inputs 依赖块，实际依赖不完整；代码比较扩大到全工程"]
+    try:
+        data = json.loads(blocks[0])
+    except ValueError:
+        return None, ["gap-inputs 必须为 JSON 对象；代码比较扩大到全工程"]
+    if not isinstance(data, dict) or any(not safe_patterns(data.get(k)) for k in ("code", "refs")):
+        return None, ["gap-inputs.code / refs 须为相对工程根、不越界的路径列表；代码比较扩大到全工程"]
+    if not isinstance(data.get("unresolved", []), list) or any(not isinstance(v, str) or not v.strip()
+                                                            for v in data.get("unresolved", [])):
+        return None, ["gap-inputs.unresolved 须为未能记录的依赖说明列表；代码比较扩大到全工程"]
+    return data, []
+
+
+def fingerprint_patterns(base: Path | None, patterns: list[str], problems: list[str]) -> list[dict]:
+    files = set()
+    for pattern in patterns:
+        matches = list(base.glob(posix(pattern))) if base and base.is_dir() else []
+        found = {file for p in matches for file in (p.rglob("*") if p.is_dir() else [p]) if file.is_file()}
+        if not found:
+            problems.append(f"依赖文件未匹配：{pattern}")
+        files.update(found)
+    return [file_fingerprint(p, p.relative_to(base).as_posix(), problems) for p in sorted(files)]
+
+
+def path_covered(file: str, patterns: list[str]) -> bool:
+    # 与配置的目录 / glob 约定一致，不能让 PurePath.match 的尾部匹配把别的目录算进来。
+    for pattern in patterns:
+        pattern = posix(pattern).rstrip("/")
+        if pattern == "." or file == pattern or file.startswith(pattern + "/"):
+            return True
+        regex = ""
+        i = 0
+        while i < len(pattern):
+            if pattern[i:i + 3] == "**/":
+                regex += "(?:.*/)?"
+                i += 3
+            elif pattern[i:i + 2] == "**":
+                regex += ".*"
+                i += 2
+            else:
+                regex += "[^/]*" if pattern[i] == "*" else "[^/]" if pattern[i] == "?" else re.escape(pattern[i])
+                i += 1
+        if re.fullmatch(regex, file):
+            return True
+    return False
+
+
+def input_snapshot(system: dict, docs: Documents, root: Path | None, scan: dict | None,
+                   scan_problems: list[str], evidence: str = "") -> dict:
+    """实际字节是失效依据；manifest revision 仅作显示，不能替正文证明未变。"""
+    revisions, problems = document_revisions(system, docs)
+    problems.extend(scan_problems)
+    problems.extend(f"实际依赖未能记录，保守重跑：{item}" for item in (scan or {}).get("unresolved", []))
+    refs = fingerprint_patterns(docs.root, system.get("refs", []), problems)
+    project_inputs = []
+    if root is None:
+        problems.append("未提供工程根，无法记录声明、裁决与代码依赖")
+    else:
+        declaration = root / "game-toolkit.yaml"
+        project_inputs.append(file_fingerprint(declaration, "game-toolkit.yaml", problems, optional=True))
+        if declaration.is_file():
+            try:
+                declared = yaml.safe_load(declaration.read_text(encoding="utf-8-sig"))
+                feedback = declared.get("doc_feedback", {}) if isinstance(declared, dict) else None
+                if not isinstance(feedback, dict):
+                    raise ValueError("doc_feedback 须为 mapping")
+                for key in ("rulings_ledger", "decision_ledger", "engineering_log", "owners"):
+                    if key not in feedback:
+                        continue
+                    if not safe_patterns([feedback[key]]):
+                        raise ValueError(f"doc_feedback.{key} 路径无效")
+                    project_inputs.extend(fingerprint_patterns(root, [feedback[key]], problems))
+            except (OSError, ValueError, yaml.YAMLError) as exc:
+                problems.append(f"项目声明依赖无法读取：{exc}")
+    extra_refs = fingerprint_patterns(root, (scan or {}).get("refs", []), problems)
+    code = sorted(set(posix(p) for p in [*system.get("code", []), *(scan or {}).get("code", [])]))
+    notes = []
+    if scan is None:
+        code = ["."]
+    elif evidence and root:
+        # 明确的项目文件出处必须在声明范围内。裸文件名无法唯一解析时扩大范围，绝不假设已覆盖。
+        inventory = git_output(root, "ls-files", "-z")
+        files = (inventory or "").split("\0")
+        citations = re.findall(r'([^\s`|「」“”（）；;,]+\.(?:cpp|h|hpp|c|cs|gd|ts|tsx|js|py|ps1|ini|uasset|umap))(?=[:：`\s]|$)', evidence, re.I)
+        for citation in citations:
+            citation = posix(citation).strip("()[]\"'")
+            candidates = [f for f in files if f == citation or f.endswith("/" + citation)]
+            if not candidates and (root / citation).is_file():
+                candidates = [citation]
+            if len(candidates) != 1 or not path_covered(candidates[0], code):
+                code = ["."]
+                notes.append(f"代码证据未被范围唯一覆盖：{citation}；比较扩大到全工程")
+                break
+    return {"version": 1, "docs": [{k: d[k] for k in ("file", "sha256", "identity")} for d in revisions],
+            "refs": refs, "project_inputs": project_inputs, "scan_refs": extra_refs,
+            "scan": scan, "code": code, "problems": problems, "notes": notes}
 
 
 def make_plan(config: dict, baseline: dict | None, baseline_dir: Path | None, root: Path | None,
@@ -568,12 +803,26 @@ def make_plan(config: dict, baseline: dict | None, baseline_dir: Path | None, ro
         if previous is None:
             reasons.append("基线没有该系统")
         if not reasons:
-            revisions, problems = document_revisions(system, docs)
-            reasons.extend(problems)
+            snapshot = previous.get("inputs")
+            if not isinstance(snapshot, dict) or snapshot.get("version") != 1:
+                reasons.append("旧 RUN 缺少实际输入指纹、参考/裁决及实际代码依赖记录，保守重跑")
+            else:
+                if (not isinstance(snapshot.get("scan"), dict)
+                        or any(not safe_patterns(snapshot["scan"].get(k)) for k in ("code", "refs"))
+                        or not safe_patterns(snapshot.get("code")) or snapshot.get("code_dirty") is None):
+                    reasons.append("基线实际依赖记录不完整，保守重跑")
+                reasons.extend(snapshot.get("problems", []))
+                if snapshot.get("code_dirty"):
+                    reasons.append("基线分析时代码依赖有未提交或未跟踪修改，不能证明沿用")
+                scan = snapshot.get("scan")
+                current_inputs = input_snapshot(system, docs, root, scan if isinstance(scan, dict) else None, [])
+                reasons.extend(current_inputs["problems"])
+                for key, label in (("docs", "设计文件内容/身份或集合"), ("refs", "参考文件内容或集合"),
+                                   ("project_inputs", "项目声明/裁决/账本"), ("scan_refs", "实际补读参考文件")):
+                    if key not in snapshot or current_inputs[key] != snapshot[key]:
+                        reasons.append(f"{label}指纹与基线不同")
             if not system.get("docs"):
                 reasons.append("未配置评分文档")
-            if revisions != sorted(previous.get("docs", []), key=lambda e: e["file"]):
-                reasons.append("设计文件集合或 revision 与基线不同")
             if system.get("code", []) != previous.get("code", []):
                 reasons.append("代码范围与基线不同")
             if ("scope" in previous and previous["scope"] != system.get("scope")
@@ -583,16 +832,23 @@ def make_plan(config: dict, baseline: dict | None, baseline_dir: Path | None, ro
             if not head:
                 reasons.append("基线没有 project_head")
             else:
-                paths = [posix(p) for p in system.get("code", [])]
+                # 旧 RUN 无证据范围时查全工程；新 RUN 用已核实的搜索范围（包含阴性搜索）。
+                paths = snapshot.get("code", ["."]) if isinstance(snapshot, dict) else ["."]
                 # 空 code 明确表示无源码路径；不把空 pathspec 误当全仓库。
                 diff = git_output(root, "diff", "--name-only", head, "HEAD", "--", *paths) if paths else git_output(root, "cat-file", "-e", head + "^{commit}")
                 if diff is None:
                     reasons.append("无法比较基线提交（可能已不可用）")
                 elif diff:
                     reasons.append("代码路径有已提交变化")
+                if isinstance(snapshot, dict):
+                    dirty = code_dirty(root, paths)
+                    if dirty is None:
+                        reasons.append("无法核对代码依赖的工作区状态")
+                    elif dirty:
+                        reasons.append("代码依赖有未提交或未跟踪修改")
         decision = "rerun" if reasons else "carry"
         result[decision].append(name)
-        result["reasons"][name] = reasons or ["文档版本与代码均未变"]
+        result["reasons"][name] = list(dict.fromkeys(reasons)) or ["实际文档/参考/裁决指纹与已覆盖的代码依赖均未变"]
     if not names:
         result["reasons"]["*"] = common + ["无可发现系统；先沿 CLAUDE.md 指针发现系统并用 --expect 传入"]
     unknown = set(force) - set(names)
@@ -607,9 +863,37 @@ def run_record(output_dir: Path, systems: dict, docs: Documents, root: Path | No
             "baseline": display_path(baseline, root), "systems": systems}
 
 
-def collect_system(path: Path, report: Report, docs: Documents, config: dict) -> dict:
+def code_dirty(root: Path | None, paths: list[str]) -> bool | None:
+    if not paths:
+        return False
+    tree = git_output(root, "ls-tree", "-rz", "--full-tree", "HEAD")
+    untracked = git_output(root, "ls-files", "-z", "--others", "--exclude-standard")
+    if tree is None or untracked is None:
+        return None
+    tracked = {}
+    for entry in tree.split("\0"):
+        if entry:
+            meta, name = entry.split("\t", 1)
+            tracked[name] = meta.split()
+    if any(name not in tracked and path_covered(name, paths) for name in untracked.split("\0") if name):
+        return True
+    selected = {name: meta for name, meta in tracked.items() if path_covered(name, paths)}
+    if any(meta[1] != "blob" or meta[0] == "120000" or not (root / name).is_file() for name, meta in selected.items()):
+        return True
+    if not selected:
+        return False
+    # 比较实际工作文件与 HEAD，不能让暂存区状态代替正文；hash-object 不带 -w，不写对象/索引。
+    hashes = git_output(root, "hash-object", "--stdin-paths", input_text="".join(
+        json.dumps((root / name).resolve().as_posix(), ensure_ascii=False) + "\n" for name in selected))
+    if hashes is None or len(hashes.splitlines()) != len(selected):
+        return None
+    return any(digest != meta[2] for digest, meta in zip(hashes.splitlines(), selected.values()))
+
+
+def collect_system(path: Path, report: Report, docs: Documents, config: dict,
+                   root: Path | None = None, legacy: bool = False) -> dict:
     system = next((s for s in config.get("systems", []) if s["name"] == report.name), {})
-    data = report_data(path, docs)
+    data = report_data(path, docs, use_stamped=legacy)
     if system:
         revisions = document_revisions(system, docs)[0]
     else:
@@ -620,6 +904,14 @@ def collect_system(path: Path, report: Report, docs: Documents, config: dict) ->
     data.update({"docs": revisions, "code": system.get("code", []), "scope": system.get("scope"), "refs": system.get("refs", []),
                  "total": sum(report.counts.values()), **dict(zip(("implemented", "partial", "missing", "divergent", "unverifiable"),
                                                                   (report.counts[s] for s in STATUSES)))})
+    data["validation_version"] = 1 if legacy else 2
+    if not legacy:
+        scan, problems = scan_inputs(path)
+        snapshot = input_snapshot(system, docs, root, scan, problems, path.read_text(encoding="utf-8-sig"))
+        snapshot["code_dirty"] = code_dirty(root, snapshot["code"])
+        if snapshot["code_dirty"] is None:
+            snapshot["problems"].append("无法记录代码工作区状态")
+        data["inputs"] = snapshot
     return data
 
 
@@ -664,10 +956,10 @@ def carry_reports(output: Path, baseline_dir: Path, names: list[str], docs: Docu
         source, target = baseline_dir / (name + ".md"), output / (name + ".md")
         if target.exists():
             raise ValueError(f"拒绝覆盖已有报告：{target}")
-        report = inspect_report(source)
+        report = inspect_report(source, legacy=baseline.get("systems", {}).get(name, {}).get("validation_version", 1) < 2)
         if report.problems:
             raise ValueError(f"基线 {name} 校验不通过：{'；'.join(report.problems)}")
-        data = collect_system(source, report, docs, {})
+        data = collect_system(source, report, docs, {}, root, legacy=True)
         data.update(baseline.get("systems", {}).get(name, {}))
         data["carried_from"] = display_path(baseline_dir, root)
         lines = source.read_text(encoding="utf-8-sig").splitlines()
@@ -703,14 +995,24 @@ def main(argv=None) -> int:
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--plan", action="store_true", help="只输出增量计划")
     mode.add_argument("--carry", action="store_true", help="复制指定基线报告，拒绝覆盖")
+    mode.add_argument("--report", type=Path, help="只读校验一份报告，不扫描同目录其他系统")
+    parser.add_argument("--stage", choices=("analysis", "review"), default="review", help="单报告阶段，默认 review")
+    parser.add_argument("--legacy", action="store_true", help="显式兼容读取历史报告，告警并保留已有 RUN 行键；不补历史输入指纹")
     parser.add_argument("--json", action="store_true", help="计划输出为纯 JSON；默认输出人读表")
     parser.add_argument("--force", help="强制重跑的系统，以逗号分隔")
     parser.add_argument("--systems", help="沿用基线的系统，以逗号分隔")
     args = parser.parse_args(argv)
     if not 0 <= args.match_threshold <= 1:
         parser.error("--match-threshold 须在 0 到 1 之间")
-    if not args.plan and args.output_dir is None:
+    if not args.plan and not args.report and args.output_dir is None:
         parser.error("需要 OUTPUT_DIR")
+    if args.report and any((args.output_dir, args.write_summary, args.out, args.expect, args.baseline,
+                            args.stamp_keys, args.json, args.force, args.systems)):
+        parser.error("--report 是单报告只读入口，不与目录、汇总、基线或写入参数混用")
+    if args.stage != "review" and not args.report:
+        parser.error("--stage analysis 仅用于 --report，目录汇总必须完成复核")
+    if args.legacy and (args.plan or args.carry or args.stamp_keys):
+        parser.error("--legacy 仅用于历史报告读取/重汇总，不写 Key；基线与 carry 自动按原记录兼容")
     if args.carry and (not args.baseline or not args.systems):
         parser.error("--carry 需要 --baseline 和 --systems")
     if (args.plan or args.carry) and (args.stamp_keys or args.write_summary or args.out):
@@ -737,6 +1039,14 @@ def main(argv=None) -> int:
         if manifest and not manifest.is_file():
             raise ValueError(f"配置的 manifest 不存在：{manifest}")
         docs = Documents(docs_root, manifest)
+        if args.report:
+            report = inspect_report(args.report, args.stage, args.legacy)
+            for warning in report.warnings:
+                print(f"警告：{warning}")
+            for problem in report.problems:
+                print(f"不通过：{problem}")
+            print(f"{report.name} {args.stage}：" + ("不通过" if report.problems else "通过"))
+            return 1 if report.problems else 0
         names = list(dict.fromkeys(x.strip() for x in (args.expect or "").split(",") if x.strip()))
         if args.plan:
             baseline = None
@@ -776,7 +1086,18 @@ def main(argv=None) -> int:
         print(f"不通过：报告目录不存在：{args.output_dir}")
         return 1
     paths, skipped = report_paths(args.output_dir)
-    reports = [inspect_report(path) for path in paths]
+    try:
+        source_run = args.output_dir / "RUN.json"
+        saved = (load_baseline(args.output_dir, docs).get("systems", {}) if args.legacy and source_run.is_file()
+                 else read_json(source_run).get("systems", {}) if source_run.is_file() else {})
+    except (OSError, ValueError) as exc:
+        print(f"不通过：{exc}", file=sys.stderr)
+        return 1
+    def is_legacy(path):
+        data = saved.get(path.stem, {})
+        # --legacy 不能放宽已标记为新契约的报告。沿用旧报告保留兼容，不因换目录升级契约。
+        return data.get("validation_version", 1) < 2 and (args.legacy or bool(data.get("carried_from")))
+    reports = [inspect_report(path, legacy=is_legacy(path)) for path in paths]
     for name in skipped:
         # 同目录里的补充材料（发布映射、备忘）没有 Features 表，不是系统报告；
         # 靠 --expect 兜底：本该是报告却没写出 Features 的系统会在缺失清单里出现。
@@ -786,9 +1107,11 @@ def main(argv=None) -> int:
                if name and name not in names]
     for report in reports:
         counts = " ".join(f"{s.split()[0]}{report.counts[s]}" for s in STATUSES)
-        print(f"{'不通过' if report.problems else '通过'} {report.name}：Total {sum(report.counts.values())} {counts}；复核改判 {report.changed}")
+        print(f"{'不通过' if report.problems else '通过'} {report.name}：Total {sum(report.counts.values())} {counts}；复核改判 {report.changed}／要求补行 {report.added}／其他 {report.other}")
         for problem in report.problems:
             print(f"  - {problem}")
+        for warning in report.warnings:
+            print(f"  警告：{warning}")
     for name in missing:
         print(f"不通过 {name}：未产出")
     if not reports:
@@ -799,22 +1122,35 @@ def main(argv=None) -> int:
     run, transitions = None, None
     if passed:
         try:
-            systems = {report.name: collect_system(path, report, docs, config) for path, report in zip(paths, reports)}
-            carried_run = args.output_dir / "RUN.json"
-            saved = read_json(carried_run).get("systems", {}) if carried_run.is_file() else {}
+            systems = {report.name: collect_system(path, report, docs, config, args.project_root, is_legacy(path))
+                       for path, report in zip(paths, reports)}
             for name, data in systems.items():
-                if data.get("carried_from"):
+                if data.get("carried_from") or args.legacy and name in saved:
                     old = saved.get(name) or (baseline or {}).get("systems", {}).get(name)
                     if old is None:
                         raise ValueError(f"{name} 有沿用标记但缺少基线记录，请重新 --carry")
                     def signature(row):
                         return (str(row["#"]), row["status"], row.get("match_text", normalized(split_requirement(row["requirement"])[0])))
                     if [signature(row) for row in data["rows"]] != [signature(row) for row in old["rows"]]:
-                        raise ValueError(f"{name} 沿用报告已改动；请去掉沿用标记并重新核对，不能沿用旧状态")
-                    marker = data["carried_from"]
-                    data.update(old)
-                    data["carried_from"] = marker
+                        raise ValueError(f"{name} 历史/沿用报告与 RUN 行记录不一致；请重新核对，不能沿用旧状态")
+                    if data.get("carried_from"):
+                        marker = data["carried_from"]
+                        data.update(old)
+                        data["carried_from"] = marker
+                    else:
+                        # 历史回放只重算汇总/迁移，不用今天的设计锚点或文件指纹替换当轮身份与输入。
+                        data.update(old)
+                        data["docs"] = old.get("docs", [])
+                        data.setdefault("validation_version", 1)
+                        if old.get("validation_version", 1) < 2:
+                            data.pop("inputs", None)
+                for warning in data.get("inputs", {}).get("problems", []) + data.get("inputs", {}).get("notes", []):
+                    print(f"增量警告 {name}：{warning}")
             run = run_record(args.output_dir, systems, docs, args.project_root, args.baseline)
+            if args.legacy and source_run.is_file():
+                original = read_json(source_run)
+                for key in ("project_head", "exported_at"):
+                    run[key] = original.get(key)
             if baseline is not None:
                 transitions, notices = transitions_text(systems, baseline["systems"], args.baseline, args.match_threshold,
                     args.project_root)

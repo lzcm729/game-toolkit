@@ -176,7 +176,8 @@ def test_out_does_not_write_source_and_totals_are_weighted(tmp_path):
     assert gap.main([str(source), "--write-summary", "--out", str(dest)]) == 0
     assert {p.name: p.read_bytes() for p in source.iterdir()} == before
     text = (dest / "SUMMARY.md").read_text(encoding="utf-8")
-    assert "| 合计 | 8 | 4 | 1 | 1 | 1 | 1 | 87.5% | 64.3% | 2 | 通过 |" in text
+    # 3.7：补行与其他复核差异独立成列，不能继续混入五状态改判；原计数/比例保持逐格断言。
+    assert "| 合计 | 8 | 4 | 1 | 1 | 1 | 1 | 87.5% | 64.3% | 2 | 0 | 0 | 通过 |" in text
 
 
 def test_default_summary_and_skipped_files(tmp_path):
@@ -184,7 +185,8 @@ def test_default_summary_and_skipped_files(tmp_path):
     for name in ["SUMMARY.md", "回填清单.md", "_notes.md"]:
         (tmp_path / name).write_text("不是报告", encoding="utf-8")
     assert gap.main([str(tmp_path), "--write-summary"]) == 0
-    assert "| 合计 | 5 | 1 | 1 | 1 | 1 | 1 | 80.0% | 37.5% | 1 | 通过 |" in (tmp_path / "SUMMARY.md").read_text(encoding="utf-8")
+    # 3.7 新增两列的契约同上，未缩减计数与比例覆盖。
+    assert "| 合计 | 5 | 1 | 1 | 1 | 1 | 1 | 80.0% | 37.5% | 1 | 0 | 0 | 通过 |" in (tmp_path / "SUMMARY.md").read_text(encoding="utf-8")
 
 
 @pytest.mark.parametrize("statuses", [[], [gap.STATUSES[4]]])
@@ -317,8 +319,9 @@ def test_transition_categories_mechanics_carried_and_stability():
     text, notices = gap.transitions_text(current, previous, Path("旧目录"))
     assert "未变 1／退步 1／修复 3／其他变化 1" in text
     assert "稳定率 100.0%（一级 6 ÷ 基线 6）" in notices[-1]
+    # 3.7：旧 RUN 的描述差只能宣布描述差异，不能凭字符串认定机制新增/消失。
     for part in ("## 甲", "## 乙", "| 键 |", "①", "③", "## 沿用基线的系统", "基线报告没有该节",
-                 "| 新增 | 新增机制 |", "| 消失 | 已移除机制 |"):
+                 "| 本轮独有描述 | 新增机制 |", "| 基线独有描述 | 已移除机制 |", "待核机制变化"):
         assert part in text
     assert "doc#section#00000000 |" not in text  # 未变行不进明细
 
@@ -350,7 +353,9 @@ def test_run_fields_full_matching_text_and_custom_manifest(tmp_path):
     assert run["schema_version"] == 1 and run["output_dir"] == "reports"
     assert run["exported_at"] == manifest["exported_at"] and run["project_head"] is None and run["baseline"] is None
     data = run["systems"]["系统甲"]
-    assert data["docs"] == [{"file": "规格.md", "revision_id": 1}]
+    # 3.7：保留版本元数据，新增实际字节指纹与身份；manifest 版本不能证明正文未变。
+    assert data["docs"] == [{"file": "规格.md", "revision_id": 1, "identity": "doc-token",
+                             "sha256": gap.hashlib.sha256((docs / "规格.md").read_bytes()).hexdigest()}]
     assert data["code"] == ["src/**"] and data["total"] == 5
     assert all(data[k] == 1 for k in ("implemented", "partial", "missing", "divergent", "unverifiable"))
     assert data["carried_from"] is None
@@ -411,9 +416,12 @@ def git_project(tmp_path):
     baseline = tmp_path / "baseline"
     baseline.mkdir()
     report = make_report(baseline)
+    # 3.7：可沿用的基线必须记录真实依赖，夹具同时保留全部五状态与引用行。
+    rewrite(report, "实现.txt", "code.py")
+    rewrite(report, "### Scan Scope\n", '### Scan Scope\n\n```gap-inputs\n{"code": ["code.py"], "refs": []}\n```\n')
     system = {"name": "系统甲", "docs": ["规格.md"], "refs": [], "scope": "全篇", "code": ["code.py"]}
     config = {"$schema_version": 1, "docs_root": "design", "systems": [system]}
-    data = gap.collect_system(report, gap.inspect_report(report), gap.Documents(docs), config)
+    data = gap.collect_system(report, gap.inspect_report(report), gap.Documents(docs), config, root)
     run = gap.run_record(baseline, {"系统甲": data}, gap.Documents(docs), root, None)
     assert run["project_head"] == head
     (baseline / "RUN.json").write_text(json.dumps(run, ensure_ascii=False), encoding="utf-8-sig")
@@ -430,7 +438,7 @@ def test_plan_carry_and_unrelated_committed_code(git_project):
     assert gap.make_plan(config, run, baseline, root, gap.Documents(docs), [], [])["carry"] == ["系统甲"]
 
 
-@pytest.mark.parametrize("change,reason", [("code", "已提交变化"), ("docs", "revision"),
+@pytest.mark.parametrize("change,reason", [("code", "已提交变化"), ("docs", "设计文件内容"),
                                           ("force", "--force"), ("new", "没有该系统"), ("missing_head", "project_head")])
 def test_plan_rerun_reasons(git_project, change, reason):
     root, docs, baseline, config, run, snapshot = git_project
@@ -438,6 +446,8 @@ def test_plan_rerun_reasons(git_project, change, reason):
     if change == "code":
         snapshot(code="changed")
     elif change == "docs":
+        # 3.7：改正文才是输入失效；仅更新 manifest revision 的新契约另有独立 carry 用例。
+        (docs / "规格.md").write_text("# 1 规则\n修改后的正文", encoding="utf-8")
         write_manifest(docs, revision=2)
     elif change == "force":
         force = ["系统甲"]
@@ -478,7 +488,8 @@ def test_plan_missing_revision_and_deleted_document(git_project):
     root, docs, baseline, config, run, _ = git_project
     (docs / "_manifest.json").unlink()
     plan = gap.make_plan(config, run, baseline, root, gap.Documents(docs), [], [])
-    assert "manifest 缺少版本" in "；".join(plan["reasons"]["系统甲"])
+    # 3.7：丢失 manifest 不再因无 revision 失败，但 token 身份退回文件名会使输入身份失效。
+    assert plan["rerun"] == ["系统甲"] and "设计文件内容/身份或集合" in "；".join(plan["reasons"]["系统甲"])
     (docs / "规格.md").unlink()
     assert gap.make_plan(config, run, baseline, root, gap.Documents(docs), [], [])["rerun"] == ["系统甲"]
 

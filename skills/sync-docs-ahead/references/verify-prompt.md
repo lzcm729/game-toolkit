@@ -28,7 +28,7 @@ Phase 2b 的独立复核者读本模板；占位符为 `{systemName}`、`{report
    有 `{doc_feedback.engineering_log}` 就核现有条目日期和编号，偏离即使登记过也仍是 🔄；
    仅登记完成不能替代代码证据。未配置的可选目标不猜、不读取。
 6. 用 Edit 改 Status / Code Reference / Notes，必要时纠正 Design Requirement 出处或补漏行，
-   保持五列；重算 Summary 八行和两个比例，更新实际 Scan Scope。
+   保持五列；重算 Summary 八行和两个比例，更新实际 Scan Scope 和 gap-inputs 的补扫代码/参考依赖。
    文末追加以下节，即使一行没改也记录实际抽验行与依据。
 
 ```markdown
@@ -41,9 +41,19 @@ Phase 2b 的独立复核者读本模板；占位符为 `{systemName}`、`{report
 | {报告行号} | {原状态} | {新状态} | {file:line 与原文含义，或实际搜索词及排除理由} |
 ```
 
-状态未变时两格写相同状态，证据更正写「依据」列，不把附注塞进改判列；脚本逐格比较统计改判。
+状态未变时两格写相同状态，证据更正写「依据」列，不把附注塞进改判列；脚本只把五状态之间变化计作改判。
 补行的原判写「新增」，新判写五状态之一；表内竖线转义。已有复核节时在原节补记录，不重复标题。
+要求补行单独计数，Code-only 补项或文字附注等归其他复核差异；不合并成一个改判数。
 不能完成全量待驳行或抽样时向主流程报告未完成，不用空复核节伪装通过。
+
+返回前用 Bash 执行只读单报告校验，脚本绝对路径 `{collectorPath}` 由主流程传入：
+
+```bash
+python "{collectorPath}" --report "{reportPath}" --stage review
+```
+
+退出码非零就 Edit 修正并重跑；无法执行时返回未完成及原因。此阶段必须有复核记录，
+不使用 `--legacy`，不检查同目录其他系统；主流程最后仍以全系统 `--expect` 收集。
 
 返回结构：`system`、`checked_rows`（去重后的实际行数）、`upheld`、
 `changes`（`id / from / to / reason`）、`final`（重算后的六个计数）、`notes`。
