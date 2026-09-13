@@ -55,6 +55,9 @@ Claude Code 插件源码仓库。当前版本 v3.6.0，游戏设计与实现契�
 agents/                         # 4 个 sub-agent（.md，frontmatter + 系统提示词）
 skills/                         # 13 个 skill（每个一个子目录，含 SKILL.md 和资源）
 CHANGELOG.md                    # 版本记录，每次 bump 同步补条目
+PLANNED.md                      # 下一版计划（未发布）。标题刻意不用 ## x.y.z：
+                                #   verify_release.py 靠那个格式找 CHANGELOG 最新段，
+                                #   带版本号的计划标题会被当成真版本段造成假通过
 scripts/verify_release.py       # 发布自检（校验 commit 而非工作区）
 
 （3.0.0 起没有 commands/ —— 11 个 slash command 连同 11 个 agent 一起移除，
