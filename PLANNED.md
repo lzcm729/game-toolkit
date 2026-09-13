@@ -107,6 +107,16 @@ Claude 逐条抽验。**它驳回了 Claude 原来的排序**，理由不是「�
     本轮查出的匹配与校验问题。
 13. **不做 Unity 验证工程。** 没有证据表明它比两套真实工程已暴露的问题更值得占本版范围。
 
+### 3.6.1 留下的两笔，随 3.7.0 一起记进 CHANGELOG
+
+- **发 3.6.1 时没跑本 skill 自己的测试套件**，只跑了 `generate-assets` 的 152 条，
+  于是 `test_run_fields_full_matching_text_and_custom_manifest` 红着被发了出去——它断言
+  `output_dir` 等于绝对路径，而 3.6.1 故意把它改成相对。行为变更是对的、测试编码的是旧契约，
+  已改到新契约并补了 `display_path` 的直接用例（根内相对／根外绝对／无根绝对／None）。
+  功能本身没问题（发版前拿 CatFishing 真数据验过，复现 91.4% 稳定率），所以不单独发修正版本。
+  **教训：改了哪个 skill 就要跑那个 skill 的套件，`verify_release.py` 不查测试。**
+- `--carry` 示例缺 `--project-root`，见上面「建议进」第 8 条。
+
 ### codex 查过、认为目前没问题的部分
 
 五状态计数与 Inspectable／Coverage 的数学实现（09-11 的 709、96.1%、49.3% 可重算）；

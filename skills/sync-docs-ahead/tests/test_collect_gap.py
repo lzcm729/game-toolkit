@@ -345,7 +345,9 @@ def test_run_fields_full_matching_text_and_custom_manifest(tmp_path):
     rewrite(path, "需求（", "长要求" * 40 + "（")
     assert gap.main([str(reports), "--write-summary", "--out", str(output), "--config", str(config), "--project-root", str(tmp_path)]) == 0
     run = gap.read_json(output / "RUN.json")
-    assert run["schema_version"] == 1 and run["output_dir"] == str(reports.resolve())
+    # 3.6.1 起产物里的路径相对工程根：报告与 RUN.json 会提交进仓库被别人读到，
+    # 绝对路径对别人是错的。根外路径仍退回绝对，见下面的 display_path 用例。
+    assert run["schema_version"] == 1 and run["output_dir"] == "reports"
     assert run["exported_at"] == manifest["exported_at"] and run["project_head"] is None and run["baseline"] is None
     data = run["systems"]["系统甲"]
     assert data["docs"] == [{"file": "规格.md", "revision_id": 1}]
@@ -564,3 +566,20 @@ def test_explicit_docs_root_manifest_wins_over_config_manifest(tmp_path, capsys)
     run = json.loads((out / "RUN.json").read_text(encoding="utf-8"))
     assert run["exported_at"] == "2026-01-01T00:00:00"
     assert any(d.get("revision_id") == 3 for d in run["systems"]["系统甲"]["docs"])
+
+def test_display_path_relative_inside_root_absolute_outside(tmp_path):
+    """3.6.1 的路径渲染契约：根内相对、根外绝对、无根绝对。
+
+    产物里的路径会被提交进仓库，所以根内一律写相对；但不能为了好看把根外的路径
+    截断成看起来像根内的样子，那会指向一个不存在的位置，所以根外保持绝对。
+    """
+    root = tmp_path / "project"
+    (root / "docs").mkdir(parents=True)
+    inside = root / "docs" / "gap"
+    inside.mkdir()
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    assert gap.display_path(inside, root) == "docs/gap"
+    assert gap.display_path(outside, root) == str(outside.resolve())
+    assert gap.display_path(inside, None) == str(inside.resolve())
+    assert gap.display_path(None, root) is None
