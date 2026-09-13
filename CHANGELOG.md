@@ -3,6 +3,24 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.6.1 (2026-09-13)
+
+对表产物里写的是绝对路径，而这些产物会提交进仓库被别人读到——对别人一定是错的，也会随工作
+副本搬家过期。CatFishing 那边清理仓库绝对路径时发现的：31 份对表报告的 Scan Scope 抄了绝对
+`project_root`，三份 RUN.json 的 `output_dir`／`baseline`／`carried_from` 与 TRANSITIONS.md 的基线行
+也都是绝对的。清完还会被下一轮跑回来，所以修在生成侧。
+
+- `collect_gap.py` 新增 `display_path(path, root)`：产物里的路径统一相对工程根，拿不到工程根或
+  路径不在工程根下时退回绝对路径、不猜。接进四处——RUN.json 的 `output_dir` 与 `baseline`、
+  `--carry` 的 `carried_from` 与正文「沿用基线」标记、TRANSITIONS.md 的基线行。
+  `carry_reports()` 与 `transitions_text()` 因此各多一个可选 `root` 形参，`--carry` 现在也吃
+  `--project-root`（原来那条路径没传工程根，RUN.json 记的是绝对值）。
+- 兼容性：这三个字段脚本从不回读（读基线 RUN.json 只取 `schema_version` 与 `systems[].rows`），
+  `carried_from` 只作真值判断与显示，所以旧基线目录照样能用，不需要重跑历史运行。
+- `analysis-prompt.md`／`verify-prompt.md` 各加一条：报告里写路径一律相对工程根，不要把
+  `{projectRoot}` 的绝对值抄进去，工程根本身写「工程根」，工程外的写 `<引擎根>` 这类命名占位。
+  Scan Scope 那一行的填写说明同步。
+
 ## 3.6.0 (2026-09-09)
 
 3.5.0 之后每轮对表仍是一堵新墙：要求行以「文件:行」引用，行号一编辑就漂；第二轮回答不了

@@ -296,6 +296,23 @@ def mint_key(requirement: str, docs: Documents | None = None) -> str:
     return f"{doc}#{anchor}#{digest}"
 
 
+def display_path(path: Path | None, root: Path | None) -> str | None:
+    """产物里的路径一律写成相对工程根。
+
+    报告、RUN.json 与 TRANSITIONS.md 都会提交进仓库、被别人读到，绝对路径对别人是错的
+    （也会随工作副本搬家而过期）。拿不到工程根、或路径不在工程根下时退回绝对路径，不猜。
+    """
+    if path is None:
+        return None
+    resolved = path.resolve()
+    if root is not None:
+        try:
+            return resolved.relative_to(root.resolve()).as_posix()
+        except ValueError:
+            pass
+    return str(resolved)
+
+
 def read_json(path: Path) -> dict:
     data = json.loads(path.read_text(encoding="utf-8-sig"))
     if not isinstance(data, dict):
@@ -405,8 +422,9 @@ def md_cell(value: str) -> str:
 TRANSITION_COUNTS = ("未变", "退步", "修复", "其他变化", "改写", "新增", "消失")
 
 
-def transitions_text(current: dict, baseline: dict, baseline_dir: Path, threshold: float = .6) -> tuple[str, list[str]]:
-    lines = ["# 基线迁移", "", f"基线：{baseline_dir}", "",
+def transitions_text(current: dict, baseline: dict, baseline_dir: Path, threshold: float = .6,
+                     root: Path | None = None) -> tuple[str, list[str]]:
+    lines = ["# 基线迁移", "", f"基线：{display_path(baseline_dir, root)}", "",
              "改写是二级匹配的独立计数，可同时计入退步／修复／其他变化；同状态改写不计未变。", ""]
     notices, carried, totals = [], [], Counter()
     for name in sorted(current.keys() | baseline.keys()):
@@ -584,9 +602,9 @@ def make_plan(config: dict, baseline: dict | None, baseline_dir: Path | None, ro
 
 
 def run_record(output_dir: Path, systems: dict, docs: Documents, root: Path | None, baseline: Path | None) -> dict:
-    return {"schema_version": 1, "output_dir": str(output_dir.resolve()),
+    return {"schema_version": 1, "output_dir": display_path(output_dir, root),
             "exported_at": docs.manifest.get("exported_at"), "project_head": git_output(root, "rev-parse", "HEAD"),
-            "baseline": str(baseline.resolve()) if baseline else None, "systems": systems}
+            "baseline": display_path(baseline, root), "systems": systems}
 
 
 def collect_system(path: Path, report: Report, docs: Documents, config: dict) -> dict:
@@ -635,7 +653,8 @@ def stamp_keys(path: Path, rows: list[dict]) -> None:
     path.write_text("".join(lines), encoding="utf-8", newline="")
 
 
-def carry_reports(output: Path, baseline_dir: Path, names: list[str], docs: Documents) -> None:
+def carry_reports(output: Path, baseline_dir: Path, names: list[str], docs: Documents,
+                  root: Path | None = None) -> None:
     if not names or any(not valid_system(name) for name in names):
         raise ValueError("--systems 须为合法系统名列表")
     baseline = load_baseline(baseline_dir, docs)
@@ -650,14 +669,14 @@ def carry_reports(output: Path, baseline_dir: Path, names: list[str], docs: Docu
             raise ValueError(f"基线 {name} 校验不通过：{'；'.join(report.problems)}")
         data = collect_system(source, report, docs, {})
         data.update(baseline.get("systems", {}).get(name, {}))
-        data["carried_from"] = str(baseline_dir.resolve())
+        data["carried_from"] = display_path(baseline_dir, root)
         lines = source.read_text(encoding="utf-8-sig").splitlines()
         lines = [line for line in lines if not re.fullmatch(r"> 沿用基线 .+，本轮未重跑：文档与代码均未变", line)]
         title = next(i for i, line in enumerate(lines) if line.strip() == f"## {name}")
-        lines.insert(title + 1, f"> 沿用基线 {baseline_dir.resolve()}，本轮未重跑：文档与代码均未变")
+        lines.insert(title + 1, f"> 沿用基线 {display_path(baseline_dir, root)}，本轮未重跑：文档与代码均未变")
         prepared.append((name, target, "\n".join(lines) + "\n", data))
     run_path = output / "RUN.json"
-    record = read_json(run_path) if run_path.exists() else run_record(output, {}, docs, None, baseline_dir)
+    record = read_json(run_path) if run_path.exists() else run_record(output, {}, docs, root, baseline_dir)
     for name, _, _, _ in prepared:
         if name in record["systems"]:
             raise ValueError(f"拒绝覆盖 RUN.json 中已有系统：{name}")
@@ -740,7 +759,8 @@ def main(argv=None) -> int:
                     print("；".join(plan["reasons"]["*"]))
             return 0
         if args.carry:
-            carry_reports(args.output_dir, args.baseline, list(dict.fromkeys(x.strip() for x in args.systems.split(",") if x.strip())), docs)
+            carry_reports(args.output_dir, args.baseline,
+                list(dict.fromkeys(x.strip() for x in args.systems.split(",") if x.strip())), docs, args.project_root)
             print(f"已沿用基线报告并记录 RUN.json：{args.systems}")
             return 0
         baseline = load_baseline(args.baseline, docs) if args.baseline else None
@@ -796,7 +816,8 @@ def main(argv=None) -> int:
                     data["carried_from"] = marker
             run = run_record(args.output_dir, systems, docs, args.project_root, args.baseline)
             if baseline is not None:
-                transitions, notices = transitions_text(systems, baseline["systems"], args.baseline, args.match_threshold)
+                transitions, notices = transitions_text(systems, baseline["systems"], args.baseline, args.match_threshold,
+                    args.project_root)
                 for notice in notices:
                     print(notice)
             if args.stamp_keys:

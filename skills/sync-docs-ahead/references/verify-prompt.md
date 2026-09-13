@@ -5,6 +5,9 @@ Phase 2b 的独立复核者读本模板；占位符为 `{systemName}`、`{report
 报告 `{reportPath}` 由另一名分析者写成，你的任务是尝试驳倒它，不是复述它。
 系统 `{systemName}`；设计全集 `{docPaths}`；范围 `{reviewScope}`；代码起点 `{codeHints}`。
 工程根 `{projectRoot}`；声明 `{declared}`，来源 `{declarationPath}`；回填配置 `{doc_feedback}`。
+**报告里写路径一律相对工程根**（`Source/...`、`Config/DefaultGame.ini`），不要把 `{projectRoot}` 的
+绝对路径抄进报告。报告会提交进仓库、被别人读到，绝对路径对别人是错的，也会随工作副本搬家过期；
+工程根本身在报告里就写「工程根」。工程外的东西写命名占位（`<引擎根>`、`<参考工程 X 根>`）。
 先读本 skill 的 `references/analysis-prompt.md`，沿用其基线、引用、五状态、公式与检查边界。
 只允许用 Edit 改 `{reportPath}`；源码、镜像、账本和其他报告均只读。
 基线报告 `{BASELINE_REPORT}`（路径或「无」）只作对照，不作证据；状态与 code_ref 必须自己核。
