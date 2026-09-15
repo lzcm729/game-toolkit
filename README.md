@@ -47,11 +47,12 @@
 | `interaction` | 玩家输入与反馈：输入映射、局部交互状态、反馈时序 |
 | `game-designer` | 边界明确的独立设计任务（单视角评审、整合、按已采纳决定改写文档） |
 
-**13 个 skill**
+**14 个 skill**
 
 - **共享定义** — `layer-contracts`（两条轴、A 层交付门槛、执行模型要求、四问自检）
 - **设计流程** — `design-discuss`（主对话里讨论与收录）、`design-iterate`（多视角并行评审 + 用户裁决）、`doc-consistency-check`（跨文档矛盾检查）、`split-doc-layers`（把混写的文档按职责拆开）
 - **知识/理论** — `game-design-theory`（Rouse / Sylvester / Schell / Meadows 四本书，29 份参考）、`game-ui-design`（引擎无关的游戏 UI 原则）、`book-to-reference`（把书导入成参考文件）
+- **文档发布** — `doc-summary-layer`（仓库详稿是真值，阅读平台每页只放规则版摘要；三条数据流、草稿迁入、检查与构建脚本，平台适配在项目侧）
 - **文档 ↔ 代码** — `sync-code-ahead`（代码改了、文档没跟）、`sync-docs-ahead`（文档写了、代码没实现）
 - **实现执行** — `parallel-implement`（git worktree 并行实现 + 顺序合并）
 - **资源管线** — `generate-assets`（schema-driven 批量生成，引擎适配当前支持 Godot / generic）
@@ -88,6 +89,8 @@ python <layer-contracts>/scripts/project_env.py check <项目根>
 ## 从哪开始
 
 **设计文档乱了** → 说「拆一下 XX 系统的设计文档」，走 `split-doc-layers`
+
+**策划不读仓库、只看飞书之类的平台** → 说「平台只放摘要」，走 `doc-summary-layer`：仓库详稿是真值，平台每页一份规则版摘要，横幅写清日期与仓库版本
 
 **想评审某份设计** → 说「跑一轮 XX 的设计迭代」，走 `design-iterate`：
 多个视角并行评审 → 整合报告 → 你裁决 → 更新原文档 → 可选衔接 `parallel-implement`
