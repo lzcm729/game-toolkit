@@ -1,8 +1,8 @@
 # asset-config.yaml — Schema 文档
 
 `generate-assets` 的项目级配置文件。一个 yaml 描述一个游戏项目的所有 asset（引擎无关；Godot 有专门适配，其他引擎走 generic）
-category（顾客、配料、配方、建筑、背景……）。底层调用 image-gen SDK，本框架只
-负责"yaml → batch JSON → image-gen subprocess"翻译 + 调度。
+category（顾客、配料、配方、建筑、背景……）。底层调用生图后端（缺省 image-gen），
+本框架只负责"yaml → batch JSON → 后端 subprocess"翻译 + 调度。
 
 ## 文件位置
 
@@ -18,6 +18,7 @@ category（顾客、配料、配方、建筑、背景……）。底层调用 im
 $schema_version: 1   # 当前版本
 style: { ... }       # 全局风格（被所有 category 继承，可单独跳过）
 output_root: "..."   # 输出根目录（接受 res:// 前缀）
+backend: image-gen   # 生图后端（可选，缺省 image-gen）
 categories:
   <name>: { ... }    # 一个 category
   ...
@@ -60,6 +61,14 @@ project_root: ".."    # 可选。相对本文件；也可用 CLI 的 --project-r
 
 `project_root` 不给时按「适配器探测 → yaml 位置推断」兜底 —— 后者会随 config 移动
 而改变相对路径基准，非 Godot 项目建议显式指定。
+
+## `backend`（生图后端）
+
+`image-gen`（缺省） / `laozhang`（随插件安装） / 脚本路径（相对路径以 project_root
+为基准）。`IMAGE_GEN_SCRIPT` 环境变量可临时覆盖，优先级最高。
+
+后端不认的 `defaults` 字段会按 category 告警后继续 —— 例如 `laozhang` 不支持
+`chain` / `preset`。协议见 `../BACKEND-PROTOCOL.md`。
 
 ## `output_root`
 

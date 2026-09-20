@@ -267,3 +267,16 @@ def test_generate_one_raises_when_no_image_in_response(monkeypatch):
             aspect_ratio="1:1", seed=None, reference_paths=[], timeout_s=5.0,
         )
     assert "没有图像" in str(ei.value)
+
+
+def test_dry_run_works_without_api_key(tmp_path, capsys, monkeypatch):
+    """dry-run 不发请求，就不该要 key——新用户想先看看会出什么图。"""
+    monkeypatch.delenv("LAOZHANG_API_KEY", raising=False)
+    batch = _batch(tmp_path, [{"name": "a", "filename": "a.png", "prompt": "p"}])
+    out = tmp_path / "out"
+    out.mkdir()
+
+    rc = lb.main([str(batch), "--output-dir", str(out), "--dry-run"])
+
+    assert rc == 0
+    assert _read_summary(capsys)["total"] == 1

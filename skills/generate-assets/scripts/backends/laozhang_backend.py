@@ -119,8 +119,10 @@ def main(argv: "list[str] | None" = None) -> int:
         )
         return 1
 
+    # dry-run 不发请求，就不该要 key —— 新用户想先看看会出什么图，
+    # 不该先被一堵凭证墙拦住。
     api_key = os.environ.get("LAOZHANG_API_KEY", "").strip()
-    if not api_key:
+    if not api_key and not args.dry_run:
         print(
             "[fatal] 缺 LAOZHANG_API_KEY。到 https://api.laozhang.ai 注册取 key 后设环境变量；"
             "或在 asset-config.yaml 里改用别的 backend。",

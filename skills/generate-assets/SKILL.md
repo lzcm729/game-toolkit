@@ -15,15 +15,16 @@ description: |
   - 项目里没 asset-config.yaml → 用 image-gen 单张或先建 yaml
   - 单张即兴生图（用 image-gen）
 
-  **依赖**：底层 SDK image-gen（subprocess 调用）
+  **依赖**：一个生图后端（subprocess 调用）。缺省 image-gen（需单独安装），
+  插件自带 laozhang 极简后端可直接用，也可接自定义脚本，协议见 BACKEND-PROTOCOL.md
 ---
 
 # generate-assets — schema-driven 批量资源生成
 
 把项目 asset 列表 / 数据源 / prompt 模板放在一份 `asset-config.yaml` 里，
-本框架翻译成 image-gen v2 batch JSON 后 subprocess 调用底层 SDK 批量生成。
+本框架翻译成 v2 batch JSON 后 subprocess 调用生图后端批量生成。
 
-**核心定位**：yaml → batch JSON 翻译器 + image-gen 调度器 + 引擎适配层。
+**核心定位**：yaml → batch JSON 翻译器 + 后端调度器 + 引擎适配层。
 所有项目特化（风格、prompt 模板、数据源映射、category 列表）都在 yaml 里，
 本 skill 的 Python 代码不含任何项目硬编码。
 
@@ -35,6 +36,26 @@ description: |
 | 批量生成（5+ asset） | **本 skill** |
 | 项目根存在 `asset-config.yaml` | **本 skill** |
 | 三状态 schema（item/character/background，旧版特化） | 已由具体项目 fork 为项目内 skill 维护，本通用 framework 不再支持 |
+
+## 生图后端
+
+本 skill 不自己生图，它把 asset 列表翻译成 batch JSON 后调用一个**后端脚本**。
+后端是普通 CLI 脚本，不是 skill —— 注册表存的是脚本路径，不关心背后是不是 skill。
+
+| backend | 来源 | 何时用 |
+|---|---|---|
+| `image-gen`（缺省） | 用户级 skill，需单独安装 | 要 chain fallback / preset / manifest |
+| `laozhang` | 随插件安装 | 装了插件就想直接跑；需 `LAOZHANG_API_KEY` |
+| 脚本路径 | 自己写 | 接本地 ComfyUI、公司内部 API 等 |
+
+在 asset-config.yaml 里与 `adapter:` 平行声明：
+
+```yaml
+backend: laozhang
+```
+
+后端不支持的 `defaults` 字段（如 laozhang 不认 `chain` / `preset`）会按 category
+告警后继续，不静默忽略也不中断。写一个后端只需满足三条约定，见 BACKEND-PROTOCOL.md。
 
 ## 调用前：把工程根接上
 

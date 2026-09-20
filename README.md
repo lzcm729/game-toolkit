@@ -102,7 +102,9 @@ python <layer-contracts>/scripts/project_env.py check <项目根>
 
 ## 依赖
 
-- `generate-assets` 依赖 `image-gen` skill（底层生图 SDK，需单独安装）
+- `generate-assets` 需要一个生图后端：缺省用 `image-gen` skill（需单独安装），
+  插件自带 `laozhang` 极简后端可直接用（设 `LAOZHANG_API_KEY` 即可，只依赖 requests），
+  也可以接自己的脚本 —— 协议见 `skills/generate-assets/BACKEND-PROTOCOL.md`
 - `generate-assets` 与 `layer-contracts` 的脚本需要 **PyYAML**（`pip install pyyaml`）
 - 其余组件无外部依赖
 
