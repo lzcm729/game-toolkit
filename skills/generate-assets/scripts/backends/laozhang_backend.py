@@ -8,7 +8,7 @@
 刻意不做 image-gen 那套 chain / fallback / preset / manifest —— 那是上游
 SDK 的职责。本脚本只求「装了插件就能跑通全流程」。
 
-env:
+env（按 CWD 向上的 .env → ~/.env → 进程环境变量 依次查找，与 image-gen 同序）:
   LAOZHANG_API_KEY    必需
   LAOZHANG_BASE_URL   可选，缺省 https://api.laozhang.ai
   LAOZHANG_MODEL      可选，缺省 gemini-3.1-flash-image-preview
@@ -20,6 +20,7 @@ import base64
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import requests
@@ -30,6 +31,62 @@ DEFAULT_BASE_URL = "https://api.laozhang.ai"
 DEFAULT_TIMEOUT_S = 180.0
 # Gemini native 路径的参考图上限
 MAX_REFERENCES = 14
+# laozhang 网关实测会间歇断连（SSLEOFError，curl 同一请求却正常）。
+# 「极简」指的是不做 chain/fallback/preset，不是连网络重试都没有。
+DEFAULT_RETRIES = 2
+# 向上找 .env 的最大层数，与 image-gen 的 env.py 一致
+_MAX_ENV_LEVELS = 10
+
+
+class _Retryable(RuntimeError):
+    """值得再试一次的失败：网络抖动、429、5xx。"""
+
+
+def _read_env_file(path: Path, key: str) -> str:
+    """从 .env 里取一个 key。容忍 export 前缀、引号、注释行。"""
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return ""
+    for raw in lines:
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("export "):
+            line = line[len("export "):].lstrip()
+        name, sep, value = line.partition("=")
+        if not sep or name.strip() != key:
+            continue
+        return value.strip().strip('"').strip("'")
+    return ""
+
+
+def _find_env_value(key: str) -> str:
+    """查 env 值：CWD 向上找 .env → ~/.env → os.environ。
+
+    顺序与 image-gen 的 env.py 一致，包括 .env 优先于进程环境变量这点。
+    把 key 放在项目 .env 里是常见做法；只读 os.environ 的话，
+    「装了插件设个 key 就能跑」在那种环境里根本不成立。
+    """
+    current = Path.cwd()
+    for _ in range(_MAX_ENV_LEVELS):
+        env_file = current / ".env"
+        if env_file.exists():
+            v = _read_env_file(env_file, key)
+            if v:
+                return v
+        parent = current.parent
+        if parent == current:
+            break
+        current = parent
+
+    home_env = Path.home() / ".env"
+    if home_env.exists():
+        v = _read_env_file(home_env, key)
+        if v:
+            return v
+
+    return os.environ.get(key, "")
 
 
 def _generate_one(
@@ -43,7 +100,38 @@ def _generate_one(
     reference_paths: list,
     timeout_s: float,
 ) -> bytes:
-    """生成一张图，返回图像字节。
+    """生成一张图，返回图像字节。失败时对网络抖动 / 429 / 5xx 重试。"""
+    last: Exception | None = None
+    for attempt in range(DEFAULT_RETRIES + 1):
+        try:
+            return _request_once(
+                prompt, model=model, api_key=api_key, base_url=base_url,
+                aspect_ratio=aspect_ratio, seed=seed,
+                reference_paths=reference_paths, timeout_s=timeout_s,
+            )
+        except _Retryable as e:
+            last = e
+            if attempt >= DEFAULT_RETRIES:
+                break
+            delay = 2 ** attempt
+            print(f"  [retry] {e}；{delay}s 后重试（第 {attempt + 1}/{DEFAULT_RETRIES} 次）",
+                  file=sys.stderr)
+            time.sleep(delay)
+    raise RuntimeError(str(last))
+
+
+def _request_once(
+    prompt: str,
+    *,
+    model: str,
+    api_key: str,
+    base_url: str,
+    aspect_ratio: str,
+    seed: "int | None",
+    reference_paths: list,
+    timeout_s: float,
+) -> bytes:
+    """发一次请求。
 
     走 Gemini native 路径而非 OpenAI style：后者不支持多图 reference，
     而 reference_paths（风格锚）是 generate-assets 的核心能力。
@@ -76,10 +164,14 @@ def _generate_one(
             timeout=timeout_s,
         )
     except requests.exceptions.RequestException as e:
-        raise RuntimeError(f"请求失败：{e}") from e
+        raise _Retryable(f"请求失败：{e}") from e
 
     if not resp.ok:
-        raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+        msg = f"HTTP {resp.status_code}: {resp.text[:200]}"
+        # 4xx（429 除外）是参数错误，重试多少次都一样
+        if resp.status_code == 429 or resp.status_code >= 500:
+            raise _Retryable(msg)
+        raise RuntimeError(msg)
 
     try:
         data = resp.json()
@@ -121,7 +213,7 @@ def main(argv: "list[str] | None" = None) -> int:
 
     # dry-run 不发请求，就不该要 key —— 新用户想先看看会出什么图，
     # 不该先被一堵凭证墙拦住。
-    api_key = os.environ.get("LAOZHANG_API_KEY", "").strip()
+    api_key = _find_env_value("LAOZHANG_API_KEY").strip()
     if not api_key and not args.dry_run:
         print(
             "[fatal] 缺 LAOZHANG_API_KEY。到 https://api.laozhang.ai 注册取 key 后设环境变量；"
@@ -130,8 +222,8 @@ def main(argv: "list[str] | None" = None) -> int:
         )
         return 1
 
-    base_url = os.environ.get("LAOZHANG_BASE_URL") or DEFAULT_BASE_URL
-    model = os.environ.get("LAOZHANG_MODEL") or DEFAULT_MODEL
+    base_url = _find_env_value("LAOZHANG_BASE_URL") or DEFAULT_BASE_URL
+    model = _find_env_value("LAOZHANG_MODEL") or DEFAULT_MODEL
 
     defaults = batch.get("defaults") or {}
     assets = batch.get("assets") or []

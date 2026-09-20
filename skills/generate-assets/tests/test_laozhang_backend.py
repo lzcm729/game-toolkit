@@ -280,3 +280,172 @@ def test_dry_run_works_without_api_key(tmp_path, capsys, monkeypatch):
 
     assert rc == 0
     assert _read_summary(capsys)["total"] == 1
+
+
+# -------------------- .env 查找 --------------------
+# key 放在项目 .env 里是常见做法，image-gen 的 env.py 就这么找。
+# 后端只读 os.environ 的话，「装了插件设个 key 就能跑」在那种环境里不成立。
+
+
+def test_find_env_value_searches_cwd_upward(tmp_path, monkeypatch):
+    deep = tmp_path / "a" / "b" / "c"
+    deep.mkdir(parents=True)
+    (tmp_path / ".env").write_text("LAOZHANG_API_KEY=sk-upward\n", encoding="utf-8")
+    monkeypatch.chdir(deep)
+    monkeypatch.delenv("LAOZHANG_API_KEY", raising=False)
+    assert lb._find_env_value("LAOZHANG_API_KEY") == "sk-upward"
+
+
+def test_find_env_value_falls_back_to_home(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".env").write_text("LAOZHANG_API_KEY=sk-home\n", encoding="utf-8")
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: home))
+    monkeypatch.delenv("LAOZHANG_API_KEY", raising=False)
+    assert lb._find_env_value("LAOZHANG_API_KEY") == "sk-home"
+
+
+def test_find_env_value_falls_back_to_environ(tmp_path, monkeypatch):
+    work = tmp_path / "work"
+    work.mkdir()
+    monkeypatch.chdir(work)
+    monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: tmp_path / "nohome"))
+    monkeypatch.setenv("LAOZHANG_API_KEY", "sk-environ")
+    assert lb._find_env_value("LAOZHANG_API_KEY") == "sk-environ"
+
+
+def test_dotenv_wins_over_environ(tmp_path, monkeypatch):
+    """与 image-gen 同序：.env 优先。同一台机器上两个后端行为得一致。"""
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / ".env").write_text("LAOZHANG_API_KEY=sk-dotenv\n", encoding="utf-8")
+    monkeypatch.chdir(work)
+    monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: tmp_path / "nohome"))
+    monkeypatch.setenv("LAOZHANG_API_KEY", "sk-environ")
+    assert lb._find_env_value("LAOZHANG_API_KEY") == "sk-dotenv"
+
+
+def test_env_file_tolerates_quotes_and_export(tmp_path, monkeypatch):
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / ".env").write_text(
+        '# comment\nexport LAOZHANG_API_KEY="sk-quoted"\nOTHER=x\n', encoding="utf-8"
+    )
+    monkeypatch.chdir(work)
+    monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: tmp_path / "nohome"))
+    monkeypatch.delenv("LAOZHANG_API_KEY", raising=False)
+    assert lb._find_env_value("LAOZHANG_API_KEY") == "sk-quoted"
+
+
+def test_main_picks_up_key_from_dotenv(tmp_path, capsys, monkeypatch):
+    """端到端：key 只在 .env 里，main 不该再报「缺 LAOZHANG_API_KEY」。"""
+    monkeypatch.delenv("LAOZHANG_API_KEY", raising=False)
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / ".env").write_text("LAOZHANG_API_KEY=sk-dotenv\n", encoding="utf-8")
+    monkeypatch.chdir(work)
+    monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: tmp_path / "nohome"))
+
+    seen = {}
+
+    def capture(prompt, **kwargs):
+        seen.update(kwargs)
+        return b"png"
+
+    monkeypatch.setattr(lb, "_generate_one", capture)
+    batch = _batch(work, [{"name": "a", "filename": "a.png", "prompt": "p"}])
+    out = work / "out"
+    out.mkdir()
+
+    assert lb.main([str(batch), "--output-dir", str(out)]) == 0
+    assert seen["api_key"] == "sk-dotenv"
+
+
+# -------------------- 重试 --------------------
+# laozhang 网关实测会间歇抛 SSLEOFError（curl 同一请求却正常）。
+# image-gen 有 --retries 2 兜底，所以平时感觉不到。「极简」指的是不做
+# chain/fallback/preset，不该连基本的网络重试都没有。
+
+
+def test_retries_on_network_error_then_succeeds(monkeypatch):
+    import requests as _rq
+
+    calls = []
+
+    def flaky(*a, **k):
+        calls.append(1)
+        if len(calls) < 3:
+            raise _rq.exceptions.SSLError("EOF occurred in violation of protocol")
+        return _FakeResp(payload=_image_payload())
+
+    monkeypatch.setattr(lb.requests, "post", flaky)
+    monkeypatch.setattr(lb.time, "sleep", lambda s: None)
+
+    data = lb._generate_one(
+        "p", model="m", api_key="k", base_url="https://x",
+        aspect_ratio="1:1", seed=None, reference_paths=[], timeout_s=5.0,
+    )
+    assert data == b"hi"
+    assert len(calls) == 3      # 失败两次后第三次成功
+
+
+def test_retries_on_429(monkeypatch):
+    calls = []
+
+    def rate_limited(*a, **k):
+        calls.append(1)
+        if len(calls) < 2:
+            return _FakeResp(status=429, text="rate limited")
+        return _FakeResp(payload=_image_payload())
+
+    monkeypatch.setattr(lb.requests, "post", rate_limited)
+    monkeypatch.setattr(lb.time, "sleep", lambda s: None)
+
+    assert lb._generate_one(
+        "p", model="m", api_key="k", base_url="https://x",
+        aspect_ratio="1:1", seed=None, reference_paths=[], timeout_s=5.0,
+    ) == b"hi"
+    assert len(calls) == 2
+
+
+def test_does_not_retry_on_400(monkeypatch):
+    """参数错误重试多少次都一样，白花时间。"""
+    calls = []
+
+    def bad_request(*a, **k):
+        calls.append(1)
+        return _FakeResp(status=400, text="invalid prompt")
+
+    monkeypatch.setattr(lb.requests, "post", bad_request)
+    monkeypatch.setattr(lb.time, "sleep", lambda s: None)
+
+    with pytest.raises(RuntimeError):
+        lb._generate_one(
+            "p", model="m", api_key="k", base_url="https://x",
+            aspect_ratio="1:1", seed=None, reference_paths=[], timeout_s=5.0,
+        )
+    assert len(calls) == 1
+
+
+def test_gives_up_after_retries_exhausted(monkeypatch):
+    import requests as _rq
+
+    calls = []
+
+    def always_down(*a, **k):
+        calls.append(1)
+        raise _rq.exceptions.ConnectionError("connection reset")
+
+    monkeypatch.setattr(lb.requests, "post", always_down)
+    monkeypatch.setattr(lb.time, "sleep", lambda s: None)
+
+    with pytest.raises(RuntimeError) as ei:
+        lb._generate_one(
+            "p", model="m", api_key="k", base_url="https://x",
+            aspect_ratio="1:1", seed=None, reference_paths=[], timeout_s=5.0,
+        )
+    assert "connection reset" in str(ei.value)
+    assert len(calls) == lb.DEFAULT_RETRIES + 1
