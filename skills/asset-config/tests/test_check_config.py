@@ -11,9 +11,23 @@ from check_config import check_config
 
 
 def _write(tmp_path: Path, conf: dict, *, name: str = "asset-config.yaml") -> Path:
+    """写配置。
+
+    safe_dump 出来的 yaml 没有注释，而「必须询问」档的字段要求写来源注释。
+    这里统一补上 —— 那条检查有自己的一组测试（用 _write_raw 直接写原文），
+    别的测试不该被它干扰。
+    """
+    text = yaml.safe_dump(conf, sort_keys=False, allow_unicode=True)
+    lines = []
+    for line in text.splitlines():
+        stripped = line.lstrip()
+        name_part = stripped.split(":")[0] if ":" in stripped else ""
+        if name_part in ("backend", "model", "chain", "aspect_ratio", "id_column"):
+            indent = line[: len(line) - len(stripped)]
+            lines.append(f"{indent}# 来源：测试夹具")
+        lines.append(line)
     p = tmp_path / name
-    p.write_text(yaml.safe_dump(conf, sort_keys=False, allow_unicode=True),
-                 encoding="utf-8")
+    p.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return p
 
 
@@ -298,3 +312,107 @@ def test_openai_model_with_image_is_fine(tmp_path):
     cfg = _write(tmp_path, conf)
     report = check_config(cfg, tmp_path)
     assert report.ok, report.errors
+
+
+# -------------------- 决策来源 --------------------
+# 「必须询问」档的字段要写明值从哪来。挡不住一个决心撒谎的 AI，但挡得住
+# 「顺手填了忘了问」—— 而后者才是实际会发生的。
+
+def _write_raw(tmp_path: Path, text: str) -> Path:
+    (tmp_path / "items.json").write_text(
+        json.dumps({"pearl": {"visual": "black pearls"}}), encoding="utf-8")
+    p = tmp_path / "asset-config.yaml"
+    p.write_text(text, encoding="utf-8")
+    return p
+
+
+_BASE = """$schema_version: 1
+adapter: generic
+output_root: art
+categories:
+  ingredients:
+    data_source:
+      type: json_dict
+      path: items.json
+    prompt_template: "Icon of {visual}."
+"""
+
+
+def test_must_ask_field_without_source_is_an_error(tmp_path):
+    cfg = _write_raw(tmp_path, _BASE + "backend: laozhang\n")
+    report = check_config(cfg, tmp_path)
+    assert not report.ok
+    msg = _messages(report)
+    assert "backend" in msg
+    assert "来源" in msg
+
+
+def test_must_ask_field_with_source_passes(tmp_path):
+    cfg = _write_raw(tmp_path, _BASE + """
+# 来源：用户选定（候选 image-gen / laozhang）
+backend: laozhang
+""")
+    report = check_config(cfg, tmp_path)
+    assert report.ok, report.errors
+
+
+def test_source_can_sit_in_a_multiline_comment_block(tmp_path):
+    """来源那行不必紧贴字段，同一个注释块里就行。"""
+    cfg = _write_raw(tmp_path, _BASE + """
+# 生图后端。laozhang 随插件安装，需要 LAOZHANG_API_KEY
+# 来源：用户选定
+# （image-gen 那条要另外装，这个项目没装）
+backend: laozhang
+""")
+    assert check_config(cfg, tmp_path).ok
+
+
+def test_blank_line_breaks_the_comment_block(tmp_path):
+    """隔了空行的注释是在说别的事，不能算这个字段的来源。"""
+    cfg = _write_raw(tmp_path, _BASE + """
+# 来源：用户选定
+
+backend: laozhang
+""")
+    assert not check_config(cfg, tmp_path).ok
+
+
+def test_category_level_field_also_needs_source(tmp_path):
+    cfg = _write_raw(tmp_path, """$schema_version: 1
+adapter: generic
+output_root: art
+categories:
+  ingredients:
+    aspect_ratio: "4:3"
+    data_source:
+      type: json_dict
+      path: items.json
+    prompt_template: "Icon of {visual}."
+""")
+    report = check_config(cfg, tmp_path)
+    assert not report.ok
+    assert "aspect_ratio" in _messages(report)
+
+
+def test_id_column_needs_source_too(tmp_path):
+    """复用既有决定也算来源 —— 要写的是「从哪来」，不是「问过谁」。"""
+    (tmp_path / "f.csv").write_text("fid,v\na,x\n", encoding="utf-8")
+    cfg = _write_raw(tmp_path, """$schema_version: 1
+adapter: generic
+output_root: art
+categories:
+  c:
+    data_source:
+      type: csv
+      path: f.csv
+      # 来源：沿用 Knowledge/Schema/xxx.yaml 的 identity_column
+      id_column: fid
+    prompt_template: "{v}"
+""")
+    assert check_config(cfg, tmp_path).ok
+
+
+def test_absent_field_needs_no_source(tmp_path):
+    """没写的字段用默认值，不需要注释。"""
+    cfg = _write_raw(tmp_path, _BASE)
+    assert check_config(cfg, tmp_path).ok

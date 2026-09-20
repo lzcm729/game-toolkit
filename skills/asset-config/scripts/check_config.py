@@ -20,6 +20,7 @@ scripts 目录，找不到时会明确报出来，而不是退化成一套简化
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -72,6 +73,14 @@ TODO_MARKER = "TODO"
 
 DEFAULT_CONFIG_NAMES = ("asset-config.yaml", "assets/asset-config.yaml")
 
+# 「必须询问」档的字段 —— 与 SKILL.md 的决策权限表一致。
+# 它们的值必须在注释里写明从哪来，见 _check_decision_sources。
+_MUST_ASK_FIELDS = frozenset({"backend", "model", "chain", "aspect_ratio", "id_column"})
+
+# 来源标记。要求固定前缀而不是自由发挥，是为了能机械地查；
+# 前缀之后写什么随意，那部分是给人读的。
+_SOURCE_MARKER = "来源："
+
 
 @dataclass
 class Report:
@@ -108,6 +117,8 @@ def check_config(config_path: Path, project_root: Path) -> Report:
         r.error(f"{config_path} 的顶层应该是映射，实际是 {type(config).__name__}")
         return r
 
+    _check_decision_sources(config_path, r)
+
     adapter = _check_adapter(config, config_path, r)
     if adapter is None:
         return r
@@ -133,6 +144,48 @@ def check_config(config_path: Path, project_root: Path) -> Report:
         )
 
     return r
+
+
+def _check_decision_sources(config_path: Path, r: Report) -> None:
+    """「必须询问」档的字段，要在紧邻的注释块里写明值从哪来。
+
+    挡不住一个决心撒谎的 AI —— 注释是它自己写的。但挡得住「顺手填了忘了问」，
+    而后者才是实际会发生的那种。顺带让配置本身成为可审查的决策记录：
+    半年后翻开这份 yaml，能看出 model 是问过人的还是谁随手定的。
+
+    写「沿用某处的声明」也算来源 —— 要求的是说清**从哪来**，
+    不是证明**问过谁**。后者任何静态检查都做不到。
+
+    注意读的是原始文本：yaml.safe_load 会把注释全丢掉。
+    """
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return
+
+    for i, line in enumerate(lines):
+        m = re.match(r"^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:", line)
+        if not m or m.group(2) not in _MUST_ASK_FIELDS:
+            continue
+
+        # 往上扫紧邻的注释块。空行中断 —— 隔了空行的注释是在说别的事。
+        found = False
+        j = i - 1
+        while j >= 0 and lines[j].lstrip().startswith("#"):
+            if _SOURCE_MARKER in lines[j]:
+                found = True
+                break
+            j -= 1
+
+        if not found:
+            r.error(
+                "第 {} 行的 {!r} 是「必须询问」档的字段，但上面没写它从哪来。"
+                "在紧邻的注释里加一行「{}…」，例如"
+                "「# {}用户选定（候选 A / B）」或"
+                "「# {}沿用 xxx.yaml 的声明」。".format(
+                    i + 1, m.group(2), _SOURCE_MARKER, _SOURCE_MARKER, _SOURCE_MARKER
+                )
+            )
 
 
 def _check_adapter(config: dict, config_path: Path, r: Report):
