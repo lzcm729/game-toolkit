@@ -212,8 +212,10 @@ python <本 skill 目录>/scripts/check_config.py --config <配置路径> --proj
 python <generate-assets>/scripts/generate_assets.py --config <cfg> <category> --dry-run
 
 # 再出一两张真的
-python <generate-assets>/scripts/generate_assets.py --config <cfg> <category> --names <id>
+python <generate-assets>/scripts/generate_assets.py --config <cfg> <category> --limit 1
 ```
+
+`--limit N` 取前 N 条，不用先去数据源里查 id；要挑特定的几条用 `--names`。
 
 **首张定方向，再换一个差异较大的条目验模板能不能泛化。** 比如角色 category 里，先出一个
 体型正常的，再出一个体型极端的 —— 模板里写死的构图假设会在第二张上露馅。

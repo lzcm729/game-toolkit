@@ -168,6 +168,10 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
 
+    if args.limit is not None and args.limit < 1:
+        print(f"[fatal] --limit 要 ≥ 1，收到 {args.limit}", file=sys.stderr)
+        return 1
+
     name_filter = _parse_names(args.names)
 
     # 跑每个 category
@@ -187,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
             dry_run=args.dry_run,
             force=args.force,
             name_filter=name_filter,
+            limit=args.limit,
         )
         results.append(result)
 
@@ -234,13 +239,19 @@ def _build_parser() -> argparse.ArgumentParser:
         "--names",
         type=str,
         default=None,
-        help="逗号分隔 id 列表，仅对 inline / json_dict 数据源有效",
+        help="逗号分隔 id 列表，只生成这几条（对所有数据源都有效）",
     )
     parser.add_argument(
         "--project-root",
         default=None,
         help="工程根绝对/相对路径。不给则按 config 的 project_root、"
              "适配器探测、最后按 config 位置推断（后者会随 config 移动而变）",
+    )
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="只取前 N 条。用来抽样验模板，省得先去数据源里查 id 叫什么",
     )
     parser.add_argument("--dry-run", action="store_true", help="image-gen 走 --dry-run")
     parser.add_argument("--force", action="store_true", help="覆盖已存在的输出文件")
@@ -344,6 +355,7 @@ def _run_category(
     dry_run: bool,
     force: bool,
     name_filter: set[str] | None,
+    limit: "int | None" = None,
 ) -> CategoryRunResult:
     print(f"\n=== category: {cat_name} ===")
     try:
@@ -358,6 +370,12 @@ def _run_category(
         if not items:
             print(f"[warn] --names 过滤后无项目可生成")
             return CategoryRunResult(name=cat_name, exit_code=0, summary={"total": 0, "success": 0, "failed": 0, "skipped": 0})
+
+    if limit is not None and len(items) > limit:
+        # 顺序要紧：先按 id 挑，再取前 N。反过来的话 --names 指定的条目
+        # 可能根本不在前 N 里，两个参数一起用就等于 --names 失效了。
+        print(f"  [limit] {cat_name}: 取前 {limit} 条（共 {len(items)} 条）")
+        items = items[:limit]
 
     # 注入 extra_fields 兜底（item 已有的同名字段优先）
     extra_fields = cat_spec.get("extra_fields") or {}

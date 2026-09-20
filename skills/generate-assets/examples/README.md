@@ -304,6 +304,10 @@ python generate_assets.py --config path.yaml  # 自定义 config
 
 退码：沿用 image-gen `0/1/2`（多 category 取最大）。
 
+`--limit N` 只取前 N 条，用来抽样验模板 —— 省得为了试两张先去数据源里查 id 叫什么。
+和 `--names` 一起用时**先按 id 挑、再取前 N**（反过来的话 `--names` 指定的条目可能
+根本不在前 N 里，等于白写）。
+
 ## 完整示例
 
 见 `milk-tea-defense.yaml`（5 category：customers / ingredients / recipes /

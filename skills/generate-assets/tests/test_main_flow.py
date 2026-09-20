@@ -1345,3 +1345,73 @@ def test_backend_output_is_streamed_not_buffered(tmp_project, monkeypatch, capsy
     assert summary["total"] == 2                     # 末行 JSON 仍能解析
     out = capsys.readouterr().out
     assert "[ok] a" in out and "[ok] b" in out       # 逐张进度透出来了
+
+
+# -------------------- 抽样 --------------------
+
+def test_limit_takes_first_n(tmp_project, mock_subprocess_run):
+    """--limit N 取前 N 条，不必先去表里查 id 叫什么。"""
+    calls, _ = mock_subprocess_run
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["categories"]["ingredients"]["data_source"]["items"] = {
+        f"item{i}": {"visual": f"v{i}", "main": "#000"} for i in range(5)
+    }
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients", "--limit", "2"]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    assert [a["name"] for a in batch["assets"]] == ["item0", "item1"]
+
+
+def test_limit_beyond_total_is_fine(tmp_project, mock_subprocess_run):
+    calls, _ = mock_subprocess_run
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+    assert ga.main(["--config", str(cfg), "ingredients", "--limit", "99"]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    assert len(batch["assets"]) == 2      # 只有 2 条，不报错
+
+
+def test_limit_applies_after_names(tmp_project, mock_subprocess_run):
+    """两个一起用时，先按 id 过滤再取前 N —— 反过来会让 --names 失效。"""
+    calls, _ = mock_subprocess_run
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["categories"]["ingredients"]["data_source"]["items"] = {
+        f"item{i}": {"visual": f"v{i}", "main": "#000"} for i in range(5)
+    }
+    _write_yaml(cfg, conf)
+
+    assert ga.main([
+        "--config", str(cfg), "ingredients",
+        "--names", "item3,item4", "--limit", "1",
+    ]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    assert [a["name"] for a in batch["assets"]] == ["item3"]
+
+
+def test_limit_rejects_zero_and_negative(tmp_project, capsys):
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+    for bad in ("0", "-1"):
+        assert ga.main(["--config", str(cfg), "ingredients", "--limit", bad]) == 1
+        assert "--limit" in capsys.readouterr().err
+
+
+def test_names_works_on_csv_source(tmp_project, mock_subprocess_run):
+    """--names 对所有数据源都有效，帮助文案里那句「仅对 inline / json_dict」是过期的。"""
+    calls, _ = mock_subprocess_run
+    (tmp_project / "f.csv").write_text(
+        "fid,v\na,x\nb,y\n", encoding="utf-8")
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["categories"]["ingredients"] = {
+        "data_source": {"type": "csv", "path": "f.csv", "id_column": "fid"},
+        "prompt_template": "{v}",
+    }
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients", "--names", "b"]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    assert [a["name"] for a in batch["assets"]] == ["b"]
