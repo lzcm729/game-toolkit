@@ -23,7 +23,7 @@ from typing import Callable
 
 # batch JSON defaults 里可能出现的全部字段。自定义后端能力未知，按全集处理 ——
 # 宁可不告警，也不要对着一个我们没见过的后端误报「不支持 chain」。
-ALL_FIELDS = frozenset({"chain", "preset", "reference_paths", "aspect_ratio", "seed"})
+ALL_FIELDS = frozenset({"chain", "preset", "model", "reference_paths", "aspect_ratio", "seed"})
 
 SCRIPT_ENV = "IMAGE_GEN_SCRIPT"
 
@@ -53,10 +53,12 @@ def _laozhang_script() -> "Path | None":
     return _existing(Path(__file__).resolve().parent / "backends" / "laozhang_backend.py")
 
 
+# image-gen 用 chain（一串 provider/model 的 fallback 序列）表达模型选择，
+# 它的 batch 协议里没有 model 字段。配了 model 该被告警指向 chain，而不是默默丢掉。
 IMAGE_GEN = ImageBackend(
     name="image-gen",
     resolve_script=_image_gen_script,
-    supports=ALL_FIELDS,
+    supports=ALL_FIELDS - {"model"},
     install_hint=(
         "image-gen 是独立的用户级 skill（~/.claude/skills/image-gen），不随本插件安装。"
         "装好它，或用 backend: laozhang 换成插件自带的极简后端，"
@@ -68,7 +70,7 @@ LAOZHANG = ImageBackend(
     name="laozhang",
     resolve_script=_laozhang_script,
     # chain / preset 是 image-gen 特有的风格链与预设，本后端没有对应概念
-    supports=frozenset({"reference_paths", "aspect_ratio", "seed"}),
+    supports=frozenset({"model", "reference_paths", "aspect_ratio", "seed"}),
     install_hint=(
         "laozhang 后端随插件安装，脚本却不见了 —— 插件目录可能不完整，"
         "重装插件或 /plugin update game-toolkit。"

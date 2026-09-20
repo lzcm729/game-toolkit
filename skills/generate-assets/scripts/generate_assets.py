@@ -183,6 +183,7 @@ def main(argv: list[str] | None = None) -> int:
             adapter=adapter,
             backend_script=backend_script,
             backend=backend,
+            top_model=config.get("model"),
             dry_run=args.dry_run,
             force=args.force,
             name_filter=name_filter,
@@ -339,6 +340,7 @@ def _run_category(
     adapter,
     backend_script: Path,
     backend,
+    top_model: "str | None",
     dry_run: bool,
     force: bool,
     name_filter: set[str] | None,
@@ -376,6 +378,7 @@ def _run_category(
             output_root=output_root,
             project_root=project_root,
             adapter=adapter,
+            top_model=top_model,
         )
     except Exception as e:
         msg = f"batch JSON 构造失败：{e}"
@@ -484,6 +487,15 @@ def _resolve_reference(ref: str, *, project_root: Path, output_root: Path, adapt
     return str(adapter.resolve_path(ref, root))
 
 
+# 每个字段「为什么不支持、改用什么」都不一样。统一一句「切回 image-gen」
+# 对 model 恰好是反的 —— image-gen 才是不认 model 的那个。
+_UNSUPPORTED_HINTS = {
+    "chain": "风格链是 image-gen 特有能力，切回 backend: image-gen 才生效。",
+    "preset": "预设是 image-gen 特有能力，切回 backend: image-gen 才生效。",
+    "model": "image-gen 用 chain 表达模型选择，把 model: 改写成 chain: 才生效。",
+}
+
+
 def _warn_unsupported(cat_name: str, defaults: dict, backend) -> None:
     """defaults 里有后端不认的字段就说出来。
 
@@ -493,10 +505,10 @@ def _warn_unsupported(cat_name: str, defaults: dict, backend) -> None:
     """
     unknown = [k for k in defaults if k not in backend.supports]
     for key in sorted(unknown):
+        hint = _UNSUPPORTED_HINTS.get(key, "该后端不认这个字段。")
         print(
             f"[warn] category={cat_name}: backend={backend.name} 不支持 {key}"
-            f"（值 {defaults[key]!r}），已忽略。"
-            f"风格链/预设是 image-gen 特有能力，切回 backend: image-gen 才生效。",
+            f"（值 {defaults[key]!r}），已忽略。{hint}",
             file=sys.stderr,
         )
 
@@ -510,6 +522,7 @@ def _build_batch_json(
     output_root: Path,
     project_root: Path,
     adapter,
+    top_model: "str | None" = None,
 ) -> dict:
     template = cat_spec.get("prompt_template")
     if not template:
@@ -526,6 +539,12 @@ def _build_batch_json(
         for key in ("chain", "preset"):
             if global_style.get(key) is not None:
                 defaults[key] = global_style[key]
+    # model 不走 skip_global_style：那个开关关的是风格，模型是后端配置。
+    # 也因此 model 声明在 config 顶层而非 style 段里。
+    model = cat_spec.get("model") or top_model
+    if model:
+        defaults["model"] = model
+
     if "aspect_ratio" in cat_spec:
         defaults["aspect_ratio"] = cat_spec["aspect_ratio"]
     if "seed" in cat_spec:
@@ -582,6 +601,14 @@ def _build_batch_json(
             "filename": filename,
             "prompt": full_prompt,
         }
+        # edit 底图：item 级覆盖 category 级。只放 asset 不放 defaults ——
+        # image-gen 的 Defaults 不解析 image，放 defaults 会被静默丢掉。
+        raw_image = item.get("image") or cat_spec.get("image")
+        if raw_image:
+            asset["image"] = _resolve_reference(
+                str(raw_image), project_root=project_root,
+                output_root=output_root, adapter=adapter,
+            )
         # item-level overrides（优先级最高）
         if "aspect_ratio" in item and "aspect_ratio" not in asset:
             asset["aspect_ratio"] = item["aspect_ratio"]
@@ -589,6 +616,17 @@ def _build_batch_json(
             asset["seed"] = item["seed"]
 
         assets.append(asset)
+
+    # image（编辑底图）与 reference_paths（风格参考）语义不同，上游 provider
+    # 本就互斥。早点报比发到后端才炸好 —— 后者要等一轮网络往返。
+    if defaults.get("reference_paths"):
+        with_image = [a["name"] for a in assets if a.get("image")]
+        if with_image:
+            raise ValueError(
+                "category {!r} 同时给了 image 和 reference_paths，两者互斥："
+                "image 是「编辑这张底图」，reference_paths 是「参考这些图的风格」。"
+                "涉及 item：{}".format(cat_name, ", ".join(with_image))
+            )
 
     batch = {
         "$schema_version": 2,

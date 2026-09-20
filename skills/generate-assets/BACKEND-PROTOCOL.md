@@ -21,12 +21,17 @@ python <backend.py> <batch.json> --output-dir <dir> [--dry-run] [--force]
 {
   "$schema_version": 2,
   "defaults": {"aspect_ratio": "1:1", "seed": 123, "reference_paths": ["/abs/anchor.png"]},
-  "assets": [{"name": "red_bean", "filename": "red_bean.png", "prompt": "..."}]
+  "assets": [{"name": "red_bean", "filename": "red_bean.png", "prompt": "...",
+              "model": "gemini-3-pro-image", "image": "/abs/base.png"}]
 }
 ```
 
-- `assets[].name` / `filename` / `prompt` 必有；`aspect_ratio` / `seed` 为 item 级覆盖，优先于 `defaults`
+- `assets[].name` / `filename` / `prompt` 必有；`aspect_ratio` / `seed` / `model` / `image` 为 item 级，优先于 `defaults`
 - `reference_paths` 已是绝对路径，后端不必处理 `res://` 等引擎前缀
+- `model` 可出现在 `defaults` 或 asset 上（asset 优先）。后端不认就该告警，别静默换成自己的默认
+- **`image`（编辑底图）只在 asset 上，不进 `defaults`** —— 上游 image-gen 的 `Defaults`
+  不解析它，放 defaults 会被静默丢掉。它与 `reference_paths` **互斥**：
+  `image` 是「编辑这张图」，`reference_paths` 是「参考这些图的风格」
 - 后端应校验 `$schema_version`，不认识的版本直接报错，不要猜
 - 后端忽略不认识的 `defaults` 字段即可；告警由上层基于能力声明发出
 
@@ -103,4 +108,16 @@ backend: tools/my_backend.py    # 相对路径以 project_root 为基准
 | 名字 | 脚本 | 说明 |
 |---|---|---|
 | `image-gen` | `~/.claude/skills/image-gen/scripts/generate_image.py` | 缺省。多 provider、chain fallback、preset、manifest。需单独安装 |
-| `laozhang` | 插件内 `scripts/backends/laozhang_backend.py` | 随插件走。单 provider、串行、无 chain/preset。需 `LAOZHANG_API_KEY` |
+| `laozhang` | 插件内 `scripts/backends/laozhang_backend.py` | 随插件走。单 provider、串行、无 chain/preset |
+
+### laozhang 后端的两条路径
+
+按 `model` 前缀分流，能力不同：
+
+| 模型家族 | API 路径 | 多图 reference | 单图 edit | key |
+|---|---|---|---|---|
+| `gemini-*` | `/v1beta/...:generateContent` | 支持 | 支持 | `LAOZHANG_API_KEY` |
+| `gpt-image-*` | `/v1/images/{generations,edits}` | **不支持** | 支持 | `LAOZHANG_OFFICIAL_API_KEY`（缺则回退上面那把） |
+
+`gpt-image-*` 还有两个限制会被告警而不是静默吞掉：给了 `reference_paths` 直接报错；
+`aspect_ratio` 只原生支持 `1:1` / `2:3` / `3:2`，其余就近取一档、边缘被裁。

@@ -929,3 +929,202 @@ def test_supported_field_does_not_warn(
 
     assert ga.main(["--config", str(cfg), "ingredients"]) == 0
     assert "不支持 chain" not in capsys.readouterr().err
+
+
+# -------------------- model 配置 --------------------
+# 模型选择是 per-project / per-category 的决策，不该只能靠环境变量。
+# 放顶层而不是 style 段：它是后端配置不是风格，放 style 里会被
+# skip_global_style 连带关掉。
+
+
+def test_top_level_model_lands_in_batch_defaults(
+    tmp_project, mock_subprocess_run
+):
+    calls, _ = mock_subprocess_run
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["model"] = "gemini-3-pro-image"
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    assert batch["defaults"]["model"] == "gemini-3-pro-image"
+
+
+def test_category_model_overrides_top_level(tmp_project, mock_subprocess_run):
+    calls, _ = mock_subprocess_run
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["model"] = "gemini-3.1-flash-image"
+    conf["categories"]["ingredients"]["model"] = "gemini-3-pro-image"
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    assert batch["defaults"]["model"] == "gemini-3-pro-image"
+
+
+def test_no_model_declared_leaves_it_out(tmp_project, mock_subprocess_run):
+    """没声明就不要往 defaults 里塞空值——后端自己有默认。"""
+    calls, _ = mock_subprocess_run
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    assert "model" not in batch["defaults"]
+
+
+def test_model_not_killed_by_skip_global_style(tmp_project, mock_subprocess_run):
+    """skip_global_style 关的是风格，不该连模型一起关掉。"""
+    calls, _ = mock_subprocess_run
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["model"] = "gemini-3-pro-image"
+    conf["categories"]["ingredients"]["skip_global_style"] = True
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    assert batch["defaults"]["model"] == "gemini-3-pro-image"
+
+
+def test_image_gen_backend_warns_on_model_and_points_at_chain(
+    tmp_project, capsys, mock_subprocess_run, monkeypatch
+):
+    """image-gen 用 chain 表达模型选择，不认 model——告警得指对方向。"""
+    _, _ = mock_subprocess_run
+    # 必须走真正的 IMAGE_GEN 条目：fixture 设的 IMAGE_GEN_SCRIPT 会走
+    # _custom()，那条按全集处理不告警（自定义后端能力未知，不该误报）。
+    monkeypatch.delenv("IMAGE_GEN_SCRIPT", raising=False)
+    fake = tmp_project / "fake_ig.py"
+    fake.write_text("# stub", encoding="utf-8")
+    monkeypatch.setattr(
+        ga.image_backend, "IMAGE_GEN",
+        dataclasses.replace(ga.image_backend.IMAGE_GEN, resolve_script=lambda: fake),
+    )
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["model"] = "gemini-3-pro-image"
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    err = capsys.readouterr().err
+    assert "不支持 model" in err
+    assert "chain" in err                 # 指向正确的替代写法
+    assert "切回 backend: image-gen" not in err   # 这句对 model 是反的
+
+
+def test_laozhang_backend_does_not_warn_on_model(
+    tmp_project, capsys, mock_subprocess_run, monkeypatch
+):
+    _, _ = mock_subprocess_run
+    monkeypatch.delenv("IMAGE_GEN_SCRIPT", raising=False)
+    fake = tmp_project / "fake_backend.py"
+    fake.write_text("# stub\n", encoding="utf-8")
+    monkeypatch.setattr(
+        ga.image_backend, "LAOZHANG",
+        dataclasses.replace(ga.image_backend.LAOZHANG, resolve_script=lambda: fake),
+    )
+    monkeypatch.setitem(ga.image_backend.BACKENDS, "laozhang", ga.image_backend.LAOZHANG)
+
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["backend"] = "laozhang"
+    conf["model"] = "gpt-image-2.5-flare"
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    assert "不支持 model" not in capsys.readouterr().err
+
+
+# -------------------- edit 模式（image 底图） --------------------
+# 「基于一张底图批量生成变体」是真实需求：同一场景的四季版、同一角色的
+# 不同状态。协议此前只有 reference_paths（风格参考），语义不同。
+# image 只做 asset 级：image-gen 的 Defaults 不解析它，放 defaults 会被
+# 静默丢掉，而 supports 告警只覆盖 defaults 字段——等于埋个无声的坑。
+
+
+def test_category_image_expands_to_every_asset(tmp_project, mock_subprocess_run):
+    calls, _ = mock_subprocess_run
+    base = tmp_project / "art" / "base.png"
+    base.parent.mkdir(parents=True, exist_ok=True)
+    base.write_bytes(b"png")
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["categories"]["ingredients"]["image"] = "base.png"   # 相对 output_root
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    assert "image" not in batch["defaults"]          # 不进 defaults
+    assert len(batch["assets"]) == 2
+    for a in batch["assets"]:
+        assert Path(a["image"]) == base.resolve()
+
+
+def test_item_image_overrides_category_image(tmp_project, mock_subprocess_run):
+    calls, _ = mock_subprocess_run
+    art = tmp_project / "art"
+    art.mkdir(parents=True, exist_ok=True)
+    (art / "base.png").write_bytes(b"png")
+    (art / "pearl_base.png").write_bytes(b"png")
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    cat = conf["categories"]["ingredients"]
+    cat["image"] = "base.png"
+    cat["data_source"]["items"]["pearl"]["image"] = "pearl_base.png"
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    by_name = {a["name"]: a for a in batch["assets"]}
+    assert Path(by_name["pearl"]["image"]).name == "pearl_base.png"
+    assert Path(by_name["taro"]["image"]).name == "base.png"
+
+
+def test_image_and_reference_paths_are_mutually_exclusive(
+    tmp_project, capsys, mock_subprocess_run
+):
+    """两者语义不同且上游 provider 本就互斥，早点报比发到后端才炸好。"""
+    calls, _ = mock_subprocess_run
+    art = tmp_project / "art"
+    art.mkdir(parents=True, exist_ok=True)
+    (art / "base.png").write_bytes(b"png")
+    (art / "anchor.png").write_bytes(b"png")
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["style"]["reference_paths"] = ["anchor.png"]
+    conf["categories"]["ingredients"]["image"] = "base.png"
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 1
+    err = capsys.readouterr().err
+    assert "ingredients" in err
+    assert "image" in err and "reference_paths" in err
+    assert calls == []          # 没往后端发
+
+
+def test_image_accepts_res_prefix(tmp_project, mock_subprocess_run):
+    calls, _ = mock_subprocess_run
+    base = tmp_project / "sprites" / "base.png"
+    base.parent.mkdir(parents=True, exist_ok=True)
+    base.write_bytes(b"png")
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["categories"]["ingredients"]["image"] = "res://sprites/base.png"
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    assert Path(batch["assets"][0]["image"]) == base.resolve()
+
+
+def test_no_image_declared_leaves_asset_clean(tmp_project, mock_subprocess_run):
+    calls, _ = mock_subprocess_run
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    assert all("image" not in a for a in batch["assets"])

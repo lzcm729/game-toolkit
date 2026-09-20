@@ -9,7 +9,8 @@
 SDK 的职责。本脚本只求「装了插件就能跑通全流程」。
 
 env（按 CWD 向上的 .env → ~/.env → 进程环境变量 依次查找，与 image-gen 同序）:
-  LAOZHANG_API_KEY    必需
+  LAOZHANG_API_KEY           gemini-* 模型用
+  LAOZHANG_OFFICIAL_API_KEY  gpt-image-* 模型用（缺则回退上面那把）
   LAOZHANG_BASE_URL   可选，缺省 https://api.laozhang.ai
   LAOZHANG_MODEL      可选，缺省 gemini-3.1-flash-image-preview
 """
@@ -34,6 +35,23 @@ MAX_REFERENCES = 14
 # laozhang 网关实测会间歇断连（SSLEOFError，curl 同一请求却正常）。
 # 「极简」指的是不做 chain/fallback/preset，不是连网络重试都没有。
 DEFAULT_RETRIES = 2
+# OpenAI 路径只认固定档位的 size，aspect_ratio 得映射过去。
+# 没有原生对应的比例取最接近的，代价是渲染端 cover 时轻微裁切。
+_ASPECT_TO_SIZE = {
+    "1:1": "1024x1024",
+    "16:9": "1536x1024",
+    "9:16": "1024x1536",
+    "3:2": "1536x1024",
+    "2:3": "1024x1536",
+    "4:3": "1536x1024",   # 近似 3:2
+    "3:4": "1024x1536",   # 近似 2:3
+    "4:5": "1024x1536",   # 近似 2:3
+}
+# gpt-image 系推理慢（image-gen 实测 official 分组 ~4min/张），
+# 调用方给的超时太短会被中途切断
+_OPENAI_MIN_TIMEOUT_S = 360.0
+# OpenAI 端点只原生支持这三档，其余比例都是就近取一档，边缘会被裁掉
+_OPENAI_EXACT_RATIOS = frozenset({"1:1", "2:3", "3:2"})
 # 向上找 .env 的最大层数，与 image-gen 的 env.py 一致
 _MAX_ENV_LEVELS = 10
 
@@ -99,6 +117,7 @@ def _generate_one(
     seed: "int | None",
     reference_paths: list,
     timeout_s: float,
+    image_path: "str | None" = None,
 ) -> bytes:
     """生成一张图，返回图像字节。失败时对网络抖动 / 429 / 5xx 重试。"""
     last: Exception | None = None
@@ -108,6 +127,7 @@ def _generate_one(
                 prompt, model=model, api_key=api_key, base_url=base_url,
                 aspect_ratio=aspect_ratio, seed=seed,
                 reference_paths=reference_paths, timeout_s=timeout_s,
+                image_path=image_path,
             )
         except _Retryable as e:
             last = e
@@ -130,28 +150,64 @@ def _request_once(
     seed: "int | None",
     reference_paths: list,
     timeout_s: float,
+    image_path: "str | None" = None,
 ) -> bytes:
-    """发一次请求。
+    """发一次请求，按模型家族分流到两条 API 路径。
 
-    走 Gemini native 路径而非 OpenAI style：后者不支持多图 reference，
-    而 reference_paths（风格锚）是 generate-assets 的核心能力。
+    gemini-*    → Gemini native：多图 reference 与单图 edit 都支持
+    gpt-image-* → OpenAI style：只有单图 edit，没有多图 reference
     """
+    if _is_openai_style(model):
+        if reference_paths:
+            raise RuntimeError(
+                f"{model} 走 OpenAI 路径，不支持多图 reference_paths（风格锚）。"
+                "改用 gemini-* 模型，或把风格参考换成 image（单张编辑底图）。"
+            )
+        return _openai_style(
+            prompt, model=model, api_key=api_key, base_url=base_url,
+            aspect_ratio=aspect_ratio, image_path=image_path,
+            timeout_s=max(timeout_s, _OPENAI_MIN_TIMEOUT_S),
+        )
+    return _gemini_native(
+        prompt, model=model, api_key=api_key, base_url=base_url,
+        aspect_ratio=aspect_ratio, seed=seed, reference_paths=reference_paths,
+        image_path=image_path, timeout_s=timeout_s,
+    )
+
+
+def _gemini_native(
+    prompt: str,
+    *,
+    model: str,
+    api_key: str,
+    base_url: str,
+    aspect_ratio: str,
+    seed: "int | None",
+    reference_paths: list,
+    image_path: "str | None",
+    timeout_s: float,
+) -> bytes:
+    """Gemini native：/v1beta/models/{model}:generateContent。"""
     url = f"{base_url.rstrip('/')}/v1beta/models/{model}:generateContent"
 
     parts: list = []
-    for ref_raw in reference_paths:
-        ref = Path(ref_raw)
-        mime = "image/png" if str(ref).lower().endswith(".png") else "image/jpeg"
+    for raw in ([image_path] if image_path else reference_paths):
+        img = Path(raw)
+        mime = "image/png" if str(img).lower().endswith(".png") else "image/jpeg"
         parts.append({"inline_data": {
             "mime_type": mime,
-            "data": base64.b64encode(ref.read_bytes()).decode(),
+            "data": base64.b64encode(img.read_bytes()).decode(),
         }})
     parts.append({"text": prompt})
 
-    generation_config: dict = {
-        "responseModalities": ["TEXT", "IMAGE"],
-        "imageConfig": {"aspectRatio": aspect_ratio},
-    }
+    if image_path:
+        # edit：输出尺寸跟随输入图，再传 aspectRatio 只会打架
+        generation_config: dict = {"responseModalities": ["IMAGE", "TEXT"]}
+    else:
+        generation_config = {
+            "responseModalities": ["TEXT", "IMAGE"],
+            "imageConfig": {"aspectRatio": aspect_ratio},
+        }
     if seed is not None:
         generation_config["seed"] = seed
 
@@ -187,6 +243,106 @@ def _request_once(
     raise RuntimeError("响应里没有图像数据（可能被安全策略拦了，或模型只回了文字）")
 
 
+def _openai_style(
+    prompt: str,
+    *,
+    model: str,
+    api_key: str,
+    base_url: str,
+    aspect_ratio: str,
+    image_path: "str | None",
+    timeout_s: float,
+) -> bytes:
+    """OpenAI style：有底图走 /v1/images/edits，没有则 /v1/images/generations。"""
+    root = base_url.rstrip("/")
+    headers = {"Authorization": f"Bearer {api_key}"}
+    size = _ASPECT_TO_SIZE.get(aspect_ratio, "1024x1024")
+    if aspect_ratio not in _OPENAI_EXACT_RATIOS:
+        # 静默裁切最难查：出来的图「差不多对」，但构图紧了一圈
+        print(
+            f"  [warn] {model} 只原生支持 1:1 / 2:3 / 3:2，"
+            f"aspect_ratio={aspect_ratio} 近似成 {size}，画面边缘会被裁掉。",
+            file=sys.stderr,
+        )
+
+    try:
+        if image_path:
+            img = Path(image_path)
+            if not img.exists():
+                raise RuntimeError(f"编辑底图不存在：{img}")
+            mime = "image/png" if str(img).lower().endswith(".png") else "image/jpeg"
+            files = {
+                "image": (img.name, img.read_bytes(), mime),
+                "model": (None, model),
+                "prompt": (None, prompt),
+                "size": (None, size),
+                "quality": (None, "high"),
+            }
+            resp = requests.post(
+                f"{root}/v1/images/edits", headers=headers, files=files, timeout=timeout_s
+            )
+        else:
+            resp = requests.post(
+                f"{root}/v1/images/generations",
+                headers={**headers, "Content-Type": "application/json"},
+                json={"model": model, "prompt": prompt, "size": size, "quality": "high"},
+                timeout=timeout_s,
+            )
+    except requests.exceptions.RequestException as e:
+        raise _Retryable(f"请求失败：{e}") from e
+
+    if not resp.ok:
+        msg = f"HTTP {resp.status_code}: {resp.text[:200]}"
+        if resp.status_code == 429 or resp.status_code >= 500:
+            raise _Retryable(msg)
+        raise RuntimeError(msg)
+
+    try:
+        data = resp.json()
+    except ValueError as e:
+        raise RuntimeError(f"响应不是合法 JSON：{e}") from e
+
+    items = data.get("data") or []
+    if not items:
+        raise RuntimeError(f"响应里没有图像数据；原始内容：{str(data)[:200]}")
+
+    first = items[0]
+    if first.get("b64_json"):
+        return base64.b64decode(first["b64_json"])
+    if first.get("url"):
+        # laozhang 有时回 CDN 链接而不是内联 base64
+        try:
+            img_resp = requests.get(first["url"], timeout=60)
+            img_resp.raise_for_status()
+        except requests.exceptions.RequestException as e:
+            raise _Retryable(f"图片下载失败：{e}") from e
+        return img_resp.content
+
+    raise RuntimeError(f"响应里既没有 b64_json 也没有 url；字段：{list(first.keys())}")
+
+
+def _is_openai_style(model: str) -> bool:
+    return model.startswith("gpt-image")
+
+
+def _key_env_for(model: str) -> str:
+    return "LAOZHANG_OFFICIAL_API_KEY" if _is_openai_style(model) else "LAOZHANG_API_KEY"
+
+
+def _resolve_api_key(model: str) -> str:
+    """按模型选 key：gpt-image-* 在 official 分组，gemini-* 在默认分组。
+
+    official key 没配就回退到普通 key —— 分组归属是 laozhang 后台的事，
+    这边硬判「不可用」只会把能跑的情况也挡掉。
+    """
+    if _is_openai_style(model):
+        return (
+            _find_env_value("LAOZHANG_OFFICIAL_API_KEY")
+            or _find_env_value("LAOZHANG_API_KEY")
+        ).strip()
+    return _find_env_value("LAOZHANG_API_KEY").strip()
+
+
 def main(argv: "list[str] | None" = None) -> int:
     ap = argparse.ArgumentParser(description="laozhang 极简生图后端")
     ap.add_argument("batch", help="batch JSON 路径")
@@ -213,21 +369,32 @@ def main(argv: "list[str] | None" = None) -> int:
 
     # dry-run 不发请求，就不该要 key —— 新用户想先看看会出什么图，
     # 不该先被一堵凭证墙拦住。
-    api_key = _find_env_value("LAOZHANG_API_KEY").strip()
-    if not api_key and not args.dry_run:
-        print(
-            "[fatal] 缺 LAOZHANG_API_KEY。到 https://api.laozhang.ai 注册取 key 后设环境变量；"
-            "或在 asset-config.yaml 里改用别的 backend。",
-            file=sys.stderr,
-        )
-        return 1
-
     base_url = _find_env_value("LAOZHANG_BASE_URL") or DEFAULT_BASE_URL
-    model = _find_env_value("LAOZHANG_MODEL") or DEFAULT_MODEL
 
     defaults = batch.get("defaults") or {}
     assets = batch.get("assets") or []
     out_dir = Path(args.output_dir)
+
+    # 模型优先级：asset.model > defaults.model > LAOZHANG_MODEL > 内置默认。
+    # 配置文件压过环境变量，与 .env 的查找同序 —— 一个系统里只该有一套答案。
+    default_model = (
+        defaults.get("model")
+        or _find_env_value("LAOZHANG_MODEL")
+        or DEFAULT_MODEL
+    )
+
+    # key 按模型家族分头检查：gpt-image-* 在 official 分组，用的是另一把。
+    # 跑到第一张图才发现缺 key，等于白等一轮网络往返。
+    if not args.dry_run:
+        for m in sorted({a.get("model") or default_model for a in assets}):
+            if not _resolve_api_key(m):
+                print(
+                    f"[fatal] 模型 {m} 需要 {_key_env_for(m)}，没找到。"
+                    "到 https://api.laozhang.ai 注册取 key 后写进项目 .env 或环境变量；"
+                    "或在 asset-config.yaml 里改用别的 backend。",
+                    file=sys.stderr,
+                )
+                return 1
 
     refs = list(defaults.get("reference_paths") or [])
     if len(refs) > MAX_REFERENCES:
@@ -253,7 +420,7 @@ def main(argv: "list[str] | None" = None) -> int:
         target = out_dir / filename
 
         if args.dry_run:
-            print(f"  [plan] {name} -> {target}")
+            print(f"  [plan] {name} -> {target}  (model={asset.get('model') or default_model})")
             continue
 
         if target.exists() and not args.force:
@@ -262,14 +429,16 @@ def main(argv: "list[str] | None" = None) -> int:
             continue
 
         try:
+            asset_model = asset.get("model") or default_model
             data = _generate_one(
                 prompt,
-                model=model,
-                api_key=api_key,
+                model=asset_model,
+                api_key=_resolve_api_key(asset_model),
                 base_url=base_url,
                 aspect_ratio=asset.get("aspect_ratio") or defaults.get("aspect_ratio") or "1:1",
                 seed=asset.get("seed", defaults.get("seed")),
                 reference_paths=refs,
+                image_path=asset.get("image"),
                 timeout_s=DEFAULT_TIMEOUT_S,
             )
             target.parent.mkdir(parents=True, exist_ok=True)

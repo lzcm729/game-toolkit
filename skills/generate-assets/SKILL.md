@@ -52,7 +52,22 @@ description: |
 
 ```yaml
 backend: laozhang
+model: gemini-3-pro-image      # 可选，category 可覆盖
 ```
+
+`model` 是后端配置不是风格，所以放顶层而非 `style:` 段 —— 放 style 里会被
+`skip_global_style` 连带关掉。image-gen 用 `chain:` 表达模型选择，配了 `model:`
+会被告警指向 `chain:`。
+
+## 两种输入模式
+
+| 模式 | yaml 字段 | 含义 |
+|---|---|---|
+| 风格参考 | `style.reference_paths` / category 的 `reference_paths` | 参考这些图的风格，重新画一张 |
+| 编辑底图 | category 或 item 的 `image` | 编辑这张图，保住构图 |
+
+两者**互斥**，同时给会 fail fast。要「同一底图批量出变体」（四季版、角色的
+不同状态）用 `image`；要「一套风格贯穿全部资源」用 `reference_paths`。
 
 后端不支持的 `defaults` 字段（如 laozhang 不认 `chain` / `preset`）会按 category
 告警后继续，不静默忽略也不中断。写一个后端只需满足三条约定，见 BACKEND-PROTOCOL.md。

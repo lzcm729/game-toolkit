@@ -62,6 +62,23 @@ project_root: ".."    # 可选。相对本文件；也可用 CLI 的 --project-r
 `project_root` 不给时按「适配器探测 → yaml 位置推断」兜底 —— 后者会随 config 移动
 而改变相对路径基准，非 Godot 项目建议显式指定。
 
+## `model`（生图模型）
+
+顶层字段，category 可覆盖。`laozhang` 后端按前缀分流：`gemini-*` 走 Gemini native
+（支持多图 reference 与单图 edit），`gpt-image-*` 走 OpenAI（只有单图 edit，
+且 `aspect_ratio` 只原生支持 1:1 / 2:3 / 3:2）。
+
+优先级：item 的 `model` > category 的 `model` > 顶层 `model` > `LAOZHANG_MODEL` > 后端内置默认。
+
+`image-gen` 后端不认 `model`（它用 `chain`），配了会告警。
+
+## `image`（编辑底图）
+
+category 或 item 级，与 `reference_paths` **互斥**。路径解析同 `reference_paths`：
+`res://` 相对项目根，裸相对路径相对 `output_root`，绝对路径原样。
+
+item 级覆盖 category 级 —— 一个 category 共用一张底图，个别 item 换自己的。
+
 ## `backend`（生图后端）
 
 `image-gen`（缺省） / `laozhang`（随插件安装） / 脚本路径（相对路径以 project_root

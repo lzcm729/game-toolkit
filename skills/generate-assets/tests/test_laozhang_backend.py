@@ -449,3 +449,240 @@ def test_gives_up_after_retries_exhausted(monkeypatch):
         )
     assert "connection reset" in str(ei.value)
     assert len(calls) == lb.DEFAULT_RETRIES + 1
+
+
+# -------------------- model 选择 --------------------
+# 优先级：asset.model > defaults.model > LAOZHANG_MODEL > 内置默认。
+# 配置文件压过环境变量，与 .env 那条同序。
+
+
+def _run_capture_model(tmp_path, monkeypatch, *, defaults=None, asset_extra=None):
+    monkeypatch.setenv("LAOZHANG_API_KEY", "sk-test")
+    seen = {}
+
+    def capture(prompt, **kwargs):
+        seen.update(kwargs)
+        return b"png"
+
+    monkeypatch.setattr(lb, "_generate_one", capture)
+    out = tmp_path / "out"
+    out.mkdir(exist_ok=True)
+    asset = {"name": "a", "filename": "a.png", "prompt": "p"}
+    asset.update(asset_extra or {})
+    batch = _batch(tmp_path, [asset], defaults=defaults)
+    assert lb.main([str(batch), "--output-dir", str(out), "--force"]) == 0
+    return seen["model"]
+
+
+def test_model_from_batch_defaults(tmp_path, monkeypatch):
+    monkeypatch.delenv("LAOZHANG_MODEL", raising=False)
+    assert _run_capture_model(
+        tmp_path, monkeypatch, defaults={"model": "gpt-image-2.5-flare"}
+    ) == "gpt-image-2.5-flare"
+
+
+def test_asset_model_overrides_defaults(tmp_path, monkeypatch):
+    monkeypatch.delenv("LAOZHANG_MODEL", raising=False)
+    assert _run_capture_model(
+        tmp_path, monkeypatch,
+        defaults={"model": "gemini-3.1-flash-image"},
+        asset_extra={"model": "gemini-3-pro-image"},
+    ) == "gemini-3-pro-image"
+
+
+def test_env_model_used_when_batch_declares_none(tmp_path, monkeypatch):
+    monkeypatch.setenv("LAOZHANG_MODEL", "gemini-2.5-flash-image")
+    assert _run_capture_model(tmp_path, monkeypatch) == "gemini-2.5-flash-image"
+
+
+def test_batch_model_wins_over_env(tmp_path, monkeypatch):
+    """与 .env 同序：配置文件压过环境变量。"""
+    monkeypatch.setenv("LAOZHANG_MODEL", "gemini-2.5-flash-image")
+    assert _run_capture_model(
+        tmp_path, monkeypatch, defaults={"model": "gpt-image-2.5-flare"}
+    ) == "gpt-image-2.5-flare"
+
+
+def test_falls_back_to_builtin_default(tmp_path, monkeypatch):
+    monkeypatch.delenv("LAOZHANG_MODEL", raising=False)
+    assert _run_capture_model(tmp_path, monkeypatch) == lb.DEFAULT_MODEL
+
+
+# -------------------- 两条 API 路径 --------------------
+# gemini-* 走 Gemini native（支持多图 reference 与单图 edit）；
+# gpt-image-* 走 OpenAI style（只有单图 edit，没有多图 reference）。
+
+
+def _png(tmp_path, name="base.png"):
+    p = tmp_path / name
+    p.write_bytes(b"\x89PNG-fake")
+    return p
+
+
+def test_gemini_edit_uses_inline_data_and_image_modality(tmp_path, monkeypatch):
+    """edit 模式输出尺寸跟随输入图，不该再传 aspectRatio。"""
+    base = _png(tmp_path)
+    seen = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None, **kw):
+        seen["url"] = url
+        seen["body"] = json
+        return _FakeResp(payload=_image_payload())
+
+    monkeypatch.setattr(lb.requests, "post", fake_post)
+    lb._generate_one(
+        "make it barren", model="gemini-3.1-flash-image", api_key="k",
+        base_url="https://x", aspect_ratio="16:9", seed=None,
+        reference_paths=[], image_path=str(base), timeout_s=30.0,
+    )
+    assert ":generateContent" in seen["url"]
+    parts = seen["body"]["contents"][0]["parts"]
+    assert "inline_data" in parts[0]
+    assert parts[-1]["text"] == "make it barren"
+    cfg = seen["body"]["generationConfig"]
+    assert cfg["responseModalities"] == ["IMAGE", "TEXT"]
+    assert "imageConfig" not in cfg
+
+
+def test_gpt_image_edit_posts_multipart_to_edits(tmp_path, monkeypatch):
+    base = _png(tmp_path)
+    seen = {}
+
+    def fake_post(url, headers=None, files=None, timeout=None, **kw):
+        seen["url"] = url
+        seen["files"] = files
+        seen["timeout"] = timeout
+        return _FakeResp(payload={"data": [{"b64_json": "aGk="}]})
+
+    monkeypatch.setattr(lb.requests, "post", fake_post)
+    data = lb._generate_one(
+        "make it barren", model="gpt-image-2.5-flare", api_key="k",
+        base_url="https://x", aspect_ratio="16:9", seed=None,
+        reference_paths=[], image_path=str(base), timeout_s=30.0,
+    )
+    assert data == b"hi"
+    assert seen["url"] == "https://x/v1/images/edits"
+    assert seen["files"]["model"][1] == "gpt-image-2.5-flare"
+    assert seen["files"]["prompt"][1] == "make it barren"
+    assert seen["files"]["size"][1] == "1536x1024"      # 16:9
+    assert seen["timeout"] >= 360                        # 这条路慢，得放宽
+
+
+def test_gpt_image_without_base_goes_to_generations(monkeypatch):
+    seen = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None, **kw):
+        seen["url"] = url
+        seen["body"] = json
+        return _FakeResp(payload={"data": [{"b64_json": "aGk="}]})
+
+    monkeypatch.setattr(lb.requests, "post", fake_post)
+    lb._generate_one(
+        "a pebble", model="gpt-image-2.5-sunburst", api_key="k",
+        base_url="https://x", aspect_ratio="1:1", seed=None,
+        reference_paths=[], image_path=None, timeout_s=30.0,
+    )
+    assert seen["url"] == "https://x/v1/images/generations"
+    assert seen["body"]["size"] == "1024x1024"
+
+
+def test_gpt_image_rejects_reference_paths(tmp_path, monkeypatch):
+    """OpenAI 路径没有多图 reference——说清楚，别静默丢掉风格锚。"""
+    monkeypatch.setattr(lb.requests, "post", lambda *a, **k: _FakeResp())
+    with pytest.raises(RuntimeError) as ei:
+        lb._generate_one(
+            "p", model="gpt-image-2.5-flare", api_key="k", base_url="https://x",
+            aspect_ratio="1:1", seed=None, reference_paths=[str(_png(tmp_path))],
+            image_path=None, timeout_s=30.0,
+        )
+    msg = str(ei.value)
+    assert "reference" in msg and "gemini" in msg.lower()
+
+
+def test_openai_response_url_is_downloaded(monkeypatch):
+    monkeypatch.setattr(
+        lb.requests, "post",
+        lambda *a, **k: _FakeResp(payload={"data": [{"url": "https://cdn/x.png"}]}),
+    )
+
+    class _Img:
+        content = b"downloaded"
+        headers = {"Content-Type": "image/png"}
+        status_code = 200
+        ok = True
+
+        def raise_for_status(self):
+            pass
+
+    monkeypatch.setattr(lb.requests, "get", lambda *a, **k: _Img())
+    assert lb._generate_one(
+        "p", model="gpt-image-2.5-flare", api_key="k", base_url="https://x",
+        aspect_ratio="1:1", seed=None, reference_paths=[], image_path=None,
+        timeout_s=30.0,
+    ) == b"downloaded"
+
+
+def test_api_key_env_differs_by_model_family(tmp_path, monkeypatch):
+    """gpt-image-* 在 official 分组，用另一把 key。"""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: tmp_path / "nohome"))
+    monkeypatch.setenv("LAOZHANG_API_KEY", "sk-normal")
+    monkeypatch.setenv("LAOZHANG_OFFICIAL_API_KEY", "sk-official")
+    assert lb._resolve_api_key("gemini-3.1-flash-image") == "sk-normal"
+    assert lb._resolve_api_key("gpt-image-2.5-flare") == "sk-official"
+
+
+def test_gpt_image_falls_back_to_normal_key(tmp_path, monkeypatch):
+    """没配 official key 就用普通的——别直接判定不可用。"""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: tmp_path / "nohome"))
+    monkeypatch.delenv("LAOZHANG_OFFICIAL_API_KEY", raising=False)
+    monkeypatch.setenv("LAOZHANG_API_KEY", "sk-normal")
+    assert lb._resolve_api_key("gpt-image-2.5-flare") == "sk-normal"
+
+
+def test_main_passes_image_through(tmp_path, monkeypatch):
+    base = _png(tmp_path)
+    monkeypatch.setenv("LAOZHANG_API_KEY", "sk-test")
+    seen = {}
+
+    def capture(prompt, **kwargs):
+        seen.update(kwargs)
+        return b"png"
+
+    monkeypatch.setattr(lb, "_generate_one", capture)
+    out = tmp_path / "out"
+    out.mkdir()
+    batch = _batch(tmp_path, [
+        {"name": "a", "filename": "a.png", "prompt": "p", "image": str(base)}
+    ])
+    assert lb.main([str(batch), "--output-dir", str(out)]) == 0
+    assert seen["image_path"] == str(base)
+
+
+def test_openai_warns_when_aspect_ratio_is_only_approximated(monkeypatch, capsys):
+    """OpenAI 只有 1:1 / 2:3 / 3:2 三档，其余都是近似，会裁掉边缘。"""
+    monkeypatch.setattr(
+        lb.requests, "post",
+        lambda *a, **k: _FakeResp(payload={"data": [{"b64_json": "aGk="}]}),
+    )
+    lb._generate_one(
+        "p", model="gpt-image-2.5-flare", api_key="k", base_url="https://x",
+        aspect_ratio="16:9", seed=None, reference_paths=[], image_path=None,
+        timeout_s=30.0,
+    )
+    err = capsys.readouterr().err
+    assert "16:9" in err and "1536x1024" in err
+
+
+def test_openai_silent_on_exact_aspect_ratio(monkeypatch, capsys):
+    monkeypatch.setattr(
+        lb.requests, "post",
+        lambda *a, **k: _FakeResp(payload={"data": [{"b64_json": "aGk="}]}),
+    )
+    lb._generate_one(
+        "p", model="gpt-image-2.5-flare", api_key="k", base_url="https://x",
+        aspect_ratio="3:2", seed=None, reference_paths=[], image_path=None,
+        timeout_s=30.0,
+    )
+    assert "近似" not in capsys.readouterr().err
