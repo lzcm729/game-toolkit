@@ -3,6 +3,16 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.10.1 (2026-09-20)
+
+补 `examples/README.md`（asset-config.yaml 的 schema 文档）两处不完整。纯文档。
+
+- **顶层结构示例漏了 `model` 和 `adapter`**。那段是读者找配置项时最先看的目录，
+  漏掉的字段等于不存在 —— `adapter` 从早期就一直漏在那儿。
+- **`image` 那节夹在顶层字段之间**，但它是 category / item 级的，位置会让人以为
+  能写在顶层。挪进 `categories.<name>` 字段表，并补了一张 `image` vs
+  `reference_paths` 的对照：一个保住原构图、一个会漂，这是选哪个的唯一依据。
+
 ## 3.10.0 (2026-09-20)
 
 两项新能力，都来自实际跑图时撞到的墙。
