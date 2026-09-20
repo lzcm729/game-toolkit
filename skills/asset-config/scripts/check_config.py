@@ -49,6 +49,23 @@ except ImportError:  # pragma: no cover
     raise SystemExit(2)
 
 
+def _openai_style_checker():
+    """拿 laozhang 后端自己的「这个模型走哪条 API 路径」判断。
+
+    不在这里重写 model.startswith("gpt-image") —— 规则重复两份，
+    后端哪天改了判断标准，check 就开始说谎。拿不到就返回 None，
+    这条检查跳过而不是瞎猜。
+    """
+    backends_dir = _GA_SCRIPTS / "backends"
+    if str(backends_dir) not in sys.path:
+        sys.path.insert(0, str(backends_dir))
+    try:
+        from laozhang_backend import _is_openai_style
+    except ImportError:
+        return None
+    return _is_openai_style
+
+
 # 未完成标记。只用于**创作性**未定稿 —— 功能性缺失（比如模板引用了不存在的
 # 字段）由检查本身发现，不需要人手标。
 TODO_MARKER = "TODO"
@@ -234,6 +251,26 @@ def _check_category(
             f"category {name}: 同时给了 image 和 reference_paths，两者互斥 —— "
             "image 是「编辑这张底图」，reference_paths 是「参考这些图的风格」"
         )
+
+    # --- 模型能力与风格锚是否相容 ---
+    # 配置层就能静态判定的事，不该拖到烧钱的运行时才发现：
+    # gpt-image-* 走 OpenAI 路径，没有多图 reference，配了风格锚必然全军覆没
+    if backend is not None and backend.name == "laozhang" and has_refs:
+        is_openai = _openai_style_checker()
+        if is_openai is not None:
+            top_model = config.get("model")
+            for label, model in (
+                (f"category {name} 的 model", spec.get("model")),
+                ("顶层 model", top_model if not spec.get("model") else None),
+                *((f"category {name} 中 item {it.get('id')!r} 的 model", it.get("model"))
+                  for it in items if it.get("model")),
+            ):
+                if model and is_openai(str(model)):
+                    r.error(
+                        f"{label} 是 {model!r}，它走 OpenAI 路径、不支持多图 "
+                        f"reference_paths；而 category {name} 配了风格锚。"
+                        "改用 gemini-* 模型，或把风格参考换成 image（单张编辑底图）。"
+                    )
 
     # --- 模板能否在真实条目上渲染 ---
     template = spec.get("prompt_template")

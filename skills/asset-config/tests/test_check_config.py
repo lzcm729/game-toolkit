@@ -240,3 +240,61 @@ def test_global_reference_path_reported_once(tmp_path):
     report = check_config(cfg, tmp_path)
     hits = [e for e in report.errors if "missing-anchor.png" in e]
     assert len(hits) == 1, f"报了 {len(hits)} 次：{hits}"
+
+
+# -------------------- 模型能力与配置相容 --------------------
+
+def test_openai_model_with_reference_paths_is_an_error(tmp_path):
+    """gpt-image-* 走 OpenAI 路径，没有多图 reference —— 配了风格锚必然全军覆没。
+
+    这是配置层就能静态判定的事，不该拖到烧钱的运行时才发现。
+    """
+    (tmp_path / "art").mkdir()
+    (tmp_path / "art" / "anchor.png").write_bytes(b"png")
+    conf = _minimal(tmp_path)
+    conf["backend"] = "laozhang"
+    conf["model"] = "gpt-image-2.5-flare"
+    conf["style"] = {"reference_paths": ["anchor.png"]}
+    cfg = _write(tmp_path, conf)
+    report = check_config(cfg, tmp_path)
+    assert not report.ok
+    msg = _messages(report)
+    assert "gpt-image-2.5-flare" in msg
+    assert "reference_paths" in msg
+    assert "gemini" in msg          # 指出出路
+
+
+def test_openai_model_at_category_level_also_checked(tmp_path):
+    """category 级的 model 同样要查 —— 顶层配 gemini 不代表每个 category 都是。"""
+    (tmp_path / "art").mkdir()
+    (tmp_path / "art" / "anchor.png").write_bytes(b"png")
+    conf = _minimal(tmp_path)
+    conf["backend"] = "laozhang"
+    conf["model"] = "gemini-3-pro-image"
+    conf["style"] = {"reference_paths": ["anchor.png"]}
+    conf["categories"]["ingredients"]["model"] = "gpt-image-2.5-flare"
+    cfg = _write(tmp_path, conf)
+    assert not check_config(cfg, tmp_path).ok
+
+
+def test_openai_model_without_reference_is_fine(tmp_path):
+    """不配风格锚时 gpt-image-* 完全可用，别误报。"""
+    conf = _minimal(tmp_path)
+    conf["backend"] = "laozhang"
+    conf["model"] = "gpt-image-2.5-flare"
+    cfg = _write(tmp_path, conf)
+    report = check_config(cfg, tmp_path)
+    assert report.ok, report.errors
+
+
+def test_openai_model_with_image_is_fine(tmp_path):
+    """image（单张编辑底图）走的是 edits 端点，OpenAI 路径支持。"""
+    (tmp_path / "art").mkdir()
+    (tmp_path / "art" / "base.png").write_bytes(b"png")
+    conf = _minimal(tmp_path)
+    conf["backend"] = "laozhang"
+    conf["model"] = "gpt-image-2.5-flare"
+    conf["categories"]["ingredients"]["image"] = "base.png"
+    cfg = _write(tmp_path, conf)
+    report = check_config(cfg, tmp_path)
+    assert report.ok, report.errors
