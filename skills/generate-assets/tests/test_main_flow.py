@@ -1219,3 +1219,22 @@ def test_duplicate_filename_is_fatal(tmp_project, capsys, mock_subprocess_run):
     err = capsys.readouterr().err
     assert "dup.png" in err
     assert calls == []
+
+
+def test_backend_cwd_is_project_root_not_config_dir(tmp_project, mock_subprocess_run):
+    """config 放在子目录时，cwd 必须是工程根而不是 config 所在目录。
+
+    上一版的测试把 config 放在工程根，两者恰好相等，所以把 project_root
+    误写成 config_path.parent 也照样绿 —— 证明不了它保护的是哪一个。
+    """
+    calls, _ = mock_subprocess_run
+    cfg_dir = tmp_project / "tools"
+    cfg_dir.mkdir()
+    cfg = cfg_dir / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+
+    assert ga.main(["--config", str(cfg), "--project-root", str(tmp_project),
+                    "ingredients"]) == 0
+    cwd = Path(calls[0]["kwargs"]["cwd"])
+    assert cwd == tmp_project.resolve()
+    assert cwd != cfg_dir.resolve()
