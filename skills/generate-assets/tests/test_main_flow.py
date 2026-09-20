@@ -885,3 +885,47 @@ def test_nested_output_subdir_is_fine(tmp_project, mock_subprocess_run):
     p = tmp_project / "asset-config.yaml"
     _write_yaml(p, cfg)
     assert ga.main(["--config", str(p), "ingredients", "--dry-run"]) == 0
+
+
+def test_unsupported_field_warns_with_value(
+    tmp_project, capsys, mock_subprocess_run, monkeypatch
+):
+    """laozhang 不认 chain：要告警、要点名 category、要带上被丢弃的值。"""
+    _, _ = mock_subprocess_run
+    monkeypatch.delenv("IMAGE_GEN_SCRIPT", raising=False)
+    fake = tmp_project / "fake_backend.py"
+    fake.write_text("# stub\n", encoding="utf-8")
+    monkeypatch.setattr(
+        ga.image_backend, "LAOZHANG",
+        dataclasses.replace(ga.image_backend.LAOZHANG, resolve_script=lambda: fake),
+    )
+    # setitem 不是多余的：BACKENDS 在模块加载时就捕获了对象引用，换模块属性
+    # 不会改字典里那个。走 backend: 具名分支时 select() 从字典取，两处都要换。
+    monkeypatch.setitem(ga.image_backend.BACKENDS, "laozhang", ga.image_backend.LAOZHANG)
+
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["backend"] = "laozhang"
+    conf["style"]["chain"] = "default"
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    err = capsys.readouterr().err
+    assert "ingredients" in err          # 点名 category
+    assert "chain" in err
+    assert "default" in err              # 带上被丢弃的值
+    assert "image-gen" in err            # 指出切回哪个后端才生效
+
+
+def test_supported_field_does_not_warn(
+    tmp_project, capsys, mock_subprocess_run, monkeypatch
+):
+    """image-gen 认 chain，不该有告警噪音。"""
+    _, _ = mock_subprocess_run   # fixture 已把 IMAGE_GEN_SCRIPT 指向假脚本
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["style"]["chain"] = "default"
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    assert "不支持 chain" not in capsys.readouterr().err

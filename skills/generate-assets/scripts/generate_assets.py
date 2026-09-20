@@ -382,6 +382,8 @@ def _run_category(
         print(f"[error] {msg}", file=sys.stderr)
         return CategoryRunResult(name=cat_name, exit_code=1, summary=None, error=msg)
 
+    _warn_unsupported(cat_name, batch.get("defaults") or {}, backend)
+
     if not batch["assets"]:
         print(f"[info] {cat_name}: 无 asset 可生成（数据源为空？）")
         return CategoryRunResult(name=cat_name, exit_code=0, summary={"total": 0, "success": 0, "failed": 0, "skipped": 0})
@@ -480,6 +482,23 @@ def _resolve_reference(ref: str, *, project_root: Path, output_root: Path, adapt
     is_engine_path = any(ref.startswith(px) for px in engine_adapter.KNOWN_ENGINE_PREFIXES)
     root = project_root if is_engine_path else output_root
     return str(adapter.resolve_path(ref, root))
+
+
+def _warn_unsupported(cat_name: str, defaults: dict, backend) -> None:
+    """defaults 里有后端不认的字段就说出来。
+
+    静默忽略会让人以为风格链生效了实则没有；报错又会让「切个后端试一下」
+    变得很麻烦。所以告警后继续，并且必须带上被丢弃的值 —— 只说「不支持
+    chain」，人还得回头翻 yaml 才知道丢了什么。
+    """
+    unknown = [k for k in defaults if k not in backend.supports]
+    for key in sorted(unknown):
+        print(
+            f"[warn] category={cat_name}: backend={backend.name} 不支持 {key}"
+            f"（值 {defaults[key]!r}），已忽略。"
+            f"风格链/预设是 image-gen 特有能力，切回 backend: image-gen 才生效。",
+            file=sys.stderr,
+        )
 
 
 def _build_batch_json(
