@@ -593,16 +593,21 @@ def test_no_import_hint_when_nothing_produced(tmp_project, mock_subprocess_run, 
     assert "godot" not in capsys.readouterr().out.lower()
 
 def test_unregistered_engine_prefix_does_not_suggest_unknown_engine():
-    """认出前缀属于哪个引擎 != 支持那个引擎。
+    """认出前缀属于哪个引擎 != 那个引擎的适配器认这个前缀。
 
     回归防护：曾经 /Game/ 的报错建议「把 engine 设成 unreal」，
     照做会撞进「未知的 engine: 'unreal'」—— 把人指进一个死循环。
+
+    3.12.0 注册 unreal 之后这条依然成立，只是理由变了：unreal 在册，
+    但它同样拒绝 /Game/（那是导入后的资产路径）。所以断言的是**意图**
+    ——别把人指过去、给出真正的出路——而不是某句具体文案。
     """
     import engine_adapter as ea
     with pytest.raises(ValueError) as ex:
         ea.GENERIC.resolve_path("/Game/Art/a.uasset", Path("C:/p"))
     msg = str(ex.value)
-    assert "没有 unreal 适配" in msg
+    assert "adapter 改成 unreal" not in msg      # 别把人指进死胡同
+    assert "普通相对路径" in msg                  # 给出真正的出路
     assert "adapter 改成 unreal" not in msg
 
 

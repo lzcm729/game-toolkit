@@ -30,6 +30,10 @@ class EngineAdapter:
     resolve_path: Callable[[str, Path], Path]
     # 生成结束后的提示；返回 None 表示这个引擎不需要
     post_generate_hint: Callable[[Path], "str | None"]
+    # 这个适配器认的虚拟路径前缀；None = 不认任何前缀。
+    # 用来判断「撞见某前缀时该不该建议切到这个 adapter」——
+    # unreal 注册了却依然不认 /Game/，不能因为它在册就把人指过去。
+    virtual_prefix: "str | None" = None
 
 
 def _godot_hint(output_dir: Path) -> str | None:
@@ -38,6 +42,23 @@ def _godot_hint(output_dir: Path) -> str | None:
 
 def _generic_detect(start: Path) -> Path | None:
     return None
+
+
+def _unreal_detect(start: Path) -> "Path | None":
+    """从 start 向上找 *.uproject；找到返回所在目录，否则 None。
+
+    不做这一步的话，工程根会退化成 config 所在目录 —— config 放在
+    tools/ 这类子目录时，所有相对路径的基准全错。
+    """
+    cur = Path(start).resolve()
+    if cur.is_file():
+        cur = cur.parent
+    while True:
+        if any(cur.glob("*.uproject")):
+            return cur
+        if cur.parent == cur:
+            return None
+        cur = cur.parent
 
 
 # 各引擎的虚拟根前缀。generic 模式下撞见任何一个都要报错，
@@ -49,13 +70,20 @@ def _generic_resolve(raw: str, root: Path) -> Path:
     """不认任何引擎前缀。绝对路径原样，相对路径接在 root 下。"""
     for prefix, engine in KNOWN_ENGINE_PREFIXES.items():
         if raw.startswith(prefix):
-            # 认出前缀属于哪个引擎 ≠ 本 skill 支持那个引擎的操作。
-            # 只有注册了适配才建议改 engine，否则会把人指进「未知的 engine」。
-            if engine in ADAPTERS:
+            # 认出前缀属于哪个引擎 ≠ 那个引擎的适配器认这个前缀。
+            # unreal 注册了，但它同样拒绝 /Game/（那是导入后的资产路径，
+            # 不是源文件路径）—— 建议人切过去等于把他指进死胡同。
+            target = ADAPTERS.get(engine)
+            if target is not None and target.virtual_prefix == prefix:
                 # 必须说 adapter 而不是 engine：config 里已有 adapter 时再加个
                 # engine 会触发「两者不一致」的冲突报错 —— 照着提示做反而更错。
                 fix = ("把 config 的 adapter 改成 {}（若还留着旧的 engine 字段，"
                        "一并删掉，否则两者会冲突），或改用普通相对路径。").format(engine)
+            elif target is not None:
+                fix = (
+                    "{} 适配也不认这个前缀（它指向导入后的资产，不是源文件）。"
+                    "改用普通相对路径输出，引擎侧的资产导入另行处理。"
+                ).format(engine)
             else:
                 fix = (
                     "本 skill 目前没有 {} 适配（已注册：{}）。"
@@ -69,11 +97,50 @@ def _generic_resolve(raw: str, root: Path) -> Path:
     return p if p.is_absolute() else (Path(root) / p).resolve()
 
 
+def _unreal_resolve(raw: str, root: Path) -> Path:
+    """unreal 不认任何虚拟前缀 —— 包括它自己的 /Game/。
+
+    /Game/ 指向 Content/ 下的 .uasset，那是**导入后**的产物；本流水线
+    产出的是导入前的源图片，两者不是一回事。把源图片写进 Content/，
+    引擎既不认识裸 PNG，也会把那个目录搞乱。
+    """
+    if raw.startswith("/Game/"):
+        raise ValueError(
+            "/Game/ 是导入后的资产路径（对应 Content/ 下的 .uasset），"
+            "而这里输出的是导入前的源图片：{}。"
+            "改用相对工程根的普通路径（如 ArtSource/xxx），"
+            "引擎侧的导入另行处理。".format(raw)
+        )
+    return _generic_resolve(raw, root)
+
+
+def _unreal_hint(output_dir: Path) -> "str | None":
+    """固定提示，不做检查。
+
+    .uasset 是二进制，而且源图片到资产的对应关系写在项目各自的导入脚本里
+    （destination_path 各处硬编码），没法反查「这张图导没导过」。
+    """
+    return (
+        "[unreal] 图片已生成在 {} —— 它们是源文件，"
+        "要在引擎里用还得走一次 UE 导入（在 Content/ 下生成 .uasset）。"
+        .format(output_dir)
+    )
+
+
 GODOT = EngineAdapter(
     name="godot",
     detect_root=find_project_root,
     resolve_path=resolve_res_path,
     post_generate_hint=_godot_hint,
+    virtual_prefix="res://",
+)
+
+UNREAL = EngineAdapter(
+    name="unreal",
+    detect_root=_unreal_detect,
+    resolve_path=_unreal_resolve,
+    post_generate_hint=_unreal_hint,
+    virtual_prefix=None,        # 它连自己的 /Game/ 都不认，理由见 _unreal_resolve
 )
 
 GENERIC = EngineAdapter(
@@ -83,7 +150,7 @@ GENERIC = EngineAdapter(
     post_generate_hint=lambda _out: None,
 )
 
-ADAPTERS = {"godot": GODOT, "generic": GENERIC}
+ADAPTERS = {"godot": GODOT, "unreal": UNREAL, "generic": GENERIC}
 
 
 def select(config: dict, config_dir: Path) -> EngineAdapter:

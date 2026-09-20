@@ -74,6 +74,26 @@ project_root: ".."    # 可选。相对本文件；也可用 CLI 的 --project-r
 
 `image-gen` 后端不认 `model`（它用 `chain`），配了会告警。
 
+## Unreal 项目
+
+`adapter: unreal` 做三件事：向上找 `*.uproject` 定位工程根、拒绝 `/Game/` 前缀、
+生成后提示需要走导入。
+
+**`/Game/` 不能用**，这不是「暂未支持」而是它本来就不该用在这里：
+
+```
+ArtSource/Fish/F_River.png          ← 本流水线产出的（导入前的源图片）
+        ↓  UE 的 AssetImportTask
+Content/Fish/F_River.uasset         ← /Game/Fish/F_River 指的是这个
+```
+
+`output_root` 要写相对工程根的普通路径（如 `ArtSource/Fish`）。把源图片写进
+`Content/`，引擎既不认识裸 PNG，那个目录也会被搞乱。
+
+生成完会提示一句需要走 UE 导入 —— 它是**固定文案，不做检查**。`.uasset` 是二进制，
+而且源图片到资产的对应关系写在项目各自的导入脚本里，没法反查「这张图导没导过」。
+Godot 那边能扫 `.import` 文件，Unreal 这边扫不了。
+
 ## `backend`（生图后端）
 
 `image-gen`（缺省） / `laozhang`（随插件安装） / 脚本路径（相对路径以 project_root
