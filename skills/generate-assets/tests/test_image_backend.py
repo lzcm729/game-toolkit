@@ -60,3 +60,21 @@ def test_path_backend_missing_reports_path(tmp_path, monkeypatch):
     be = image_backend.select({"backend": "tools/absent.py"}, tmp_path)
     assert be.resolve_script() is None
     assert "absent.py" in be.install_hint
+
+
+def test_env_script_relative_path_is_absolutized(tmp_path, monkeypatch):
+    """后端在 project_root 下跑，脚本路径若留作相对的，两边基准就不一致：
+    存在性检查按调用者 CWD 过了，子进程却去 project_root 下找。"""
+    launcher = tmp_path / "launcher"
+    (launcher / "tools").mkdir(parents=True)
+    (launcher / "tools" / "backend.py").write_text("# real\n", encoding="utf-8")
+    game = tmp_path / "game"
+    game.mkdir()
+
+    monkeypatch.chdir(launcher)
+    monkeypatch.setenv("IMAGE_GEN_SCRIPT", "tools/backend.py")
+
+    script = image_backend.select({}, game).resolve_script()
+    assert script is not None
+    assert script.is_absolute(), f"必须绝对化，否则子进程解析基准不同：{script}"
+    assert script == (launcher / "tools" / "backend.py").resolve()

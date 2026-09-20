@@ -1170,3 +1170,52 @@ def test_backend_runs_in_project_root(tmp_project, mock_subprocess_run):
 
     assert ga.main(["--config", str(cfg), "ingredients"]) == 0
     assert Path(calls[0]["kwargs"]["cwd"]) == tmp_project.resolve()
+
+
+def test_item_level_unsupported_field_also_warns(
+    tmp_project, capsys, mock_subprocess_run, monkeypatch
+):
+    """告警只扫 defaults 的话，只在 item 上配的 model 会静默失效。"""
+    _, _ = mock_subprocess_run
+    monkeypatch.delenv("IMAGE_GEN_SCRIPT", raising=False)
+    fake = tmp_project / "fake_ig.py"
+    fake.write_text("# stub", encoding="utf-8")
+    monkeypatch.setattr(
+        ga.image_backend, "IMAGE_GEN",
+        dataclasses.replace(ga.image_backend.IMAGE_GEN, resolve_script=lambda: fake),
+    )
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()          # 顶层和 category 都不配 model
+    conf["categories"]["ingredients"]["data_source"]["items"]["pearl"]["model"] = "gemini-3-pro-image"
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    err = capsys.readouterr().err
+    assert "不支持 model" in err
+    assert "pearl" in err             # 点名是哪个 item
+
+
+def test_duplicate_filename_is_fatal(tmp_project, capsys, mock_subprocess_run):
+    """两个 asset 写同一个文件，后者覆盖前者，用户必然少拿一张——早点说。"""
+    calls, _ = mock_subprocess_run
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["categories"]["ingredients"]["data_source"] = {
+        "type": "inline",
+        "items": {"pearl": {"visual": "a", "main": "#111"}},
+    }
+    # 用 json_list 造出重复 id：inline dict 的 key 天然唯一，list 则不然
+    src = tmp_project / "items.json"
+    src.write_text(json.dumps([
+        {"id": "dup", "visual": "a", "main": "#111"},
+        {"id": "dup", "visual": "b", "main": "#222"},
+    ]), encoding="utf-8")
+    conf["categories"]["ingredients"]["data_source"] = {
+        "type": "json_list", "path": "items.json"
+    }
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 1
+    err = capsys.readouterr().err
+    assert "dup.png" in err
+    assert calls == []

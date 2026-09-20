@@ -386,6 +386,7 @@ def _run_category(
         return CategoryRunResult(name=cat_name, exit_code=1, summary=None, error=msg)
 
     _warn_unsupported(cat_name, batch.get("defaults") or {}, backend)
+    _warn_unsupported_assets(cat_name, batch.get("assets") or [], backend)
 
     if not batch["assets"]:
         print(f"[info] {cat_name}: 无 asset 可生成（数据源为空？）")
@@ -494,6 +495,27 @@ _UNSUPPORTED_HINTS = {
     "preset": "预设是 image-gen 特有能力，切回 backend: image-gen 才生效。",
     "model": "image-gen 用 chain 表达模型选择，把 model: 改写成 chain: 才生效。",
 }
+
+
+def _warn_unsupported_assets(cat_name: str, assets: list, backend) -> None:
+    """asset 上的字段也要查。
+
+    只扫 defaults 的话，「只在某个 item 上配了 model」这种写法会静默失效 ——
+    字段确实送到了后端，但后端不认，而上层以为自己已经告警过了。
+    """
+    for asset in assets:
+        unknown = [
+            k for k in asset
+            if k not in ("name", "filename", "prompt", "image")
+            and k not in backend.supports
+        ]
+        for key in sorted(unknown):
+            hint = _UNSUPPORTED_HINTS.get(key, "该后端不认这个字段。")
+            print(
+                f"[warn] category={cat_name} item={asset.get('name')}: "
+                f"backend={backend.name} 不支持 {key}（值 {asset[key]!r}），已忽略。{hint}",
+                file=sys.stderr,
+            )
 
 
 def _warn_unsupported(cat_name: str, defaults: dict, backend) -> None:
@@ -629,6 +651,19 @@ def _build_batch_json(
                 "image 是「编辑这张底图」，reference_paths 是「参考这些图的风格」。"
                 "涉及 item：{}".format(cat_name, ", ".join(with_image))
             )
+
+    # 两个 asset 写同一个文件，后写的覆盖先写的，用户必然少拿一张。
+    # 与其让下游各自处理这种歧义，不如在这里就说清楚。
+    seen: dict[str, str] = {}
+    for a in assets:
+        prev = seen.get(a["filename"])
+        if prev is not None:
+            raise ValueError(
+                "category {!r} 有两个 item 输出同一个文件 {}：{} 和 {}。"
+                "后写的会覆盖先写的 —— 检查数据源里的 id 是否重复。"
+                .format(cat_name, a["filename"], prev, a["name"])
+            )
+        seen[a["filename"]] = a["name"]
 
     batch = {
         "$schema_version": 2,

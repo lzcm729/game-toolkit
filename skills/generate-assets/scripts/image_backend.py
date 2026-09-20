@@ -103,7 +103,14 @@ def select(config: dict, project_root: Path) -> ImageBackend:
     """
     env_path = os.environ.get(SCRIPT_ENV)
     if env_path:
-        return _custom(Path(env_path), f"环境变量 {SCRIPT_ENV}")
+        p = Path(env_path)
+        if not p.is_absolute():
+            # 必须在这里定死：后端子进程在 project_root 下跑，留作相对的话
+            # 存在性检查（按当前 CWD）和子进程执行（按 project_root）两个基准
+            # 会打架 —— 检查通过了，跑起来却找不到，或者跑到同名的另一个脚本。
+            # 环境变量是调用者设的，所以按调用者 CWD 解析。
+            p = (Path.cwd() / p).resolve()
+        return _custom(p, f"环境变量 {SCRIPT_ENV}")
 
     declared = str(config.get("backend") or "").strip()
     if not declared:

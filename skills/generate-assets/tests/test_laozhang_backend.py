@@ -14,6 +14,20 @@ if str(BACKENDS_DIR) not in sys.path:
 import laozhang_backend as lb
 
 
+@pytest.fixture(autouse=True)
+def _never_hit_real_api(monkeypatch):
+    """兜底：任何测试都不许真发 HTTP。
+
+    凭证隔离靠逐条测试自觉，漏一条就可能在别人机器上真扣费 —— 这已经发生过
+    两次（一次是没隔离 CWD 下的 .env，一次是只删了三把 key 中的一把）。
+    要测请求本身的用例会自己 monkeypatch 覆盖这两个桩。
+    """
+    def boom(*a, **k):
+        pytest.fail("测试试图发真实 HTTP 请求 —— 检查凭证与 CWD 隔离")
+    monkeypatch.setattr(lb.requests, "post", boom)
+    monkeypatch.setattr(lb.requests, "get", boom)
+
+
 def _batch(tmp_path: Path, assets: list, defaults: dict | None = None) -> Path:
     p = tmp_path / "batch.json"
     p.write_text(json.dumps({
@@ -763,8 +777,10 @@ def test_existing_file_skipped_even_without_key(tmp_path, capsys, monkeypatch):
     """#5 目标已存在就该 skip，不该因为缺 key 把整批拦在门外。"""
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: tmp_path / "nohome"))
-    monkeypatch.delenv("LAOZHANG_API_KEY", raising=False)
-    monkeypatch.delenv("LAOZHANG_OFFICIAL_API_KEY", raising=False)
+    for var in ("LAOZHANG_API_KEY", "LAOZHANG_OFFICIAL_API_KEY", "LAOZHANG_MODEL"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(lb, "_generate_one",
+                        lambda *a, **k: pytest.fail("已存在的文件不该走到生图"))
     out = tmp_path / "out"
     out.mkdir()
     (out / "a.png").write_bytes(b"old")
@@ -778,10 +794,18 @@ def test_existing_file_skipped_even_without_key(tmp_path, capsys, monkeypatch):
 
 
 def test_missing_key_still_fatal_when_work_remains(tmp_path, capsys, monkeypatch):
-    """但真有活要干时，缺 key 仍须在开跑前拦住。"""
+    """但真有活要干时，缺 key 仍须在开跑前拦住。
+
+    凭证隔离要删干净：只删 LAOZHANG_API_KEY 的话，环境里若有
+    LAOZHANG_MODEL=gpt-image-* 加 official key，这条「缺 key」测试
+    反而具备了生图所需的全部凭证，会真发请求。
+    """
     monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: tmp_path / "nohome"))
-    monkeypatch.delenv("LAOZHANG_API_KEY", raising=False)
+    for var in ("LAOZHANG_API_KEY", "LAOZHANG_OFFICIAL_API_KEY", "LAOZHANG_MODEL"):
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.setattr(lb, "_generate_one",
+                        lambda *a, **k: pytest.fail("缺 key 时不该走到生图"))
     out = tmp_path / "out"
     out.mkdir()
     batch = _batch(tmp_path, [{"name": "a", "filename": "a.png", "prompt": "p"}])
@@ -835,3 +859,123 @@ def test_aspect_ratio_ignored_in_gemini_edit_warns(tmp_path, monkeypatch, capsys
     )
     err = capsys.readouterr().err
     assert "aspect_ratio" in err and "16:9" in err
+
+
+def test_download_429_is_retried(monkeypatch):
+    """#3 429 是 4xx 但属于限流，该退避重试；一次就放弃等于白丢一张已生成的图。"""
+    gets = []
+
+    class _Resp:
+        def __init__(self, code):
+            self.status_code = code
+            self.ok = code < 400
+            self.content = b"img" if code < 400 else b""
+            self.headers = {}
+
+        def raise_for_status(self):
+            pass
+
+    def fake_get(*a, **k):
+        gets.append(1)
+        return _Resp(429 if len(gets) == 1 else 200)
+
+    monkeypatch.setattr(
+        lb.requests, "post",
+        lambda *a, **k: _FakeResp(payload={"data": [{"url": "https://cdn/x.png"}]}),
+    )
+    monkeypatch.setattr(lb.requests, "get", fake_get)
+    monkeypatch.setattr(lb.time, "sleep", lambda s: None)
+
+    data = lb._generate_one(
+        "p", model="gpt-image-2.5-flare", api_key="k", base_url="https://x",
+        aspect_ratio="1:1", seed=None, reference_paths=[], image_path=None,
+        timeout_s=30.0,
+    )
+    assert data == b"img"
+    assert len(gets) == 2
+
+
+def test_download_retry_count_is_exact(monkeypatch):
+    """耗尽时的 GET 次数要精确，不能只断言 >1 —— 那样重试减成一次也发现不了。"""
+    import requests as _rq
+    gets = []
+
+    def always_fail(*a, **k):
+        gets.append(1)
+        raise _rq.exceptions.ConnectionError("down")
+
+    monkeypatch.setattr(
+        lb.requests, "post",
+        lambda *a, **k: _FakeResp(payload={"data": [{"url": "https://cdn/x.png"}]}),
+    )
+    monkeypatch.setattr(lb.requests, "get", always_fail)
+    monkeypatch.setattr(lb.time, "sleep", lambda s: None)
+
+    with pytest.raises(RuntimeError):
+        lb._generate_one(
+            "p", model="gpt-image-2.5-flare", api_key="k", base_url="https://x",
+            aspect_ratio="1:1", seed=None, reference_paths=[], image_path=None,
+            timeout_s=30.0,
+        )
+    assert len(gets) == lb.DEFAULT_RETRIES + 1
+
+
+def test_key_rechecked_right_before_generate(tmp_path, capsys, monkeypatch):
+    """#5 预检时文件还在（因而没查这个模型的 key），轮到它时文件没了 ——
+    不能把空 key 递给 _generate_one 换一个费解的 401。"""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: tmp_path / "nohome"))
+    monkeypatch.delenv("LAOZHANG_API_KEY", raising=False)
+    monkeypatch.delenv("LAOZHANG_OFFICIAL_API_KEY", raising=False)
+    out = tmp_path / "out"
+    out.mkdir()
+    target = out / "a.png"
+    target.write_bytes(b"old")
+
+    real_exists = Path.exists
+    state = {"n": 0}
+
+    def flaky_exists(self):
+        if self == target:
+            state["n"] += 1
+            return state["n"] == 1     # 预检时在，循环里没了
+        return real_exists(self)
+
+    monkeypatch.setattr(lb.Path, "exists", flaky_exists)
+    monkeypatch.setattr(lb, "_generate_one",
+                        lambda *a, **k: pytest.fail("缺 key 时不该调生图"))
+
+    batch = _batch(tmp_path, [{"name": "a", "filename": "a.png", "prompt": "p"}])
+    rc = lb.main([str(batch), "--output-dir", str(out)])
+
+    assert rc == 1
+    s = _read_summary(capsys)
+    assert s["failed"] == 1
+    assert "LAOZHANG_API_KEY" in json.dumps(s["failed_assets"], ensure_ascii=False)
+
+
+def test_backend_rejects_image_with_reference_paths(tmp_path, monkeypatch):
+    """#9 协议规定互斥，后端被单独调用时也得自己拦，不能只靠上层。"""
+    monkeypatch.setattr(lb.requests, "post",
+                        lambda *a, **k: pytest.fail("该在发请求前就拒绝"))
+    with pytest.raises(RuntimeError) as ei:
+        lb._generate_one(
+            "p", model="gemini-3.1-flash-image", api_key="k", base_url="https://x",
+            aspect_ratio="1:1", seed=None,
+            reference_paths=[str(_png(tmp_path, "ref.png"))],
+            image_path=str(_png(tmp_path, "base.png")), timeout_s=30.0,
+        )
+    assert "互斥" in str(ei.value)
+
+
+def test_no_aspect_warning_when_user_did_not_set_it(tmp_path, monkeypatch, capsys):
+    """#4 用户没配比例时补的默认值不该反过来警告用户。"""
+    base = _png(tmp_path)
+    monkeypatch.setattr(lb.requests, "post",
+                        lambda *a, **k: _FakeResp(payload=_image_payload()))
+    lb._generate_one(
+        "p", model="gemini-3.1-flash-image", api_key="k", base_url="https://x",
+        aspect_ratio=None, seed=None, reference_paths=[], image_path=str(base),
+        timeout_s=30.0,
+    )
+    assert "aspect_ratio" not in capsys.readouterr().err

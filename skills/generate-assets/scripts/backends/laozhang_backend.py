@@ -175,6 +175,14 @@ def _request_once(
     gemini-*    → Gemini native：多图 reference 与单图 edit 都支持
     gpt-image-* → OpenAI style：只有单图 edit，没有多图 reference
     """
+    if image_path and reference_paths:
+        # 协议规定互斥。正常流水线已在构造 batch 时拦下，但后端会被单独调用，
+        # 那时没人拦 —— Gemini 分支会静默只发底图、把风格锚丢掉。
+        raise RuntimeError(
+            "image 与 reference_paths 互斥：image 是「编辑这张底图」，"
+            "reference_paths 是「参考这些图的风格」。同时给了无法决定用哪个。"
+        )
+
     if _is_openai_style(model):
         if reference_paths:
             raise RuntimeError(
@@ -219,7 +227,8 @@ def _gemini_native(
     parts.append({"text": prompt})
 
     if image_path:
-        # edit：输出尺寸跟随输入图，再传 aspectRatio 只会打架
+        # edit：输出尺寸跟随输入图，再传 aspectRatio 只会打架。
+        # 只有用户显式配过才告警 —— 对自己没设过的值报警纯属噪音。
         if aspect_ratio:
             print(
                 f"  [warn] edit 模式输出尺寸跟随底图，aspect_ratio={aspect_ratio} 不生效。"
@@ -230,7 +239,7 @@ def _gemini_native(
     else:
         generation_config = {
             "responseModalities": ["TEXT", "IMAGE"],
-            "imageConfig": {"aspectRatio": aspect_ratio},
+            "imageConfig": {"aspectRatio": aspect_ratio or "1:1"},
         }
     if seed is not None:
         generation_config["seed"] = seed
@@ -283,7 +292,8 @@ def _download(url: str) -> bytes:
         else:
             if resp.ok:
                 return resp.content
-            if 400 <= resp.status_code < 500:
+            if 400 <= resp.status_code < 500 and resp.status_code != 429:
+                # 429 是限流，退避后多半能拿到；其余 4xx 重试多少次都一样
                 raise RuntimeError(f"图片下载失败（不重试）：HTTP {resp.status_code}")
             last = RuntimeError(f"HTTP {resp.status_code}")
         if attempt < DEFAULT_RETRIES:
@@ -316,8 +326,8 @@ def _openai_style(
 
     root = base_url.rstrip("/")
     headers = {"Authorization": f"Bearer {api_key}"}
-    size = _pick_size(aspect_ratio)
-    if aspect_ratio not in _OPENAI_EXACT_RATIOS:
+    size = _pick_size(aspect_ratio or "1:1")
+    if aspect_ratio and aspect_ratio not in _OPENAI_EXACT_RATIOS:
         # 静默裁切最难查：出来的图「差不多对」，但构图紧了一圈
         print(
             f"  [warn] {model} 只原生支持 1:1 / 2:3 / 3:2，"
@@ -493,14 +503,27 @@ def main(argv: "list[str] | None" = None) -> int:
             skipped += 1
             continue
 
+        asset_model = asset.get("model") or default_model
+        asset_key = _resolve_api_key(asset_model)
+        if not asset_key:
+            # 预检时这个文件还在（所以没查它的 key），轮到它时却没了。
+            # 递空 key 进去只会换来一个费解的 401。
+            msg = (f"模型 {asset_model} 需要 {_key_env_for(asset_model)}，没找到"
+                   "（预检时该文件还存在，故未检查这把 key）")
+            print(f"  [error] {name}: {msg}", file=sys.stderr)
+            failed += 1
+            failed_assets.append({"name": name, "error": msg})
+            continue
+
         try:
-            asset_model = asset.get("model") or default_model
             data = _generate_one(
                 prompt,
                 model=asset_model,
-                api_key=_resolve_api_key(asset_model),
+                api_key=asset_key,
                 base_url=base_url,
-                aspect_ratio=asset.get("aspect_ratio") or defaults.get("aspect_ratio") or "1:1",
+                # 不在这里兜底补 "1:1"：补了就分不清「用户配的」和「默认的」，
+                # 会对用户从没设过的比例发告警
+                aspect_ratio=asset.get("aspect_ratio") or defaults.get("aspect_ratio"),
                 seed=asset.get("seed", defaults.get("seed")),
                 reference_paths=refs,
                 image_path=asset.get("image"),
