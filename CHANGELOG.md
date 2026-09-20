@@ -3,6 +3,62 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.10.0 (2026-09-20)
+
+两项新能力，都来自实际跑图时撞到的墙。
+
+### 模型可配置
+
+此前只能靠 `LAOZHANG_MODEL` 环境变量换模型。模型选择是 per-project、甚至 per-category
+的决策（质量与价格的权衡），属于 yaml。
+
+```yaml
+model: gemini-3-pro-image        # 顶层，与 backend: 平行
+categories:
+  scenes:
+    model: gpt-image-2.5-flare   # 这个 category 单独用别的
+```
+
+放顶层而不是 `style:` 段：它是后端配置不是风格，放 style 里会被 `skip_global_style`
+连带关掉。优先级 `asset.model` > `defaults.model` > `LAOZHANG_MODEL` > 后端内置默认 ——
+配置文件压过环境变量，与 3.9.1 的 `.env` 查找同序。
+
+`image-gen` 用 `chain`（一串 provider/model 的 fallback 序列）表达模型选择，它的协议里
+没有 `model`。所以 `IMAGE_GEN.supports` 特意剔掉了 `model`，配了会告警并**指向 `chain:`**。
+顺带把降级告警改成按字段给提示 —— 原来统一一句「切回 backend: image-gen」，对 `model`
+恰好是反的。
+
+### 协议加 edit 模式
+
+新增 `image` 字段（编辑底图），与 `reference_paths`（风格参考）互斥。两者语义不同，
+上游 provider 本就互斥；同时给会在构造 batch 时 fail fast，不等发到后端才炸。
+
+「基于一张底图批量出变体」是真实需求 —— 同一场景的四季版、同一角色的不同状态 ——
+此前协议里只有风格参考，做不了。
+
+`image` **只在 asset 级，不进 `defaults`**：image-gen 的 `Defaults` 不解析它，放 defaults
+会被静默丢掉，而 `supports` 告警只覆盖 defaults 字段，等于埋一个无声的坑。yaml 里
+category 级配的底图在构造 batch 时展开到每个 asset，item 级可覆盖。键名取 `image` 而非
+`image_path`，与 image-gen 的 batch 协议一致 —— 两个后端读同一个键。
+
+### laozhang 后端：两条 API 路径
+
+按 `model` 前缀分流，能力矩阵不同：
+
+| 模型家族 | 路径 | 多图 reference | 单图 edit | key |
+|---|---|---|---|---|
+| `gemini-*` | `/v1beta/...:generateContent` | 支持 | 支持 | `LAOZHANG_API_KEY` |
+| `gpt-image-*` | `/v1/images/{generations,edits}` | 不支持 | 支持 | `LAOZHANG_OFFICIAL_API_KEY`（缺则回退） |
+
+给 `gpt-image-*` 传 `reference_paths` 直接报错，而不是静默丢掉风格锚。缺 key 在开跑前
+按模型家族分头检查 —— 跑到第一张图才发现，等于白等一轮网络往返。
+
+OpenAI 端点只原生支持 `1:1` / `2:3` / `3:2`，其余比例就近取一档、边缘被裁。实测
+`16:9` 出来的图构图紧了一圈，所以加了告警：静默裁切最难查，图「差不多对」，但没人
+知道为什么变窄了。
+
+验证：`gpt-image-2.5-flare` + edit 模式真实跑通，仅靠 CWD 的 `.env` 取 official key。
+
 ## 3.9.1 (2026-09-20)
 
 修 `laozhang` 后端两个缺陷。两条都是拿真实 API 跑出来的 —— 3.9.0 的测试全程 mock
