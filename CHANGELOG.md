@@ -3,6 +3,67 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.12.0 (2026-09-20)
+
+两项新能力，都是为了让策划表驱动的 UE 项目能真正用起来。
+
+### csv 数据源
+
+策划表可以直接当数据源，不必先转 JSON —— 转一道就多一个会漂移的中间层，而很多项目的
+CSV 本身就是设计真值。
+
+```yaml
+data_source:
+  type: csv
+  path: "Knowledge/Design/鱼表格/第一版.csv"
+  id_column: fish_id
+  columns: {图鉴描述: description}
+```
+
+**列名按「精确优先 → 唯一前缀」匹配**，所以配置里写短名即可。真实策划表的表头长这样：
+`fish_id（资产文件名，如 Fish_RiverPattern；2026-09-09 加，程序按此列对鱼、不按名字。…）`，
+没人想把它抄进 yaml。这套匹配策略不是新发明的 —— 使用方项目的列声明文件里用的就是短名，
+它自己的校验脚本按同样规则匹配。两个工具对同一份 CSV 必须解析出相同结果，否则就是双口径。
+
+几条刻意的行为：
+
+- **值一律是字符串**，不做类型推断。转了就丢原始表示（`001` 的前导零、`0.4~3` 这种范围
+  写法）。注意 `derived_fields` 的 DSL 只有 `join/upper/lower/title`，**没有数值转换**，
+  而且字段参数只认 ASCII —— 中文列要先用 `columns` 映射成英文短名才能喂给它。
+- **宁可报错不要静默丢数据**：重复列名、超宽行、别名撞车、两个源列映射到同一别名、
+  别名叫 `id` —— 全部直接报错。它们都会让 prompt 里的占位符和输出文件名对不上，
+  而那种 bug 极难查。
+- 行号按**文件物理行**报，单元格内有换行时也对得上。
+
+实现由 codex 按计划完成，我审核后修正了 4 处，其中一处是它指出**我文档写反了**：
+CSV 里的 `seed` / `model` 等同名列是 item 级、优先级最高，在 category 层写同名字段
+压不过它，只能在源头用 `columns` 改名或删列。
+
+### unreal 适配
+
+三件事：向上找 `*.uproject` 定位工程根、**拒绝 `/Game/` 前缀**、生成后提示需要走导入。
+
+拒绝 `/Game/` 是刻意的，不是「暂未支持」：
+
+```
+ArtSource/Fish/F_River.png       ← 本流水线产出的（导入前的源图片）
+        ↓  AssetImportTask
+Content/Fish/F_River.uasset      ← /Game/Fish/F_River 指的是这个
+```
+
+支持它反而会诱导人把 PNG 写进 `Content/` —— 引擎不认识裸 PNG。
+
+连带修了一个会把人指进死胡同的逻辑：generic 撞见 `/Game/` 时，原来按「这个引擎在不在
+注册表里」决定要不要建议切 adapter。unreal 一注册，它就会建议「改成 `adapter: unreal`」，
+而改完照样被拒。现在 `EngineAdapter` 多了 `virtual_prefix`，按「这个适配器认不认这个前缀」
+判断；godot 认 `res://`，那条建议仍然有效。
+
+工程根探测那条是实打实的：generic 直接返回 `None`，主流程只好拿 config 所在目录凑合，
+config 放 `tools/` 这类子目录时基准全错。
+
+生成后的提示是**固定文案、不做检查** —— `.uasset` 是二进制，源图片到资产的对应关系写在
+项目各自导入脚本的 `destination_path` 里，没法反查「这张图导没导过」。
+
 ## 3.11.1 (2026-09-20)
 
 第二轮评审（codex 带着上一轮上下文复核）。3.11.0 的修复里，**有三条引入了新问题** ——
