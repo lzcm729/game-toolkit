@@ -3,6 +3,26 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.9.1 (2026-09-20)
+
+修 `laozhang` 后端两个缺陷。两条都是拿真实 API 跑出来的 —— 3.9.0 的测试全程 mock
+`requests`，这类问题一条也看不出来。
+
+- **读不到项目 `.env` 里的 key**。后端只查 `os.environ`，而把 key 放在项目 `.env`
+  是常见做法，image-gen 的 `env.py` 本就这么找：CWD 向上找 `.env` → `~/.env` →
+  进程环境变量。后端不跟这套，3.9.0 承诺的「装了插件设个 key 就能跑」在那种环境里
+  根本不成立。现在同序查找，**包括 `.env` 优先于环境变量这一点** —— 同一台机器上
+  两个后端的行为得一致，哪怕「环境变量该优先」听起来更合理。`.env` 解析容忍
+  `export` 前缀、引号和注释行。
+- **没有重试**。laozhang 网关实测会间歇抛 `SSLEOFError`（curl 发同一个请求却正常），
+  一轮测试里抖了三次。image-gen 有 `--retries 2` 兜底，所以平时感觉不到。「极简」
+  指的是不做 chain / fallback / preset，不是连基本的网络重试都没有。现在对网络异常、
+  429、5xx 退避重试两次（1s、2s），其余 4xx 直接失败 —— 参数错误重试多少次都一样。
+
+验证方式：不设任何环境变量、仅靠 CWD 的 `.env`，用 `reference_paths` 风格锚真实
+生成一张图并成功。同时确认了 3.9.0 的核心路径 —— 后端选择、Gemini native 的多图
+reference、summary 解析、退码、Godot 的 `.import` 提示 —— 在真实调用下都成立。
+
 ## 3.9.0 (2026-09-20)
 
 `generate-assets` 的生图后端改为可插拔，并随插件自带一个能直接跑的参考后端。
