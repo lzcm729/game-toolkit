@@ -1,6 +1,7 @@
 """端到端测试：mock subprocess，验证 batch JSON 构造 + image-gen 调用 + 退码。"""
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 
@@ -683,7 +684,7 @@ def test_list_only_needs_config(tmp_path, capsys):
     assert "ingredients" in capsys.readouterr().out
 
 
-def test_missing_image_gen_fails_fast_with_directions(
+def test_missing_backend_fails_fast_with_directions(
     tmp_project, capsys, mock_subprocess_run, monkeypatch
 ):
     calls, _ = mock_subprocess_run
@@ -693,23 +694,41 @@ def test_missing_image_gen_fails_fast_with_directions(
     rc = ga.main(["--config", str(cfg), "ingredients", "--dry-run"])
     err = capsys.readouterr().err
     assert rc == 1
-    assert "image-gen" in err and "IMAGE_GEN_SCRIPT" in err
+    assert "IMAGE_GEN_SCRIPT" in err
     assert calls == []          # 一个 category 都没开始跑
 
 
-def test_missing_image_gen_at_default_location_is_also_reported(
+def test_missing_backend_at_default_location_is_also_reported(
     tmp_project, capsys, mock_subprocess_run, monkeypatch
 ):
-    """以前只有走环境变量才有 [warn]，默认路径不存在时一声不吭。"""
+    """以前只有走环境变量才有提示，默认路径不存在时一声不吭。"""
     calls, _ = mock_subprocess_run
     monkeypatch.delenv("IMAGE_GEN_SCRIPT", raising=False)
-    monkeypatch.setattr(ga, "DEFAULT_IMAGE_GEN_SCRIPT", tmp_project / "absent.py")
+    monkeypatch.setattr(
+        ga.image_backend, "IMAGE_GEN",
+        dataclasses.replace(ga.image_backend.IMAGE_GEN, resolve_script=lambda: None),
+    )
     cfg = tmp_project / "asset-config.yaml"
     _write_yaml(cfg, _minimal_config())
     assert ga.main(["--config", str(cfg), "ingredients", "--dry-run"]) == 1
     err = capsys.readouterr().err
-    assert "默认位置" in err and "image-gen" in err
+    assert "image-gen" in err
     assert calls == []
+
+
+def test_unknown_backend_name_is_fatal(
+    tmp_project, capsys, mock_subprocess_run, monkeypatch
+):
+    """config 写了不存在的 backend → 退 1 并列出可选项。"""
+    _, _ = mock_subprocess_run
+    monkeypatch.delenv("IMAGE_GEN_SCRIPT", raising=False)
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["backend"] = "midjourney"
+    _write_yaml(cfg, conf)
+    assert ga.main(["--config", str(cfg), "ingredients", "--dry-run"]) == 1
+    err = capsys.readouterr().err
+    assert "midjourney" in err and "laozhang" in err
 
 
 def test_list_does_not_need_image_gen(tmp_project, capsys, monkeypatch):
@@ -751,7 +770,7 @@ def test_output_dir_blocked_by_a_file_is_a_category_error(tmp_project, capsys, m
 
 def test_no_summary_on_a_real_run_is_a_failure(tmp_project, capsys, mock_subprocess_run, monkeypatch):
     """只有注释的上游脚本退出 0、什么都不打 —— 曾被报成成功，图一张没有。"""
-    monkeypatch.setattr(ga, "_invoke_image_gen", lambda cmd: (None, 0, None))
+    monkeypatch.setattr(ga, "_invoke_backend", lambda cmd: (None, 0, None))
     cfg = tmp_project / "asset-config.yaml"
     _write_yaml(cfg, _minimal_config())
     assert ga.main(["--config", str(cfg), "ingredients"]) == 1
@@ -760,7 +779,7 @@ def test_no_summary_on_a_real_run_is_a_failure(tmp_project, capsys, mock_subproc
 
 def test_no_summary_on_dry_run_is_fine(tmp_project, capsys, mock_subprocess_run, monkeypatch):
     """上游 dry-run 本来就只打计划、不吐 summary，不能当失败。"""
-    monkeypatch.setattr(ga, "_invoke_image_gen", lambda cmd: (None, 0, None))
+    monkeypatch.setattr(ga, "_invoke_backend", lambda cmd: (None, 0, None))
     cfg = tmp_project / "asset-config.yaml"
     _write_yaml(cfg, _minimal_config())
     assert ga.main(["--config", str(cfg), "ingredients", "--dry-run"]) == 0

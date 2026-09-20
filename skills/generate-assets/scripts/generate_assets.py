@@ -35,6 +35,7 @@ if str(_SCRIPT_DIR) not in sys.path:
 
 from data_source import load_data_source  # noqa: E402
 import engine_adapter  # noqa: E402
+import image_backend  # noqa: E402
 from godot_utils import (  # noqa: E402
     ensure_parent_dirs,
     find_project_root,
@@ -55,10 +56,6 @@ DEFAULT_CONFIG_PATHS = [
     Path("asset-config.yaml"),
     Path("assets/asset-config.yaml"),
 ]
-
-# 上游 image-gen SDK 入口
-IMAGE_GEN_SCRIPT_ENV = "IMAGE_GEN_SCRIPT"
-DEFAULT_IMAGE_GEN_SCRIPT = Path.home() / ".claude" / "skills" / "image-gen" / "scripts" / "generate_image.py"
 
 
 # -------------------- 数据结构 --------------------
@@ -149,8 +146,17 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         target_names = [args.command]
 
-    image_gen_script = _resolve_image_gen()
-    if image_gen_script is None:
+    try:
+        backend = image_backend.select(config, project_root)
+    except ValueError as e:
+        print(f"[fatal] {e}", file=sys.stderr)
+        return 1
+    backend_script = backend.resolve_script()
+    if backend_script is None:
+        print(
+            f"[fatal] backend={backend.name} 的脚本不存在。{backend.install_hint}",
+            file=sys.stderr,
+        )
         return 1
 
     declared_adapter = str(config.get("adapter") or config.get("engine") or "").strip()
@@ -175,7 +181,8 @@ def main(argv: list[str] | None = None) -> int:
             output_root=output_root,
             project_root=project_root,
             adapter=adapter,
-            image_gen_script=image_gen_script,
+            backend_script=backend_script,
+            backend=backend,
             dry_run=args.dry_run,
             force=args.force,
             name_filter=name_filter,
@@ -288,27 +295,6 @@ def _resolve_output_root(config: dict, project_root: Path, adapter=None) -> Path
     return adapter.resolve_path(raw, project_root)
 
 
-def _resolve_image_gen() -> Path | None:
-    """找 image-gen 的入口脚本。找不到返回 None，并把「怎么装」说清楚。
-
-    这是本 skill 唯一的外部依赖，而且是**用户级** skill（~/.claude/skills/image-gen），
-    随插件安装不会自动带上。新用户最容易在这里卡住 —— 以前默认路径不查存在与否，
-    直接交给 subprocess，用户看到的是一行陌生路径的 Errno 2 和 "(no summary)"。
-    """
-    env_path = os.environ.get(IMAGE_GEN_SCRIPT_ENV)
-    p = Path(env_path) if env_path else DEFAULT_IMAGE_GEN_SCRIPT
-    if p.exists():
-        return p
-    source = f"环境变量 {IMAGE_GEN_SCRIPT_ENV}" if env_path else "默认位置"
-    print(
-        f"[fatal] image-gen 脚本不存在（{source}）：{p}\n"
-        f"        generate-assets 依赖 image-gen skill 做实际生图，它不随本插件安装。"
-        f"装好 image-gen，或用 {IMAGE_GEN_SCRIPT_ENV}=<generate_image.py 的路径> 指过去。",
-        file=sys.stderr,
-    )
-    return None
-
-
 # -------------------- list --------------------
 
 def _categories_problem(cats) -> str | None:
@@ -351,7 +337,8 @@ def _run_category(
     output_root: Path,
     project_root: Path,
     adapter,
-    image_gen_script: Path,
+    backend_script: Path,
+    backend,
     dry_run: bool,
     force: bool,
     name_filter: set[str] | None,
@@ -434,14 +421,14 @@ def _run_category(
     print(f"  items: {len(batch['assets'])}, output: {output_dir}")
     print(f"  batch JSON: {batch_path}")
     if dry_run:
-        # dry-run 的目的之一是看 prompt；上游 image-gen 的 dry-run 只打计划不打 prompt
+        # dry-run 的目的之一是看 prompt；后端的 dry-run 通常只打计划不打 prompt
         for a in batch["assets"]:
             print(f"  [prompt] {a.get('id') or a['filename']}: {a.get('prompt', '')}")
 
-    # 调 image-gen
+    # 调后端
     cmd = [
         sys.executable,
-        str(image_gen_script),
+        str(backend_script),
         str(batch_path),
         "--output-dir",
         str(output_dir),
@@ -452,11 +439,11 @@ def _run_category(
         cmd.append("--force")
 
     print(f"  $ {_shell_join(cmd)}")
-    summary, exit_code, err = _invoke_image_gen(cmd)
+    summary, exit_code, err = _invoke_backend(cmd)
     if summary is None and err is None and not dry_run:
         # 没有 summary 就无法确认产物，退出码 0 也不算成功。
         # dry-run 例外：上游 dry-run 本来就只打计划、不吐 summary。
-        err = f"image-gen 没有返回 summary，无法确认生成结果（它的退出码 {exit_code}）"
+        err = f"后端没有返回 summary，无法确认生成结果（它的退出码 {exit_code}）"
         print(f"[error] {err}", file=sys.stderr)
         exit_code = 1
     return CategoryRunResult(name=cat_name, exit_code=exit_code, summary=summary, error=err)
@@ -594,10 +581,10 @@ def _build_batch_json(
 
 # -------------------- image-gen subprocess --------------------
 
-def _invoke_image_gen(cmd: list[str]) -> tuple[dict | None, int, str | None]:
-    """跑 image-gen，返回 (summary_json, exit_code, error_msg)。
+def _invoke_backend(cmd: list[str]) -> tuple[dict | None, int, str | None]:
+    """跑后端，返回 (summary_json, exit_code, error_msg)。
 
-    image-gen 会把末尾一行 JSON summary 打到 stdout。
+    后端会把末尾一行 JSON summary 打到 stdout。
     """
     try:
         proc = subprocess.run(
@@ -608,7 +595,7 @@ def _invoke_image_gen(cmd: list[str]) -> tuple[dict | None, int, str | None]:
             errors="replace",
         )
     except FileNotFoundError as e:
-        return None, 1, f"image-gen 脚本不存在: {e}"
+        return None, 1, f"后端脚本不存在: {e}"
     except Exception as e:
         return None, 1, f"subprocess 异常：{e}"
 
