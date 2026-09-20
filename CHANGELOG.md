@@ -3,6 +3,46 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.11.0 (2026-09-20)
+
+第三方评审（codex，基线 `v3.8.0..HEAD`）发现 8 个缺陷，全部修掉。其中三条直接源于
+测试盲区 —— 测试写了、绿了，却没测到它声称保护的东西。
+
+### 真缺陷
+
+- **item 级 `model` 根本没进 batch**。构造层透传了 `image` / `aspect_ratio` / `seed`，
+  唯独漏了 `model`，而文档白纸黑字写着「item 级优先于 category 级」。**文档承诺了，
+  代码没做**。既有测试手写 batch JSON 直接喂后端，绕过了发生丢失的构造层，所以一直绿着。
+- **subprocess 没设 `cwd`**。后端靠 CWD 向上找 `.env` 取凭证，不设的话找的是**调用者
+  所在项目**。在 A 目录跑 `--project-root B`，资源写进 B，凭证却读了 A 的 `.env`。
+- **CDN 下载失败会重新生图**。图已经生成（钱已经花了），下载那步失败却被包装成可重试，
+  外层重试整个请求 —— 再 POST 一次生图。实测连续下载失败导致 3 次生图 + 3 次下载，
+  最后仍无产物。现在下载自己重试，失败抛不可重试错；4xx 一次都不重试。
+- **`supports` 表达不了「按模型分」的能力**。它是按后端名存的固定字段集，说不出
+  「gpt-image-* 没有 seed」「edit 模式不认 aspect_ratio」。这两个字段此前被静默丢弃，
+  现在由后端在丢弃处自己告警。
+- **缺 key 预检跑在 skip 判断之前**。目标文件已存在、本来就不会发请求的 asset，
+  也会因为缺 key 把整批拦在门外，连 summary 都不吐。现在只检查真正要生成的那些。
+- **表外宽高比一律掉进正方形**。`21:9` 变成 `1024x1024`，比三个档位里最接近的
+  `1536x1024` 还远 —— 协议文档说的是「就近取一档」，实现只是固定表查找。现在按比例
+  数值真的就近取。
+
+### 测试本身的缺陷
+
+- **「缺 key」测试没隔离 CWD 与 home**。只删进程变量的话，跑测试的目录祖先里有 `.env`
+  就会读到真 key、走进生图分支、**真发请求真扣费**。复现确认：1 次 POST + 写出产物。
+- **`test_supported_field_does_not_warn` 测的是 custom 后端**。fixture 设了
+  `IMAGE_GEN_SCRIPT`，`select()` 返回的 custom 条目按全集处理、永不告警。变异验证：
+  从 `IMAGE_GEN.supports` 删掉 `chain`，原测试照样通过。
+
+修完对其中 4 条做了变异验证 —— 把缺陷重新注入，测试全部报红。
+
+### 文档
+
+协议示例自己违反了后文的互斥规定（同时给 `reference_paths` 和 `image`）；custom 后端的
+告警保证说过头，上层无从得知其能力，只能按全集放行、不告警，这点现在写明了；
+`SKILL.md` 的 frontmatter 开头仍写着「调底层 image-gen SDK」。
+
 ## 3.10.1 (2026-09-20)
 
 补 `examples/README.md`（asset-config.yaml 的 schema 文档）两处不完整。纯文档。
