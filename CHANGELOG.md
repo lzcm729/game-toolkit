@@ -3,6 +3,21 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.14.0 (2026-09-20)
+
+新增 `--limit N`：只取前 N 条。
+
+`asset-config` 的验收流程要求「首张定方向，再换一条差异较大的验泛化」，但 `--names`
+只认精确 id —— 为了试两张得先打开数据源查 id 叫什么。真实项目的鱼表格 16 条，抽样前
+要先读表，很别扭。
+
+和 `--names` 一起用时**先按 id 挑、再取前 N**。顺序反了的话，`--names` 指定的条目可能
+根本不在前 N 里，两个参数一起用就等于 `--names` 失效 —— 这条顺序有单独的测试和变异验证。
+
+顺带修了 `--names` 的帮助文案：原文写「仅对 inline / json_dict 数据源有效」，而它对所有
+数据源都生效。3.12.0 加的 csv 数据源上实测可用，补了一条测试 —— **这条测试在实现前就是
+绿的，正说明文案是过期的而不是功能缺失**。
+
 ## 3.13.1 (2026-09-20)
 
 `asset-config` 第一次被用在真实项目上（一个 UE 5.8 工程，设计真值是仓库里的 CSV），
