@@ -3,6 +3,36 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.9.0 (2026-09-20)
+
+`generate-assets` 的生图后端改为可插拔，并随插件自带一个能直接跑的参考后端。
+
+起因不是依赖没处理好——`_resolve_image_gen` 早就会 fail-fast 并给出安装指引，还有测试覆盖——
+而是 `image-gen` 是作者的用户级 skill，不在任何仓库里，没有发布形态。对插件使用者来说，
+`generate-assets` 一直是个**永远无法满足的依赖**：报错再清楚，也指向一个他们拿不到的东西。
+
+- **插拔的单位是脚本，不是 skill**。`generate_assets.py` 从来没有「调用 image-gen 这个 skill」，
+  它 subprocess 调的是一个文件路径。新的 `image_backend.py` 存的也只是脚本路径，不关心背后
+  是不是 skill。结构逐条对称 `engine_adapter.py`：frozen dataclass + 注册表 + `select()`。
+- **协议显式化**：新增 `BACKEND-PROTOCOL.md`，写清调用约定、batch JSON schema、summary 字段、
+  退码三值。此前这套约定一直是隐式的，只有 image-gen 一个实现。满足它的脚本都能接——
+  本地 ComfyUI、公司内部 API 都行，不需要懂插件机制。
+- **内置 `laozhang` 后端**（`scripts/backends/laozhang_backend.py`，只依赖 requests）。
+  走 Gemini native 路径而非 OpenAI style：后者不支持多图 reference，而 `reference_paths`
+  （风格锚）是本 skill 的核心能力。单张失败记进 `failed_assets` 后继续——一张 429 不该
+  毁掉 50 张的批次。
+- **选择优先级**：`IMAGE_GEN_SCRIPT` 环境变量 > config 的 `backend:` > 缺省 `image-gen`。
+  环境变量留在最高位不只为向后兼容，测试套件的 mock fixture 也靠它指向临时脚本。
+  刻意**不做自动探测**：「有 image-gen 就用、没有就退到 laozhang」会让同一份 yaml 在不同
+  机器上产出不同风格的图且不报错，这种静默分叉比一条硬错误难查得多。
+- **降级告警**：后端不认的 `defaults` 字段（如 laozhang 不支持 `chain` / `preset`）按 category
+  告警后继续，并带上被丢弃的值。静默会让人以为风格链生效了，报错又会让「切个后端试一下」
+  变得很麻烦。
+- `--dry-run` 不再要求 API key——它本就不发请求，新用户想先看看会出什么图，不该撞一堵凭证墙。
+
+升级无行为变化：缺省仍是 `image-gen`。要用自带后端就在 yaml 里写 `backend: laozhang` 并设
+`LAOZHANG_API_KEY`。
+
 ## 3.8.0 (2026-09-15)
 
 新 skill `doc-summary-layer`：设计文档分「仓库详稿（真值）／阅读平台摘要」两层管理。来自 CatFishing
