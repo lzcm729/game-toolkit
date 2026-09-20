@@ -684,31 +684,36 @@ def _invoke_backend(cmd: list[str], *, cwd: "Path | None" = None) -> tuple[dict 
     调用者所在项目 —— 资源写进 A 项目，凭证却读了 B 项目的。
     """
     try:
-        proc = subprocess.run(
+        # 流式读而不是 capture_output：批量跑十几张要几十分钟，攒到结束才吐
+        # 等于整个过程没有反馈 —— 不知道到第几张、哪张失败了。
+        # stderr 不捕获、直接继承终端，让 [retry] / [warn] 也实时可见。
+        proc = subprocess.Popen(
             cmd,
             cwd=str(cwd) if cwd else None,
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=None,
             text=True,
             encoding="utf-8",
             errors="replace",
+            bufsize=1,
         )
     except FileNotFoundError as e:
         return None, 1, f"后端脚本不存在: {e}"
     except Exception as e:
         return None, 1, f"subprocess 异常：{e}"
 
-    # echo image-gen stdout/stderr
-    if proc.stdout:
-        sys.stdout.write(proc.stdout)
-        if not proc.stdout.endswith("\n"):
-            sys.stdout.write("\n")
-    if proc.stderr:
-        sys.stderr.write(proc.stderr)
-        if not proc.stderr.endswith("\n"):
-            sys.stderr.write("\n")
+    collected: list[str] = []
+    try:
+        for line in proc.stdout:
+            sys.stdout.write(line)
+            sys.stdout.flush()      # 不 flush 还是会卡在缓冲里
+            collected.append(line)
+    finally:
+        proc.stdout.close()
+        returncode = proc.wait()
 
-    summary = _extract_summary(proc.stdout or "")
-    return summary, proc.returncode, None
+    summary = _extract_summary("".join(collected))
+    return summary, returncode, None
 
 
 def _extract_summary(stdout: str) -> dict | None:

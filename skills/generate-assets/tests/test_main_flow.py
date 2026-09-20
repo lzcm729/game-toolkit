@@ -246,21 +246,35 @@ def test_exit_code_max_across_categories(tmp_project, monkeypatch, mock_subproce
         },
     }))
 
-    # 给两次 subprocess.run 不同退码：第 1 次 0，第 2 次 1 → 总和 1
+    # 给两次后端调用不同退码：第 1 次 0，第 2 次 1 → 总退码取最大 = 1
     return_codes = iter([0, 1])
+
+    class _Stdout:
+        def __init__(self, body):
+            self._lines = body.splitlines(keepends=True)
+
+        def __iter__(self):
+            return iter(self._lines)
+
+        def close(self):
+            pass
 
     class FakeProc:
         def __init__(self, args, returncode):
             self.args = args
             self.returncode = returncode
-            self.stdout = '{"total": 1, "success": 0, "failed": 1, "skipped": 0}\n'
-            self.stderr = ""
+            self.stdout = _Stdout(
+                '{"total": 1, "success": 0, "failed": 1, "skipped": 0}\n'
+            )
 
-    def fake_run(cmd, *a, **kw):
+        def wait(self):
+            return self.returncode
+
+    def fake_popen(cmd, *a, **kw):
         calls.append({"cmd": list(cmd), "args": a, "kwargs": kw})
         return FakeProc(cmd, next(return_codes))
 
-    monkeypatch.setattr(ga.subprocess, "run", fake_run)
+    monkeypatch.setattr(ga.subprocess, "Popen", fake_popen)
 
     rc = ga.main(["all", "--config", str(cfg), "--dry-run"])
     assert rc == 1
@@ -1282,3 +1296,52 @@ def test_csv_data_source_end_to_end(tmp_project, mock_subprocess_run):
     # derived_fields 的 DSL 只认 ASCII 字段名，中文列必须先经 columns 映射
     # 才能喂给它 —— 这正是 CSV 场景最容易踩的组合，必须覆盖
     assert "小银鱼" in asset["prompt"]
+
+
+def test_backend_output_is_streamed_not_buffered(tmp_project, monkeypatch, capsys):
+    """后端的逐张进度要实时透出来。
+
+    批量跑 16 张要半小时，capture_output=True 会把所有输出攒到结束才吐 ——
+    期间终端只有一行命令，不知道到第几张、哪张失败了。
+    """
+    import subprocess as _sp
+    emitted: list[str] = []
+
+    class _FakeProc:
+        returncode = 0
+
+        def __init__(self):
+            self._lines = iter([
+                "  [ok] a -> a.png\n",
+                "  [ok] b -> b.png\n",
+                '{"total": 2, "success": 2, "failed": 0, "skipped": 0}\n',
+            ])
+            self.stdout = self
+
+        def __iter__(self):
+            return self
+
+        def __next__(self):
+            line = next(self._lines)
+            # 被读到的那一刻就该已经打印过了，而不是攒到最后
+            emitted.append(line)
+            return line
+
+        def close(self):
+            pass
+
+        def wait(self):
+            return 0
+
+    def fake_popen(cmd, **kwargs):
+        assert kwargs.get("stdout") is _sp.PIPE, "stdout 要走管道才能逐行读"
+        assert kwargs.get("stderr") is None, "stderr 应继承终端，让告警实时可见"
+        return _FakeProc()
+
+    monkeypatch.setattr(ga.subprocess, "Popen", fake_popen)
+    summary, code, err = ga._invoke_backend(["x"], cwd=tmp_project)
+
+    assert code == 0 and err is None
+    assert summary["total"] == 2                     # 末行 JSON 仍能解析
+    out = capsys.readouterr().out
+    assert "[ok] a" in out and "[ok] b" in out       # 逐张进度透出来了

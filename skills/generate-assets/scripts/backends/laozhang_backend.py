@@ -78,6 +78,23 @@ class _Retryable(RuntimeError):
     """值得再试一次的失败：网络抖动、429、5xx。"""
 
 
+# 参考图的 base64 缓存，键是路径字符串。
+# 锚图常有几 MB，base64 后更大；一批十几张各自重读重编，等于把同一份数据
+# 来回搓十几遍。后端一个进程跑完整批，缓存在进程内就够用，不必落盘。
+_REF_CACHE: dict = {}
+
+
+def _encode_image(path: Path) -> tuple:
+    """读图并 base64，返回 (mime, data)。同一路径只做一次。"""
+    key = str(path)
+    hit = _REF_CACHE.get(key)
+    if hit is None:
+        mime = "image/png" if key.lower().endswith(".png") else "image/jpeg"
+        hit = (mime, base64.b64encode(path.read_bytes()).decode())
+        _REF_CACHE[key] = hit
+    return hit
+
+
 def _read_env_file(path: Path, key: str) -> str:
     """从 .env 里取一个 key。容忍 export 前缀、引号、注释行。"""
     try:
@@ -218,12 +235,8 @@ def _gemini_native(
 
     parts: list = []
     for raw in ([image_path] if image_path else reference_paths):
-        img = Path(raw)
-        mime = "image/png" if str(img).lower().endswith(".png") else "image/jpeg"
-        parts.append({"inline_data": {
-            "mime_type": mime,
-            "data": base64.b64encode(img.read_bytes()).decode(),
-        }})
+        mime, data = _encode_image(Path(raw))
+        parts.append({"inline_data": {"mime_type": mime, "data": data}})
     parts.append({"text": prompt})
 
     if image_path:

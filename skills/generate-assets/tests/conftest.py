@@ -82,21 +82,46 @@ def mock_subprocess_run(monkeypatch, fake_image_gen_summary, tmp_path):
         state["stderr"] = stderr
 
     class FakeProc:
-        def __init__(self, args, returncode, stdout, stderr):
+        """主流程改成流式读 stdout 之后，桩也得是可迭代的。
+
+        stdout 现在要能逐行迭代（for line in proc.stdout），并且支持
+        close() / wait() —— 这三样就是 _invoke_backend 实际用到的接口。
+        """
+
+        def __init__(self, args, body):
             self.args = args
-            self.returncode = returncode
-            self.stdout = stdout
-            self.stderr = stderr
+            self.stdout = _FakeStdout(body)
 
-    def fake_run(cmd, *args, **kwargs):
+        @property
+        def returncode(self):
+            # 现取而不是构造时固化：set_result 可能在 Popen 之后才调
+            return state["returncode"]
+
+        def wait(self):
+            return state["returncode"]
+
+    class _FakeStdout:
+        def __init__(self, body):
+            self._lines = body.splitlines(keepends=True)
+
+        def __iter__(self):
+            return iter(self._lines)
+
+        def close(self):
+            pass
+
+    def fake_popen(cmd, *args, **kwargs):
         calls.append({"cmd": list(cmd), "args": args, "kwargs": kwargs})
-        body = "[mock image-gen] running...\n"
+        body = "[mock backend] running...\n"
         body += json.dumps(state["summary"]) + "\n"
-        return FakeProc(cmd, state["returncode"], body, state["stderr"])
+        if state["stderr"]:
+            # stderr 现在直接继承终端，测试里模拟成写到 sys.stderr
+            sys.stderr.write(state["stderr"])
+        return FakeProc(cmd, body)
 
-    monkeypatch.setattr(_sp, "run", fake_run)
+    monkeypatch.setattr(_sp, "Popen", fake_popen)
     # 同时给主模块导入路径里的 subprocess 也打 patch
     import generate_assets as ga  # noqa: WPS433
-    monkeypatch.setattr(ga.subprocess, "run", fake_run)
+    monkeypatch.setattr(ga.subprocess, "Popen", fake_popen)
 
     return calls, set_result

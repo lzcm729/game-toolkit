@@ -979,3 +979,55 @@ def test_no_aspect_warning_when_user_did_not_set_it(tmp_path, monkeypatch, capsy
         timeout_s=30.0,
     )
     assert "aspect_ratio" not in capsys.readouterr().err
+
+
+def test_reference_image_encoded_once_per_process(tmp_path, monkeypatch):
+    """风格锚在整批里只读一次、编码一次。
+
+    锚图常有几 MB，base64 后更大。16 张图各自重读重编，等于把同一份数据
+    来回搓 16 遍 —— 后端一个进程跑完整批，缓存在进程内就有效。
+    """
+    ref = _png(tmp_path, "anchor.png")
+    reads = {"n": 0}
+    real_read = Path.read_bytes
+
+    def counting_read(self):
+        if self.name == "anchor.png":
+            reads["n"] += 1
+        return real_read(self)
+
+    monkeypatch.setattr(lb.Path, "read_bytes", counting_read)
+    monkeypatch.setattr(lb.requests, "post",
+                        lambda *a, **k: _FakeResp(payload=_image_payload()))
+    lb._REF_CACHE.clear()
+
+    for _ in range(3):
+        lb._generate_one(
+            "p", model="gemini-3.1-flash-image", api_key="k", base_url="https://x",
+            aspect_ratio="1:1", seed=None, reference_paths=[str(ref)],
+            image_path=None, timeout_s=5.0,
+        )
+    assert reads["n"] == 1, f"读了 {reads['n']} 次，应该只读 1 次"
+
+
+def test_reference_cache_keyed_by_path(tmp_path, monkeypatch):
+    """不同的锚图不能串味。"""
+    a = _png(tmp_path, "a.png")
+    b = tmp_path / "b.png"
+    b.write_bytes(b"\x89PNG-different")
+    seen = []
+
+    def capture(url, headers=None, json=None, timeout=None, **k):
+        parts = json["contents"][0]["parts"]
+        seen.append(parts[0]["inline_data"]["data"])
+        return _FakeResp(payload=_image_payload())
+
+    monkeypatch.setattr(lb.requests, "post", capture)
+    lb._REF_CACHE.clear()
+    for ref in (a, b):
+        lb._generate_one(
+            "p", model="gemini-3.1-flash-image", api_key="k", base_url="https://x",
+            aspect_ratio="1:1", seed=None, reference_paths=[str(ref)],
+            image_path=None, timeout_s=5.0,
+        )
+    assert seen[0] != seen[1]
