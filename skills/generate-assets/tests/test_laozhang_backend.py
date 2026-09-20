@@ -57,7 +57,14 @@ def test_rejects_unknown_schema_version(tmp_path, capsys, monkeypatch):
 
 
 def test_missing_api_key_explains_how_to_set_it(tmp_path, capsys, monkeypatch):
+    # 必须隔离 CWD 与 home：后端会向上找 .env，只删进程变量的话，
+    # 跑测试的目录祖先里有 .env 就会读到真 key、真发请求、真扣费。
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: tmp_path / "nohome"))
     monkeypatch.delenv("LAOZHANG_API_KEY", raising=False)
+    monkeypatch.delenv("LAOZHANG_OFFICIAL_API_KEY", raising=False)
+    # 兜底：万一隔离失效也不许真发请求
+    monkeypatch.setattr(lb, "_generate_one", lambda *a, **k: pytest.fail("不该走到生图"))
     batch = _batch(tmp_path, [{"name": "a", "filename": "a.png", "prompt": "p"}])
     rc = lb.main([str(batch), "--output-dir", str(tmp_path)])
     assert rc == 1
@@ -686,3 +693,145 @@ def test_openai_silent_on_exact_aspect_ratio(monkeypatch, capsys):
         timeout_s=30.0,
     )
     assert "近似" not in capsys.readouterr().err
+
+
+# -------------------- codex 评审发现的缺陷 --------------------
+
+
+def test_cdn_download_failure_does_not_regenerate(monkeypatch):
+    """#3 图已生成（已计费），下载失败不该重新 POST 生图。"""
+    import requests as _rq
+    posts, gets = [], []
+
+    def fake_post(*a, **k):
+        posts.append(1)
+        return _FakeResp(payload={"data": [{"url": "https://cdn/x.png"}]})
+
+    def fake_get(*a, **k):
+        gets.append(1)
+        raise _rq.exceptions.ConnectionError("cdn down")
+
+    monkeypatch.setattr(lb.requests, "post", fake_post)
+    monkeypatch.setattr(lb.requests, "get", fake_get)
+    monkeypatch.setattr(lb.time, "sleep", lambda s: None)
+
+    with pytest.raises(RuntimeError):
+        lb._generate_one(
+            "p", model="gpt-image-2.5-flare", api_key="k", base_url="https://x",
+            aspect_ratio="1:1", seed=None, reference_paths=[], image_path=None,
+            timeout_s=30.0,
+        )
+    assert len(posts) == 1, f"重新生图了 {len(posts)} 次，应该只有 1 次"
+    assert len(gets) > 1, "下载本身该重试"
+
+
+def test_cdn_download_403_is_not_retried(monkeypatch):
+    """403 是永久错误，重试只是浪费时间。"""
+    gets = []
+
+    class _Forbidden:
+        status_code = 403
+        ok = False
+        headers = {}
+        content = b""
+
+        def raise_for_status(self):
+            import requests as _rq
+            raise _rq.exceptions.HTTPError("403 Forbidden", response=self)
+
+    def fake_get(*a, **k):
+        gets.append(1)
+        return _Forbidden()
+
+    monkeypatch.setattr(
+        lb.requests, "post",
+        lambda *a, **k: _FakeResp(payload={"data": [{"url": "https://cdn/x.png"}]}),
+    )
+    monkeypatch.setattr(lb.requests, "get", fake_get)
+    monkeypatch.setattr(lb.time, "sleep", lambda s: None)
+
+    with pytest.raises(RuntimeError):
+        lb._generate_one(
+            "p", model="gpt-image-2.5-flare", api_key="k", base_url="https://x",
+            aspect_ratio="1:1", seed=None, reference_paths=[], image_path=None,
+            timeout_s=30.0,
+        )
+    assert len(gets) == 1, f"403 被重试了 {len(gets)} 次"
+
+
+def test_existing_file_skipped_even_without_key(tmp_path, capsys, monkeypatch):
+    """#5 目标已存在就该 skip，不该因为缺 key 把整批拦在门外。"""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: tmp_path / "nohome"))
+    monkeypatch.delenv("LAOZHANG_API_KEY", raising=False)
+    monkeypatch.delenv("LAOZHANG_OFFICIAL_API_KEY", raising=False)
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "a.png").write_bytes(b"old")
+    batch = _batch(tmp_path, [{"name": "a", "filename": "a.png", "prompt": "p"}])
+
+    rc = lb.main([str(batch), "--output-dir", str(out)])
+
+    assert rc == 0
+    s = _read_summary(capsys)
+    assert (s["skipped"], s["total"]) == (1, 1)
+
+
+def test_missing_key_still_fatal_when_work_remains(tmp_path, capsys, monkeypatch):
+    """但真有活要干时，缺 key 仍须在开跑前拦住。"""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(lb.Path, "home", staticmethod(lambda: tmp_path / "nohome"))
+    monkeypatch.delenv("LAOZHANG_API_KEY", raising=False)
+    out = tmp_path / "out"
+    out.mkdir()
+    batch = _batch(tmp_path, [{"name": "a", "filename": "a.png", "prompt": "p"}])
+    assert lb.main([str(batch), "--output-dir", str(out)]) == 1
+    assert "LAOZHANG_API_KEY" in capsys.readouterr().err
+
+
+def test_unmapped_aspect_ratio_picks_nearest(monkeypatch):
+    """#8 21:9 该落到最接近的横向档，而不是正方形。"""
+    seen = {}
+    monkeypatch.setattr(
+        lb.requests, "post",
+        lambda url, headers=None, json=None, timeout=None, **k: (
+            seen.update(json or {}) or _FakeResp(payload={"data": [{"b64_json": "aGk="}]})
+        ),
+    )
+    lb._generate_one(
+        "p", model="gpt-image-2.5-flare", api_key="k", base_url="https://x",
+        aspect_ratio="21:9", seed=None, reference_paths=[], image_path=None,
+        timeout_s=30.0,
+    )
+    assert seen["size"] == "1536x1024"
+
+
+def test_seed_ignored_on_openai_path_warns(monkeypatch, capsys):
+    """#4 OpenAI 路径没有 seed 字段，丢掉就得说，别让人以为复现生效了。"""
+    monkeypatch.setattr(
+        lb.requests, "post",
+        lambda *a, **k: _FakeResp(payload={"data": [{"b64_json": "aGk="}]}),
+    )
+    lb._generate_one(
+        "p", model="gpt-image-2.5-flare", api_key="k", base_url="https://x",
+        aspect_ratio="1:1", seed=12345, reference_paths=[], image_path=None,
+        timeout_s=30.0,
+    )
+    err = capsys.readouterr().err
+    assert "seed" in err and "12345" in err
+
+
+def test_aspect_ratio_ignored_in_gemini_edit_warns(tmp_path, monkeypatch, capsys):
+    """#4 edit 模式输出跟随底图，显式比例不生效——得说一声。"""
+    base = _png(tmp_path)
+    monkeypatch.setattr(
+        lb.requests, "post",
+        lambda *a, **k: _FakeResp(payload=_image_payload()),
+    )
+    lb._generate_one(
+        "p", model="gemini-3.1-flash-image", api_key="k", base_url="https://x",
+        aspect_ratio="16:9", seed=None, reference_paths=[], image_path=str(base),
+        timeout_s=30.0,
+    )
+    err = capsys.readouterr().err
+    assert "aspect_ratio" in err and "16:9" in err

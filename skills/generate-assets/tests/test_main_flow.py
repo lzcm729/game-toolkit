@@ -770,7 +770,7 @@ def test_output_dir_blocked_by_a_file_is_a_category_error(tmp_project, capsys, m
 
 def test_no_summary_on_a_real_run_is_a_failure(tmp_project, capsys, mock_subprocess_run, monkeypatch):
     """只有注释的上游脚本退出 0、什么都不打 —— 曾被报成成功，图一张没有。"""
-    monkeypatch.setattr(ga, "_invoke_backend", lambda cmd: (None, 0, None))
+    monkeypatch.setattr(ga, "_invoke_backend", lambda cmd, **kw: (None, 0, None))
     cfg = tmp_project / "asset-config.yaml"
     _write_yaml(cfg, _minimal_config())
     assert ga.main(["--config", str(cfg), "ingredients"]) == 1
@@ -779,7 +779,7 @@ def test_no_summary_on_a_real_run_is_a_failure(tmp_project, capsys, mock_subproc
 
 def test_no_summary_on_dry_run_is_fine(tmp_project, capsys, mock_subprocess_run, monkeypatch):
     """上游 dry-run 本来就只打计划、不吐 summary，不能当失败。"""
-    monkeypatch.setattr(ga, "_invoke_backend", lambda cmd: (None, 0, None))
+    monkeypatch.setattr(ga, "_invoke_backend", lambda cmd, **kw: (None, 0, None))
     cfg = tmp_project / "asset-config.yaml"
     _write_yaml(cfg, _minimal_config())
     assert ga.main(["--config", str(cfg), "ingredients", "--dry-run"]) == 0
@@ -920,8 +920,20 @@ def test_unsupported_field_warns_with_value(
 def test_supported_field_does_not_warn(
     tmp_project, capsys, mock_subprocess_run, monkeypatch
 ):
-    """image-gen 认 chain，不该有告警噪音。"""
-    _, _ = mock_subprocess_run   # fixture 已把 IMAGE_GEN_SCRIPT 指向假脚本
+    """image-gen 认 chain，不该有告警噪音。
+
+    必须走真正的 IMAGE_GEN 条目：fixture 设的 IMAGE_GEN_SCRIPT 会让 select()
+    返回 custom 后端，那条按全集处理、永远不告警 —— 测试就永远绿，连
+    supports 里删掉 chain 都发现不了（变异验证过）。
+    """
+    _, _ = mock_subprocess_run
+    monkeypatch.delenv("IMAGE_GEN_SCRIPT", raising=False)
+    fake = tmp_project / "fake_ig.py"
+    fake.write_text("# stub", encoding="utf-8")
+    monkeypatch.setattr(
+        ga.image_backend, "IMAGE_GEN",
+        dataclasses.replace(ga.image_backend.IMAGE_GEN, resolve_script=lambda: fake),
+    )
     cfg = tmp_project / "asset-config.yaml"
     conf = _minimal_config()
     conf["style"]["chain"] = "default"
@@ -1128,3 +1140,33 @@ def test_no_image_declared_leaves_asset_clean(tmp_project, mock_subprocess_run):
     assert ga.main(["--config", str(cfg), "ingredients"]) == 0
     batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
     assert all("image" not in a for a in batch["assets"])
+
+
+# -------------------- codex 评审发现的缺陷 --------------------
+
+
+def test_item_model_lands_on_asset(tmp_project, mock_subprocess_run):
+    """文档承诺 item 级 model 优先级最高，构造层却漏了透传。"""
+    calls, _ = mock_subprocess_run
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["model"] = "gemini-3.1-flash-image"
+    conf["categories"]["ingredients"]["data_source"]["items"]["pearl"]["model"] = "gpt-image-2.5-flare"
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
+    by_name = {a["name"]: a for a in batch["assets"]}
+    assert by_name["pearl"]["model"] == "gpt-image-2.5-flare"   # item 覆盖
+    assert "model" not in by_name["taro"]                        # 没声明就不塞
+    assert batch["defaults"]["model"] == "gemini-3.1-flash-image"
+
+
+def test_backend_runs_in_project_root(tmp_project, mock_subprocess_run):
+    """后端靠 CWD 向上找 .env。不设 cwd 的话，找的是调用者的项目而非目标项目。"""
+    calls, _ = mock_subprocess_run
+    cfg = tmp_project / "asset-config.yaml"
+    _write_yaml(cfg, _minimal_config())
+
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    assert Path(calls[0]["kwargs"]["cwd"]) == tmp_project.resolve()

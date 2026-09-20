@@ -52,6 +52,24 @@ _ASPECT_TO_SIZE = {
 _OPENAI_MIN_TIMEOUT_S = 360.0
 # OpenAI 端点只原生支持这三档，其余比例都是就近取一档，边缘会被裁掉
 _OPENAI_EXACT_RATIOS = frozenset({"1:1", "2:3", "3:2"})
+
+
+def _pick_size(aspect_ratio: str) -> str:
+    """把任意比例落到 OpenAI 的三个档位，取数值最接近的那个。
+
+    此前是固定表查找，表外比例一律掉进正方形 —— 21:9 会变成 1024x1024，
+    比三档里最接近的 1536x1024 还远。
+    """
+    exact = _ASPECT_TO_SIZE.get(aspect_ratio)
+    if exact:
+        return exact
+    try:
+        w, h = aspect_ratio.split(":")
+        target = float(w) / float(h)
+    except (ValueError, ZeroDivisionError):
+        return "1024x1024"
+    candidates = {"1024x1024": 1.0, "1536x1024": 1.5, "1024x1536": 1 / 1.5}
+    return min(candidates, key=lambda k: abs(candidates[k] - target))
 # 向上找 .env 的最大层数，与 image-gen 的 env.py 一致
 _MAX_ENV_LEVELS = 10
 
@@ -166,7 +184,7 @@ def _request_once(
         return _openai_style(
             prompt, model=model, api_key=api_key, base_url=base_url,
             aspect_ratio=aspect_ratio, image_path=image_path,
-            timeout_s=max(timeout_s, _OPENAI_MIN_TIMEOUT_S),
+            timeout_s=max(timeout_s, _OPENAI_MIN_TIMEOUT_S), seed=seed,
         )
     return _gemini_native(
         prompt, model=model, api_key=api_key, base_url=base_url,
@@ -202,6 +220,12 @@ def _gemini_native(
 
     if image_path:
         # edit：输出尺寸跟随输入图，再传 aspectRatio 只会打架
+        if aspect_ratio:
+            print(
+                f"  [warn] edit 模式输出尺寸跟随底图，aspect_ratio={aspect_ratio} 不生效。"
+                "要指定比例就别给 image，改用 reference_paths。",
+                file=sys.stderr,
+            )
         generation_config: dict = {"responseModalities": ["IMAGE", "TEXT"]}
     else:
         generation_config = {
@@ -243,6 +267,32 @@ def _gemini_native(
     raise RuntimeError("响应里没有图像数据（可能被安全策略拦了，或模型只回了文字）")
 
 
+def _download(url: str) -> bytes:
+    """取回 CDN 上的图。
+
+    自己重试，且失败后抛 RuntimeError 而非 _Retryable：生图那步已经成功
+    （钱已经花了），让外层重试整个 _request_once 会重新 POST 一次生图。
+    4xx 是永久错误，一次就够。
+    """
+    last = None
+    for attempt in range(DEFAULT_RETRIES + 1):
+        try:
+            resp = requests.get(url, timeout=60)
+        except requests.exceptions.RequestException as e:
+            last = e
+        else:
+            if resp.ok:
+                return resp.content
+            if 400 <= resp.status_code < 500:
+                raise RuntimeError(f"图片下载失败（不重试）：HTTP {resp.status_code}")
+            last = RuntimeError(f"HTTP {resp.status_code}")
+        if attempt < DEFAULT_RETRIES:
+            delay = 2 ** attempt
+            print(f"  [retry] 图片下载失败：{last}；{delay}s 后重试", file=sys.stderr)
+            time.sleep(delay)
+    raise RuntimeError(f"图片下载失败，已重试 {DEFAULT_RETRIES} 次：{last}")
+
+
 def _openai_style(
     prompt: str,
     *,
@@ -252,11 +302,21 @@ def _openai_style(
     aspect_ratio: str,
     image_path: "str | None",
     timeout_s: float,
+    seed: "int | None" = None,
 ) -> bytes:
     """OpenAI style：有底图走 /v1/images/edits，没有则 /v1/images/generations。"""
+    if seed is not None:
+        # 后端能力是按模型分的，上层的 supports 只能按后端名声明，
+        # 表达不了「这个模型没有 seed」。只好在丢弃的地方自己说。
+        print(
+            f"  [warn] {model} 走 OpenAI 路径，没有 seed 字段，seed={seed} 已忽略。"
+            "要可复现的随机种子请改用 gemini-* 模型。",
+            file=sys.stderr,
+        )
+
     root = base_url.rstrip("/")
     headers = {"Authorization": f"Bearer {api_key}"}
-    size = _ASPECT_TO_SIZE.get(aspect_ratio, "1024x1024")
+    size = _pick_size(aspect_ratio)
     if aspect_ratio not in _OPENAI_EXACT_RATIOS:
         # 静默裁切最难查：出来的图「差不多对」，但构图紧了一圈
         print(
@@ -311,12 +371,7 @@ def _openai_style(
         return base64.b64decode(first["b64_json"])
     if first.get("url"):
         # laozhang 有时回 CDN 链接而不是内联 base64
-        try:
-            img_resp = requests.get(first["url"], timeout=60)
-            img_resp.raise_for_status()
-        except requests.exceptions.RequestException as e:
-            raise _Retryable(f"图片下载失败：{e}") from e
-        return img_resp.content
+        return _download(first["url"])
 
     raise RuntimeError(f"响应里既没有 b64_json 也没有 url；字段：{list(first.keys())}")
 
@@ -385,8 +440,18 @@ def main(argv: "list[str] | None" = None) -> int:
 
     # key 按模型家族分头检查：gpt-image-* 在 official 分组，用的是另一把。
     # 跑到第一张图才发现缺 key，等于白等一轮网络往返。
+    #
+    # 只检查**真正要生成的** asset：目标文件已存在（且没给 --force）本来就
+    # 不会发请求，让它因为缺 key 被整批拦住，等于已经生成好的资源也跟着遭殃。
     if not args.dry_run:
-        for m in sorted({a.get("model") or default_model for a in assets}):
+        out_dir_pre = Path(args.output_dir)
+        pending_models = {
+            a.get("model") or default_model
+            for a in assets
+            if a.get("filename")
+            and not ((out_dir_pre / a["filename"]).exists() and not args.force)
+        }
+        for m in sorted(pending_models):
             if not _resolve_api_key(m):
                 print(
                     f"[fatal] 模型 {m} 需要 {_key_env_for(m)}，没找到。"

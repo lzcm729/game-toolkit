@@ -444,7 +444,7 @@ def _run_category(
         cmd.append("--force")
 
     print(f"  $ {_shell_join(cmd)}")
-    summary, exit_code, err = _invoke_backend(cmd)
+    summary, exit_code, err = _invoke_backend(cmd, cwd=project_root)
     if summary is None and err is None and not dry_run:
         # 没有 summary 就无法确认产物，退出码 0 也不算成功。
         # dry-run 例外：上游 dry-run 本来就只打计划、不吐 summary。
@@ -610,6 +610,8 @@ def _build_batch_json(
                 output_root=output_root, adapter=adapter,
             )
         # item-level overrides（优先级最高）
+        if "model" in item:
+            asset["model"] = item["model"]
         if "aspect_ratio" in item and "aspect_ratio" not in asset:
             asset["aspect_ratio"] = item["aspect_ratio"]
         if "seed" in item:
@@ -638,14 +640,18 @@ def _build_batch_json(
 
 # -------------------- image-gen subprocess --------------------
 
-def _invoke_backend(cmd: list[str]) -> tuple[dict | None, int, str | None]:
+def _invoke_backend(cmd: list[str], *, cwd: "Path | None" = None) -> tuple[dict | None, int, str | None]:
     """跑后端，返回 (summary_json, exit_code, error_msg)。
 
     后端会把末尾一行 JSON summary 打到 stdout。
+
+    cwd 必须是工程根：后端靠 CWD 向上找 .env 取凭证，不设的话找的是
+    调用者所在项目 —— 资源写进 A 项目，凭证却读了 B 项目的。
     """
     try:
         proc = subprocess.run(
             cmd,
+            cwd=str(cwd) if cwd else None,
             capture_output=True,
             text=True,
             encoding="utf-8",

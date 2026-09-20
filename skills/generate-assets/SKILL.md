@@ -2,7 +2,7 @@
 name: generate-assets
 description: |
   schema-driven 批量资源生成。读项目 asset-config.yaml → 加载数据源 → 渲染 prompt
-  → 调底层 image-gen SDK 批量生成 → 写到项目的资源目录。
+  → 调生图后端批量生成 → 写到项目的资源目录。
   核心流程引擎无关；引擎相关的部分（虚拟路径前缀、导入检查）在适配层，
   当前提供 Godot 适配，其他引擎走 generic（普通相对路径、不做导入检查）。
 

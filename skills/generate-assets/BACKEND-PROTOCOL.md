@@ -22,7 +22,7 @@ python <backend.py> <batch.json> --output-dir <dir> [--dry-run] [--force]
   "$schema_version": 2,
   "defaults": {"aspect_ratio": "1:1", "seed": 123, "reference_paths": ["/abs/anchor.png"]},
   "assets": [{"name": "red_bean", "filename": "red_bean.png", "prompt": "...",
-              "model": "gemini-3-pro-image", "image": "/abs/base.png"}]
+              "model": "gemini-3-pro-image"}]
 }
 ```
 
@@ -33,7 +33,14 @@ python <backend.py> <batch.json> --output-dir <dir> [--dry-run] [--force]
   不解析它，放 defaults 会被静默丢掉。它与 `reference_paths` **互斥**：
   `image` 是「编辑这张图」，`reference_paths` 是「参考这些图的风格」
 - 后端应校验 `$schema_version`，不认识的版本直接报错，不要猜
-- 后端忽略不认识的 `defaults` 字段即可；告警由上层基于能力声明发出
+- 后端忽略不认识的 `defaults` 字段即可；告警由上层基于能力声明发出。
+  **但这个保证只覆盖按注册名选中的后端**（`backend: image-gen` / `laozhang`）：
+  脚本路径式后端和 `IMAGE_GEN_SCRIPT` 指定的后端，上层无从得知其能力，一律
+  按全集处理、不告警。这类后端要自己在丢弃字段时出声
+- 能力按模型而非按后端分的字段（例如某些模型没有 `seed`），上层的能力声明表达不了，
+  后端必须在丢弃处自己告警
+- 目标文件已存在且未给 `--force` 时按 skipped 处理。这一判断应优先于凭证检查 ——
+  已经生成好的资源不该因为缺 key 被整批拦住
 
 ## 输出：stdout 末行 JSON
 
