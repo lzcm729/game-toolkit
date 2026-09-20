@@ -47,7 +47,7 @@
 | `interaction` | 玩家输入与反馈：输入映射、局部交互状态、反馈时序 |
 | `game-designer` | 边界明确的独立设计任务（单视角评审、整合、按已采纳决定改写文档） |
 
-**14 个 skill**
+**15 个 skill**
 
 - **共享定义** — `layer-contracts`（两条轴、A 层交付门槛、执行模型要求、四问自检）
 - **设计流程** — `design-discuss`（主对话里讨论与收录）、`design-iterate`（多视角并行评审 + 用户裁决）、`doc-consistency-check`（跨文档矛盾检查）、`split-doc-layers`（把混写的文档按职责拆开）
@@ -55,7 +55,7 @@
 - **文档发布** — `doc-summary-layer`（仓库详稿是真值，阅读平台每页只放规则版摘要；三条数据流、草稿迁入、检查与构建脚本，平台适配在项目侧）
 - **文档 ↔ 代码** — `sync-code-ahead`（代码改了、文档没跟）、`sync-docs-ahead`（文档写了、代码没实现）
 - **实现执行** — `parallel-implement`（git worktree 并行实现 + 顺序合并）
-- **资源管线** — `generate-assets`（schema-driven 批量生成，引擎适配当前支持 Godot / generic）
+- **资源管线** — `asset-config`（建立与维护 `asset-config.yaml`，含配置校验）、`generate-assets`（schema-driven 批量生成；数据源支持 CSV / JSON / inline，引擎适配支持 Godot / Unreal / generic，生图后端可插拔）
 - **可选技术适配** — `react-game-ui`（Web 栈的游戏 UI 实现模式，只在项目确实用 React 时才用）
 
 ## 项目侧要做一件事

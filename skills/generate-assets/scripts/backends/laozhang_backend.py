@@ -50,6 +50,9 @@ _ASPECT_TO_SIZE = {
 # gpt-image 系推理慢（image-gen 实测 official 分组 ~4min/张），
 # 调用方给的超时太短会被中途切断
 _OPENAI_MIN_TIMEOUT_S = 360.0
+# 参考图每次请求都要随请求体传一遍，几 MB 的锚图会持续拖慢整批。
+# 超过这个大小提醒一次（只一次 —— 每张都吵反而没人看）。
+_REF_SIZE_WARN_MB = 2.0
 # OpenAI 端点只原生支持这三档，其余比例都是就近取一档，边缘会被裁掉
 _OPENAI_EXACT_RATIOS = frozenset({"1:1", "2:3", "3:2"})
 
@@ -492,10 +495,22 @@ def main(argv: "list[str] | None" = None) -> int:
         )
         return 1
 
+    total_ref_mb = sum(
+        Path(r).stat().st_size for r in refs if Path(r).exists()
+    ) / (1024 * 1024)
+    if total_ref_mb > _REF_SIZE_WARN_MB:
+        print(
+            f"  [note] 参考图共 {total_ref_mb:.1f} MB，每张图都要重传一遍。"
+            f"压到 {_REF_SIZE_WARN_MB:.0f} MB 以内能明显加快整批 —— "
+            "风格锚看的是画面语言，不需要原始分辨率。",
+            file=sys.stderr,
+        )
+
     success = failed = skipped = 0
     failed_assets: list = []
+    total = len(assets)
 
-    for asset in assets:
+    for position, asset in enumerate(assets, start=1):
         name = asset.get("name") or asset.get("filename") or "?"
         filename = asset.get("filename")
         prompt = asset.get("prompt") or ""
@@ -516,6 +531,7 @@ def main(argv: "list[str] | None" = None) -> int:
             skipped += 1
             continue
 
+        started = time.monotonic()
         asset_model = asset.get("model") or default_model
         asset_key = _resolve_api_key(asset_model)
         if not asset_key:
@@ -544,7 +560,8 @@ def main(argv: "list[str] | None" = None) -> int:
             )
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(data)
-            print(f"  [ok] {name} -> {target}")
+            print(f"  [ok] {position}/{total} {name} -> {target} "
+                  f"({time.monotonic() - started:.0f}s)")
             success += 1
         except Exception as e:      # 单张失败不中断整批：一张 429 不该毁掉 50 张
             print(f"  [error] {name}: {e}", file=sys.stderr)

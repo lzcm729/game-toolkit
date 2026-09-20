@@ -1031,3 +1031,56 @@ def test_reference_cache_keyed_by_path(tmp_path, monkeypatch):
             image_path=None, timeout_s=5.0,
         )
     assert seen[0] != seen[1]
+
+
+# -------------------- 进度与耗时 --------------------
+
+def test_progress_shows_position_and_elapsed(tmp_path, capsys, monkeypatch):
+    """跑十几张要几十分钟，得让人估得出还要多久。
+
+    只打「[ok] 名字」不够 —— 看不出跑到第几张、单张多慢。
+    """
+    monkeypatch.setenv("LAOZHANG_API_KEY", "sk-test")
+    monkeypatch.setattr(lb, "_generate_one", lambda *a, **k: b"png")
+    out = tmp_path / "out"
+    out.mkdir()
+    batch = _batch(tmp_path, [
+        {"name": f"n{i}", "filename": f"n{i}.png", "prompt": "p"} for i in range(3)
+    ])
+    lb.main([str(batch), "--output-dir", str(out)])
+
+    out_text = capsys.readouterr().out
+    assert "1/3" in out_text and "3/3" in out_text      # 位置
+    assert "s)" in out_text                              # 单张耗时
+
+
+def test_large_reference_warns_once(tmp_path, capsys, monkeypatch):
+    """几 MB 的锚图每次请求都要传，值得提醒一句 —— 但只提醒一次，不是每张都吵。"""
+    monkeypatch.setenv("LAOZHANG_API_KEY", "sk-test")
+    big = tmp_path / "big.png"
+    big.write_bytes(b"\x89PNG" + b"x" * (3 * 1024 * 1024))
+    monkeypatch.setattr(lb, "_generate_one", lambda *a, **k: b"png")
+    out = tmp_path / "out"
+    out.mkdir()
+    batch = _batch(
+        tmp_path,
+        [{"name": f"n{i}", "filename": f"n{i}.png", "prompt": "p"} for i in range(3)],
+        defaults={"reference_paths": [str(big)]},
+    )
+    lb.main([str(batch), "--output-dir", str(out)])
+
+    err = capsys.readouterr().err
+    assert err.count("参考图") == 1          # 只说一次
+    assert "MB" in err
+
+
+def test_small_reference_does_not_warn(tmp_path, capsys, monkeypatch):
+    monkeypatch.setenv("LAOZHANG_API_KEY", "sk-test")
+    small = _png(tmp_path, "small.png")
+    monkeypatch.setattr(lb, "_generate_one", lambda *a, **k: b"png")
+    out = tmp_path / "out"
+    out.mkdir()
+    batch = _batch(tmp_path, [{"name": "a", "filename": "a.png", "prompt": "p"}],
+                   defaults={"reference_paths": [str(small)]})
+    lb.main([str(batch), "--output-dir", str(out)])
+    assert "参考图" not in capsys.readouterr().err
