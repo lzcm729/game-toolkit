@@ -16,10 +16,13 @@ env:
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import sys
 from pathlib import Path
+
+import requests
 
 SUPPORTED_SCHEMA = 2
 DEFAULT_MODEL = "gemini-3.1-flash-image-preview"
@@ -40,8 +43,56 @@ def _generate_one(
     reference_paths: list,
     timeout_s: float,
 ) -> bytes:
-    """生成一张图，返回图像字节。Task 5 实现。"""
-    raise NotImplementedError
+    """生成一张图，返回图像字节。
+
+    走 Gemini native 路径而非 OpenAI style：后者不支持多图 reference，
+    而 reference_paths（风格锚）是 generate-assets 的核心能力。
+    """
+    url = f"{base_url.rstrip('/')}/v1beta/models/{model}:generateContent"
+
+    parts: list = []
+    for ref_raw in reference_paths:
+        ref = Path(ref_raw)
+        mime = "image/png" if str(ref).lower().endswith(".png") else "image/jpeg"
+        parts.append({"inline_data": {
+            "mime_type": mime,
+            "data": base64.b64encode(ref.read_bytes()).decode(),
+        }})
+    parts.append({"text": prompt})
+
+    generation_config: dict = {
+        "responseModalities": ["TEXT", "IMAGE"],
+        "imageConfig": {"aspectRatio": aspect_ratio},
+    }
+    if seed is not None:
+        generation_config["seed"] = seed
+
+    try:
+        resp = requests.post(
+            url,
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={"contents": [{"role": "user", "parts": parts}],
+                  "generationConfig": generation_config},
+            timeout=timeout_s,
+        )
+    except requests.exceptions.RequestException as e:
+        raise RuntimeError(f"请求失败：{e}") from e
+
+    if not resp.ok:
+        raise RuntimeError(f"HTTP {resp.status_code}: {resp.text[:200]}")
+
+    try:
+        data = resp.json()
+    except ValueError as e:
+        raise RuntimeError(f"响应不是合法 JSON：{e}") from e
+
+    for cand in data.get("candidates") or []:
+        for part in (cand.get("content") or {}).get("parts") or []:
+            inline = part.get("inlineData") or part.get("inline_data")
+            if inline and inline.get("data"):
+                return base64.b64decode(inline["data"])
+
+    raise RuntimeError("响应里没有图像数据（可能被安全策略拦了，或模型只回了文字）")
 
 
 def main(argv: "list[str] | None" = None) -> int:

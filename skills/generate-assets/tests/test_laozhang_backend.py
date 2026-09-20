@@ -169,3 +169,101 @@ def test_too_many_references_is_fatal(tmp_path, capsys, monkeypatch):
     )
     assert lb.main([str(batch), "--output-dir", str(tmp_path)]) == 1
     assert str(lb.MAX_REFERENCES) in capsys.readouterr().err
+
+
+class _FakeResp:
+    def __init__(self, status=200, payload=None, text=""):
+        self.status_code = status
+        self.ok = 200 <= status < 300
+        self._payload = payload or {}
+        self.text = text
+
+    def json(self):
+        return self._payload
+
+
+def _image_payload(b64: str = "aGk=") -> dict:
+    return {"candidates": [{"content": {"parts": [{"inlineData": {"data": b64}}]}}]}
+
+
+def test_generate_one_posts_gemini_native_shape(monkeypatch):
+    """必须走 /v1beta/...:generateContent —— OpenAI 路径不支持多图 reference。"""
+    seen = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None, **kw):
+        seen["url"] = url
+        seen["headers"] = headers
+        seen["body"] = json
+        return _FakeResp(payload=_image_payload())
+
+    monkeypatch.setattr(lb.requests, "post", fake_post)
+
+    data = lb._generate_one(
+        "a cat", model="gemini-3.1-flash-image-preview", api_key="sk-x",
+        base_url="https://api.laozhang.ai", aspect_ratio="4:5", seed=None,
+        reference_paths=[], timeout_s=30.0,
+    )
+
+    assert data == b"hi"
+    assert seen["url"] == (
+        "https://api.laozhang.ai/v1beta/models/gemini-3.1-flash-image-preview:generateContent"
+    )
+    assert seen["headers"]["Authorization"] == "Bearer sk-x"
+    cfg = seen["body"]["generationConfig"]
+    assert cfg["imageConfig"]["aspectRatio"] == "4:5"
+    assert "seed" not in cfg          # seed 为 None 时不该出现在请求里
+    parts = seen["body"]["contents"][0]["parts"]
+    assert parts[-1]["text"] == "a cat"
+
+
+def test_generate_one_inlines_references_before_prompt(tmp_path, monkeypatch):
+    """参考图以 inline_data 排在 prompt 之前。"""
+    ref = tmp_path / "anchor.png"
+    ref.write_bytes(b"\x89PNG-fake")
+    seen = {}
+
+    def fake_post(url, headers=None, json=None, timeout=None, **kw):
+        seen["body"] = json
+        return _FakeResp(payload=_image_payload())
+
+    monkeypatch.setattr(lb.requests, "post", fake_post)
+
+    lb._generate_one(
+        "a cat", model="m", api_key="k", base_url="https://x",
+        aspect_ratio="1:1", seed=42, reference_paths=[str(ref)], timeout_s=30.0,
+    )
+
+    parts = seen["body"]["contents"][0]["parts"]
+    assert "inline_data" in parts[0]
+    assert parts[0]["inline_data"]["mime_type"] == "image/png"
+    assert parts[-1]["text"] == "a cat"
+    assert seen["body"]["generationConfig"]["seed"] == 42
+
+
+def test_generate_one_raises_on_http_error(monkeypatch):
+    monkeypatch.setattr(
+        lb.requests, "post",
+        lambda *a, **k: _FakeResp(status=429, text="rate limited"),
+    )
+    with pytest.raises(RuntimeError) as ei:
+        lb._generate_one(
+            "p", model="m", api_key="k", base_url="https://x",
+            aspect_ratio="1:1", seed=None, reference_paths=[], timeout_s=5.0,
+        )
+    assert "429" in str(ei.value)
+
+
+def test_generate_one_raises_when_no_image_in_response(monkeypatch):
+    """只回了文字没回图 —— 不能当成功。"""
+    monkeypatch.setattr(
+        lb.requests, "post",
+        lambda *a, **k: _FakeResp(
+            payload={"candidates": [{"content": {"parts": [{"text": "sorry"}]}}]}
+        ),
+    )
+    with pytest.raises(RuntimeError) as ei:
+        lb._generate_one(
+            "p", model="m", api_key="k", base_url="https://x",
+            aspect_ratio="1:1", seed=None, reference_paths=[], timeout_s=5.0,
+        )
+    assert "没有图像" in str(ei.value)
