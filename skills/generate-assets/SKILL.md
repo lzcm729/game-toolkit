@@ -12,8 +12,8 @@ description: |
 
   **不适用**：
   - 即兴单张生图 → 用 image-gen
-  - 项目里没 asset-config.yaml → 用 image-gen 单张或先建 yaml
-  - 单张即兴生图（用 image-gen）
+  - 项目里还没有 asset-config.yaml → 用 asset-config skill 把它建起来
+  - 配置写坏了 / 改完想确认 → 用 asset-config 的 check
 
   **依赖**：一个生图后端（subprocess 调用）。缺省 image-gen（需单独安装），
   插件自带 laozhang 极简后端可直接用，也可接自定义脚本，协议见 BACKEND-PROTOCOL.md
