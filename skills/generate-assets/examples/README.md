@@ -18,7 +18,9 @@ category（顾客、配料、配方、建筑、背景……）。底层调用生
 $schema_version: 1   # 当前版本
 style: { ... }       # 全局风格（被所有 category 继承，可单独跳过）
 output_root: "..."   # 输出根目录（接受 res:// 前缀）
+adapter: godot       # 引擎适配（可选，缺省自动探测；godot / generic）
 backend: image-gen   # 生图后端（可选，缺省 image-gen）
+model: gemini-3-pro-image   # 生图模型（可选，category 可覆盖）
 categories:
   <name>: { ... }    # 一个 category
   ...
@@ -72,13 +74,6 @@ project_root: ".."    # 可选。相对本文件；也可用 CLI 的 --project-r
 
 `image-gen` 后端不认 `model`（它用 `chain`），配了会告警。
 
-## `image`（编辑底图）
-
-category 或 item 级，与 `reference_paths` **互斥**。路径解析同 `reference_paths`：
-`res://` 相对项目根，裸相对路径相对 `output_root`，绝对路径原样。
-
-item 级覆盖 category 级 —— 一个 category 共用一张底图，个别 item 换自己的。
-
 ## `backend`（生图后端）
 
 `image-gen`（缺省） / `laozhang`（随插件安装） / 脚本路径（相对路径以 project_root
@@ -112,6 +107,21 @@ output_root: "assets/art"  # = <project_root>/assets/art
 | `skip_global_style` | bool | true → 不拼全局 prefix/suffix |
 | `seed` / `chain` / `preset` | misc | 透传到 image-gen `defaults`；`chain` / `preset` 未设时继承 `style` 段的同名字段（`skip_global_style: true` 则不继承） |
 | `reference_paths` | list | 覆盖 global style 的内容层 ref（可选） |
+| `model` | string | 覆盖顶层 `model`（可选） |
+| `image` | string | **编辑底图**，与 `reference_paths` 互斥（可选） |
+
+`model` 与 `image` 也可以写在单个 item 上（data_source 的 item 字段），item 级优先于
+category 级。一个 category 共用一张底图、个别 item 换自己的，就这么写。
+
+### `image` 与 `reference_paths` 的区别
+
+| | 含义 | 构图 |
+|---|---|---|
+| `image` | 编辑这张图 | 保住原构图 |
+| `reference_paths` | 参考这些图的风格，重新画 | 会漂 |
+
+两者**互斥**，同时给会在构造 batch 时就报错，不等发到后端。路径解析规则相同：
+`res://` 相对项目根，裸相对路径相对 `output_root`，绝对路径原样。
 
 ## 数据源 type（v1）
 
