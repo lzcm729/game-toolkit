@@ -53,7 +53,7 @@ Claude Code 插件源码仓库。当前版本 v3.8.0，游戏设计与实现契�
 .claude-plugin/plugin.json      # 插件清单（name/version/description/author）
 .claude-plugin/marketplace.json # marketplace 清单（两处 version 要和 plugin.json 一起改）
 agents/                         # 4 个 sub-agent（.md，frontmatter + 系统提示词）
-skills/                         # 14 个 skill（每个一个子目录，含 SKILL.md 和资源）
+skills/                         # 15 个 skill（每个一个子目录，含 SKILL.md 和资源）
 CHANGELOG.md                    # 版本记录，每次 bump 同步补条目
 PLANNED.md                      # 下一版计划（未发布）。标题刻意不用 ## x.y.z：
                                 #   verify_release.py 靠那个格式找 CHANGELOG 最新段，
@@ -76,7 +76,9 @@ scripts/verify_release.py       # 发布自检（校验 commit 而非工作区�
 - **知识/理论**：`game-design-theory/`（四本设计书知识库）、`game-ui-design/`（引擎无关的游戏 UI 原则）、`book-to-reference/`
 - **可选技术适配**：`react-game-ui/`（Web 栈的游戏 UI 实现模式，只在项目确实用 React 时才用）
 - **代码/文档同步**：`sync-code-ahead/`（代码→文档）、`sync-docs-ahead/`（文档→代码 gap 分析）
-- **实现执行**：`parallel-implement/`（git worktree 并行实现）、`generate-assets/`（schema-driven 批量资源生成，引擎适配层当前提供 Godot / generic）
+- **实现执行**：`parallel-implement/`（git worktree 并行实现）、`generate-assets/`（schema-driven 批量资源生成，
+  引擎适配层提供 Godot / Unreal / generic）、`asset-config/`（建立与维护 asset-config.yaml；
+  那份配置不属于 generate-assets，后者只是目前唯一的消费者）
 
 ### 3.0.0 砍掉了什么
 
