@@ -20,7 +20,6 @@ scripts 目录，找不到时会明确报出来，而不是退化成一套简化
 from __future__ import annotations
 
 import argparse
-import re
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -194,7 +193,7 @@ def check_config(
             continue
         _check_category(ctx, name, spec, inputs, r, allow_degrade=allow_degrade)
 
-    _check_global_references(ctx, style, inputs)
+    _check_global_references(ctx, style, inputs, r)
     for full, label in inputs.items():
         if not Path(full).exists():
             r.error(f"{label} 指向的文件不存在：{full}")
@@ -234,7 +233,7 @@ def _check_category(ctx, name: str, spec: dict, inputs: dict, r: Report,
         inputs.setdefault(full, label)
 
 
-def _check_global_references(ctx, style: dict, inputs: dict) -> None:
+def _check_global_references(ctx, style: dict, inputs: dict, r: Report) -> None:
     """全局 reference_paths 单独收一次。
 
     所有 category 都 skip_global_style 时，它不会进任何一份计划 ——
@@ -246,8 +245,12 @@ def _check_global_references(ctx, style: dict, inputs: dict) -> None:
                 str(raw), project_root=ctx.project_root,
                 output_root=ctx.output_root, adapter=ctx.adapter,
             )
-        except ValueError:
-            continue    # 解析失败已由计划那边报过
+        except ValueError as e:
+            # 不能假设「计划那边已经报过」：所有 category 都 skip_global_style
+            # 或都自带 reference_paths 时，全局 refs 根本不进任何一份计划。
+            # 那正是 3.16.0 引入的回归 —— 一条写错的全局路径从此查不出来。
+            r.error(f"style.reference_paths 的路径解析失败（{raw}）：{e}")
+            continue
         inputs.setdefault(full, "style.reference_paths")
 
 
@@ -263,6 +266,63 @@ def _check_style_markers(style: dict, r: Report) -> None:
             r.note(f"style.{key} 还带着 {TODO_MARKER} 标记，是创作性未定稿：{value!r}")
 
 
+# 「必须询问」档的字段**有意义的位置**。别处叫同一个名字是别的东西 ——
+# `item_overrides: {model: gen_model}` 里的 model 是「哪一列覆盖生图模型」，
+# `columns: {model: x}` 里的是表头名。给它们要求来源注释纯属噪音。
+#
+# 3.19.0 新增 item_overrides 之后，行首正则那套（不看层级）开始误报，
+# 而且误报的正是本仓库自己文档里的示例写法。所以改成按 YAML 节点位置判。
+_MUST_ASK_CONTAINERS = (
+    (),                                     # 顶层：backend / model
+    ("style",),                             # style.chain
+    ("categories", "*"),                    # category 的 model / aspect_ratio / chain
+    ("categories", "*", "data_source"),     # data_source.id_column
+)
+
+
+def _must_ask_lines(config_path: Path, r: Report) -> "dict[int, str] | None":
+    """扫出「必须询问」档字段所在的行号（0 基），只认有意义的位置。
+
+    用 `yaml.compose` 拿节点树 —— 它保留 `start_mark`（行号），而
+    `safe_load` 把位置和注释都丢了。返回 None 表示 YAML 本身就读不了。
+    """
+    try:
+        root = yaml.compose(config_path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as e:
+        r.error(f"{config_path} 不是合法 YAML：{e}")
+        return None
+    except OSError as e:
+        r.error(f"{config_path} 读不了：{e}")
+        return None
+    if root is None:
+        return {}
+
+    found: dict = {}
+
+    def walk(node, path: tuple) -> None:
+        if not isinstance(node, yaml.MappingNode):
+            return
+        here = tuple(path)
+        collect = any(_path_matches(here, pat) for pat in _MUST_ASK_CONTAINERS)
+        for key_node, value_node in node.value:
+            name = getattr(key_node, "value", None)
+            if not isinstance(name, str):
+                continue
+            if collect and name in _MUST_ASK_FIELDS:
+                found[key_node.start_mark.line] = name
+            walk(value_node, here + (name,))
+
+    walk(root, ())
+    return found
+
+
+def _path_matches(path: tuple, pattern: tuple) -> bool:
+    """`*` 匹配任意一段（category 的名字是用户起的）。"""
+    if len(path) != len(pattern):
+        return False
+    return all(p == "*" or p == seg for seg, p in zip(path, pattern))
+
+
 def _check_decision_sources(config_path: Path, r: Report) -> None:
     """「必须询问」档的字段，要在紧邻的注释块里写明值从哪来。
 
@@ -273,18 +333,21 @@ def _check_decision_sources(config_path: Path, r: Report) -> None:
     写「沿用某处的声明」也算来源 —— 要求的是说清**从哪来**，
     不是证明**问过谁**。后者任何静态检查都做不到。
 
-    注意读的是原始文本：yaml.safe_load 会把注释全丢掉。
+    位置由 YAML 节点树定（见 `_MUST_ASK_CONTAINERS`），注释由原始文本扫 ——
+    `yaml` 把注释全丢掉，所以两样都要。
     """
-    try:
-        lines = config_path.read_text(encoding="utf-8").splitlines()
-    except OSError:
+    targets = _must_ask_lines(config_path, r)
+    if not targets:
         return
 
-    for i, line in enumerate(lines):
-        m = re.match(r"^(\s*)([A-Za-z_][A-Za-z0-9_]*)\s*:", line)
-        if not m or m.group(2) not in _MUST_ASK_FIELDS:
-            continue
+    try:
+        lines = config_path.read_text(encoding="utf-8").splitlines()
+    except OSError:  # pragma: no cover - 上面刚读成功过
+        return
 
+    for i in sorted(targets):
+        if i >= len(lines):  # pragma: no cover - 防御
+            continue
         # 往上扫紧邻的注释块。空行中断 —— 隔了空行的注释是在说别的事。
         found = False
         j = i - 1
@@ -300,11 +363,9 @@ def _check_decision_sources(config_path: Path, r: Report) -> None:
                 "在紧邻的注释里加一行「{}…」，例如"
                 "「# {}用户选定（候选 A / B）」或"
                 "「# {}沿用 xxx.yaml 的声明」。".format(
-                    i + 1, m.group(2), _SOURCE_MARKER, _SOURCE_MARKER, _SOURCE_MARKER
+                    i + 1, targets[i], _SOURCE_MARKER, _SOURCE_MARKER, _SOURCE_MARKER
                 )
             )
-
-
 def main(argv: "list[str] | None" = None) -> int:
     """退码：0 全过 / 1 运行合法性有错 / 3 只有治理问题。
 

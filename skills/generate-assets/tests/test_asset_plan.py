@@ -482,3 +482,85 @@ def test_backend_with_edit_support_accepts_image(tmp_path):
     plan = build_category_plan(ctx, "ing")
     assert plan.ok
     assert Path(plan.assets[0].payload["image"]).name == "base.png"
+
+
+# -------------------- 治理判定是配置属性，不是本次运行属性 --------------------
+
+def test_governance_scans_every_item_not_just_the_first(tmp_path):
+    """**又一个 items[0]**：3.16.0 存在的全部理由就是抽第一条不够，
+    而治理判定自己也差点这么干。带 model 的是第二条。
+    """
+    (tmp_path / "items.json").write_text(
+        json.dumps([{"id": "a", "visual": "x"},
+                    {"id": "b", "visual": "y", "model": "业务数据"}]),
+        encoding="utf-8")
+    spec = {"data_source": {"type": "json_list", "path": "items.json"},
+            "prompt_template": "Icon of {visual}."}
+    ctx = _with_backend(_ctx(tmp_path, {"categories": {"ing": spec}}),
+                        image_backend.LAOZHANG)
+    plan = build_category_plan(ctx, "ing")
+    assert any("'model'" in g for g in plan.governance)
+
+
+def test_governance_survives_limit_and_names(tmp_path):
+    """--limit 1 恰好跳过带 model 的那条，不代表这份配置没有隐式控制通道。"""
+    (tmp_path / "items.json").write_text(
+        json.dumps([{"id": "a", "visual": "x"},
+                    {"id": "b", "visual": "y", "model": "业务数据"}]),
+        encoding="utf-8")
+    spec = {"data_source": {"type": "json_list", "path": "items.json"},
+            "prompt_template": "Icon of {visual}."}
+    ctx = _with_backend(_ctx(tmp_path, {"categories": {"ing": spec}}),
+                        image_backend.LAOZHANG)
+    plan = build_category_plan(ctx, "ing", limit=1)
+    assert len(plan.assets) == 1
+    assert any("'model'" in g for g in plan.governance)
+
+
+def test_extra_fields_model_is_not_an_implicit_channel(tmp_path):
+    """extra_fields 注入的 model 明明写在配置里，不该判成「没声明过」。"""
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x"}},
+                extra_fields={"model": {"a": "m-from-config"}}),
+        image_backend.LAOZHANG)
+    plan = build_category_plan(ctx, "ing")
+    assert plan.governance == []
+    assert plan.assets[0].payload["model"] == "m-from-config"
+
+
+# -------------------- 假绿补课：3.20.0 的严重度分档 --------------------
+
+@pytest.mark.parametrize("field, value", [
+    ("aspect_ratio", "16:9"),
+    ("preset", "fancy"),
+    ("reference_paths", ["anchor.png"]),
+])
+def test_every_meaning_changing_field_blocks(tmp_path, field, value):
+    """3.20.0 的表里六个阻止类字段，原来只测了 chain / model / image 三个。"""
+    if field == "reference_paths":
+        (tmp_path / "art").mkdir(exist_ok=True)
+        (tmp_path / "art" / "anchor.png").write_bytes(b"x")
+    backend = dataclasses.replace(
+        image_backend.LAOZHANG,
+        # 先补齐再减掉那一个 —— 反过来写会把 preset 又加回来（第一版就是这样，
+        # 于是 preset 那一档恰好测了个寂寞）
+        supports=(image_backend.LAOZHANG.supports | {"chain", "preset"}) - {field})
+    ctx = _with_backend(_simple(tmp_path, {"a": {"visual": "x"}}, **{field: value}),
+                        backend)
+    plan = build_category_plan(ctx, "ing")
+    assert not plan.ok, plan.warnings
+    assert any(f"不支持 {field}" in e for e in plan.errors)
+
+
+def test_custom_backend_from_env_is_capability_unknown(tmp_path, monkeypatch):
+    """**假绿补课**：以前只用 dataclasses.replace 手搓后端测这条，
+    真正产生自定义后端的代码路径（select → _custom）零覆盖。
+    """
+    script = tmp_path / "my_backend.py"
+    script.write_text("# stub", encoding="utf-8")
+    monkeypatch.setenv(image_backend.SCRIPT_ENV, str(script))
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}}, chain="fancy")
+    assert ctx.backend.capability_known is False
+    assert any("能力未知" in n for n in ctx.notes)
+    plan = build_category_plan(ctx, "ing")
+    assert plan.ok and plan.warnings == []

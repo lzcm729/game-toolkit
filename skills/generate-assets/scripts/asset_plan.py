@@ -191,8 +191,8 @@ def implicit_override_governance(cat_name: str, items: list) -> list:
         f"category {cat_name}: 数据里的 {names} 正在当生图参数用（条目级优先级最高，"
         "压得过 category 和顶层的同名设置），但配置没声明过这件事。"
         f"有意的话写 item_overrides: {{{hit[0]}: {hit[0]}}}；"
-        "是业务数据的话用 data_source.columns 改个名，"
-        "或写 item_overrides: {} 关掉逐项覆盖。"
+        "是业务数据的话写 item_overrides: {} 关掉逐项覆盖。"
+        "（别指望 data_source.columns —— 它是**加别名**，原列名照样留在条目里。）"
     ]
 
 
@@ -398,6 +398,12 @@ def build_category_plan(
         return plan
     plan.total_items = len(items)
 
+    # 治理判定要在过滤、截断、extra_fields 注入**之前**算：
+    #   - 它是配置属性，不是本次运行属性。--limit 1 恰好跳过带 model 的那条，
+    #     不代表这份配置没有隐式控制通道
+    #   - extra_fields 注入的 model 明明写在配置里，不该被判成「没声明过」
+    raw_items = list(items)
+
     if not items:
         plan.notes.append(
             f"category {cat_name}: 数据源没有条目，这个 category 不会产出任何图"
@@ -436,7 +442,7 @@ def build_category_plan(
     # --- 逐项覆盖：哪一列能当生成参数 ---
     overrides = resolve_item_overrides(cat_name, cat_spec, plan)
     if overrides is None:
-        plan.governance.extend(implicit_override_governance(cat_name, items))
+        plan.governance.extend(implicit_override_governance(cat_name, raw_items))
     else:
         for param, source in overrides.items():
             if items and not any(source in it for it in items):

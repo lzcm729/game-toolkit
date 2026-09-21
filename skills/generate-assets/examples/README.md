@@ -124,8 +124,9 @@ Content/Fish/F_River.uasset         ← /Game/Fish/F_River 指的是这个
 `image-gen`（缺省） / `laozhang`（随插件安装） / 脚本路径（相对路径以 project_root
 为基准）。`IMAGE_GEN_SCRIPT` 环境变量可临时覆盖，优先级最高。
 
-后端不认的 `defaults` 字段会按 category 告警后继续 —— 例如 `laozhang` 不支持
-`chain` / `preset`。协议见 `../BACKEND-PROTOCOL.md`。
+后端不认的字段默认**阻止执行** —— 例如 `laozhang` 不支持 `chain` / `preset`。
+`--allow-degrade` 降回告警，`seed` 本来就只告警。详见上面「`model`（生图模型）」
+一节和 `../BACKEND-PROTOCOL.md`。
 
 ## `output_root`
 

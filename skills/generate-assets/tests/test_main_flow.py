@@ -1409,7 +1409,7 @@ def test_limit_rejects_zero_and_negative(tmp_project, capsys):
 
 
 def test_names_works_on_csv_source(tmp_project, mock_subprocess_run):
-    """--names 对所有数据源都有效，帮助文案里那句「仅对 inline / json_dict」是过期的。"""
+    """--names 对所有数据源都有效（3.20.1 把 docstring 里那句过期的说明改掉了）。"""
     calls, _ = mock_subprocess_run
     (tmp_project / "f.csv").write_text(
         "fid,v\na,x\nb,y\n", encoding="utf-8")
@@ -1458,3 +1458,33 @@ def test_declared_item_overrides_silences_the_warning(tmp_project, capsys, mock_
     assert ga.main(["ingredients", "--config", str(p), "--dry-run"]) == 0
     warns = _warn_lines(capsys.readouterr().err)
     assert not any("item_overrides" in w for w in warns), warns
+
+
+def test_unreal_import_hint_reaches_stdout_end_to_end(tmp_path, capsys, mock_subprocess_run):
+    """**假绿补课**：3.17.0 声称「UE 项目用 generic 也能拿到导入提示」，
+    但从没有一个测试跑过 main()，也没有一个测试造过 .uproject。
+    把提示改回跟 adapter 走，423 个测试全绿。
+    """
+    _, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    (tmp_path / "Game.uproject").write_text("{}", encoding="utf-8")
+    cfg = tmp_path / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["adapter"] = "generic"          # 正常默认，不是 unreal
+    _write_yaml(cfg, conf)
+
+    assert ga.main(["ingredients", "--config", str(cfg)]) == 0
+    out = capsys.readouterr().out
+    assert "[unreal]" in out
+    assert "UE 导入" in out
+
+
+def test_no_import_hint_when_project_is_not_recognised(tmp_path, capsys, mock_subprocess_run):
+    _, set_result = mock_subprocess_run
+    set_result(returncode=0)
+    cfg = tmp_path / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["adapter"] = "generic"
+    _write_yaml(cfg, conf)
+    assert ga.main(["ingredients", "--config", str(cfg)]) == 0
+    assert "[unreal]" not in capsys.readouterr().out

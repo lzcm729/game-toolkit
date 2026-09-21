@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
+import check_config as cc
 from check_config import check_config
 
 
@@ -22,8 +23,11 @@ def _write(tmp_path: Path, conf: dict, *, name: str = "asset-config.yaml") -> Pa
     for line in text.splitlines():
         stripped = line.lstrip()
         name_part = stripped.split(":")[0] if ":" in stripped else ""
-        if name_part in ("backend", "model", "chain", "aspect_ratio", "id_column"):
-            indent = line[: len(line) - len(stripped)]
+        # 名单从被测模块取，不硬编码 —— 两边分家的话，测试会静默失去覆盖。
+        # 缩进限制同样要紧：以前给**任何**层级的同名键都塞来源注释，
+        # 于是 item_overrides / columns 之下的误报被夹具结构性地遮住了。
+        indent = line[: len(line) - len(stripped)]
+        if name_part in cc._MUST_ASK_FIELDS and len(indent) <= 4:
             lines.append(f"{indent}# 来源：测试夹具")
         lines.append(line)
     p = tmp_path / name
@@ -724,3 +728,103 @@ def test_top_level_model_check_is_not_duplicated(tmp_path):
     report = check_config(cfg, tmp_path)
     hits = [e for e in report.errors if "不支持 model" in e]
     assert len(hits) == 1, report.errors
+
+
+# -------------------- 来源检查只认有意义的位置 --------------------
+
+_NESTED = """$schema_version: 1
+adapter: generic
+output_root: art
+categories:
+  ing:
+    item_overrides:
+      model: gen_model
+      aspect_ratio: ar_col
+    data_source:
+      type: json_dict
+      path: items.json
+      columns:
+        model: business_model
+    extra_fields:
+      model:
+        pearl: x
+    prompt_template: "Icon of {visual}."
+"""
+
+
+def test_nested_keys_do_not_need_a_source_comment(tmp_path):
+    """**回归**：行首正则不看 YAML 层级，把 item_overrides 之下的 model 也当成
+    「必须询问」档的字段 —— 而那正是本仓库自己文档里的示例写法。
+
+    那几处的 model 是「哪一列覆盖生图模型」和「表头名」，不是一个待决策的值。
+    """
+    cfg = _write_raw(tmp_path, _NESTED)
+    report = check_config(cfg, tmp_path)
+    assert report.governance_ok, report.governance
+
+
+def test_top_level_field_still_needs_a_source(tmp_path):
+    cfg = _write_raw(tmp_path, _BASE + "backend: laozhang" + chr(10))
+    assert not check_config(cfg, tmp_path).governance_ok
+
+
+def test_style_chain_still_needs_a_source(tmp_path):
+    cfg = _write_raw(tmp_path, _BASE + "style:" + chr(10) + "  chain: fancy" + chr(10))
+    report = check_config(cfg, tmp_path)
+    assert not report.governance_ok
+    assert "chain" in _messages(report)
+
+
+def test_category_field_still_needs_a_source(tmp_path):
+    cfg = _write_raw(tmp_path, _BASE.replace(
+        '    prompt_template: "Icon of {visual}."',
+        '    aspect_ratio: "4:3"' + chr(10) + '    prompt_template: "Icon of {visual}."'))
+    report = check_config(cfg, tmp_path)
+    assert not report.governance_ok
+    assert "aspect_ratio" in _messages(report)
+
+
+def test_data_source_id_column_still_needs_a_source(tmp_path):
+    (tmp_path / "f.csv").write_text("fid,v" + chr(10) + "a,x" + chr(10), encoding="utf-8")
+    cfg = _write_raw(tmp_path, """$schema_version: 1
+adapter: generic
+output_root: art
+categories:
+  c:
+    data_source:
+      type: csv
+      path: f.csv
+      id_column: fid
+    prompt_template: "{v}"
+""")
+    report = check_config(cfg, tmp_path)
+    assert not report.governance_ok
+    assert "id_column" in _messages(report)
+
+
+def test_broken_yaml_in_governance_mode_is_a_runtime_error(tmp_path):
+    p = tmp_path / "asset-config.yaml"
+    p.write_text("a: [unclosed" + chr(10), encoding="utf-8")
+    report = check_config(p, tmp_path, checks="governance")
+    assert not report.ok
+
+
+# -------------------- 全局参考图的存在性不能靠计划兜底 --------------------
+
+def test_unusable_global_reference_is_caught_when_all_categories_skip(tmp_path):
+    """**回归**：所有 category 都 skip_global_style 时，全局 refs 不进任何一份
+    计划 —— 而 check 曾经假设「解析失败已由计划那边报过」，于是一条写错的
+    全局路径从此查不出来。
+    """
+    cfg = _write(tmp_path, _minimal(
+        tmp_path,
+        style={"reference_paths": ["res://art/anchor.png"]},
+        categories={"one": {
+            "data_source": {"type": "json_dict", "path": "items.json"},
+            "prompt_template": "Icon of {visual}.",
+            "skip_global_style": True,
+        }},
+    ))
+    report = check_config(cfg, tmp_path)
+    assert not report.ok
+    assert "style.reference_paths" in _messages(report)

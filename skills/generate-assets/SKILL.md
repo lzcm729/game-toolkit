@@ -57,7 +57,8 @@ model: gemini-3-pro-image      # 可选，category 可覆盖
 
 `model` 是后端配置不是风格，所以放顶层而非 `style:` 段 —— 放 style 里会被
 `skip_global_style` 连带关掉。image-gen 用 `chain:` 表达模型选择，配了 `model:`
-会被告警指向 `chain:`。
+会**报错**并指向 `chain:`（3.20.0 起；丢掉指定的模型仍然出得来图，但那不是
+你要的那件事）。
 
 ## 两种输入模式
 
@@ -69,8 +70,13 @@ model: gemini-3-pro-image      # 可选，category 可覆盖
 两者**互斥**，同时给会 fail fast。要「同一底图批量出变体」（四季版、角色的
 不同状态）用 `image`；要「一套风格贯穿全部资源」用 `reference_paths`。
 
-后端不支持的 `defaults` 字段（如 laozhang 不认 `chain` / `preset`）会按 category
-告警后继续，不静默忽略也不中断。写一个后端只需满足三条约定，见 BACKEND-PROTOCOL.md。
+后端不支持的字段（如 laozhang 不认 `chain` / `preset`）默认**阻止执行**并点名
+是哪个 category、哪个条目、丢掉的是什么值。要临时跑一次加 `--allow-degrade`，
+它把这类错降回告警。`seed` 例外 —— 它只影响可复现性，不影响画的是什么，
+丢了照旧只告警。`check_config.py` 有同名开关，两边判断一致。
+
+自定义后端（脚本路径 / `IMAGE_GEN_SCRIPT`）的能力**未知**：既不报降级也不假装
+查过，只在开头说一句。写一个后端只需满足几条约定，见 BACKEND-PROTOCOL.md。
 
 ## 调用前：把工程根接上
 
@@ -114,15 +120,23 @@ python "$SKILL" customers --names student,bigEater
 generate-assets/
 ├── SKILL.md                            # 本文件
 ├── scripts/
-│   ├── generate_assets.py              # 主入口（CLI + 主流程）
-│   ├── data_source.py                  # 数据源加载（json_dict / json_list / inline）+ filter
+│   ├── generate_assets.py              # 主入口：拿到计划之后落盘、调后端、汇总
+│   ├── asset_context.py                # 上下文解析：定位配置 / 工程根 / 输出根 / 适配器 / 后端
+│   ├── asset_plan.py                   # 生成计划：数据源 → prompt → 文件名 → 落盘位置
+│   ├── data_source.py                  # 数据源加载（json_dict / json_list / inline / csv）+ filter
 │   ├── prompt_render.py                # 模板 format + derived_fields mini DSL
-│   ├── engine_adapter.py              # 引擎适配：路径前缀 / 工程根探测 / 生成后检查
+│   ├── engine_adapter.py               # 工程探测 / 路径前缀解析 / 导入提示（三者独立）
+│   ├── image_backend.py                # 后端注册表与能力声明
+│   ├── backends/laozhang_backend.py    # 随插件自带的极简后端
 │   └── godot_utils.py                  # Godot 适配的实现（res:// / project.godot / .import）
 ├── examples/
 │   ├── README.md                       # asset-config.yaml schema 文档
 │   └── milk-tea-defense.yaml           # 完整示例（5 category）
+├── BACKEND-PROTOCOL.md                 # 生图后端协议
 └── tests/                              # unit tests
+
+前两个模块（`asset_context` / `asset_plan`）和 `asset-config` skill 的校验器
+**共用** —— 校验和执行看到的是同一个计划。
 ```
 
 ## asset-config.yaml schema

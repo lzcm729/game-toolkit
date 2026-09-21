@@ -15,7 +15,7 @@ CLI:
     python generate_assets.py <category>          # 生成单个 category
     python generate_assets.py all                 # 生成全部 category
     python generate_assets.py list                # 列出 + desc
-    python generate_assets.py <cat> --names a,b   # 过滤 id（仅对 inline / json_dict 生效）
+    python generate_assets.py <cat> --names a,b   # 过滤 id（对所有数据源都有效）
     python generate_assets.py --dry-run           # image-gen 走 --dry-run
     python generate_assets.py --force             # 覆盖已存在
     python generate_assets.py --config path.yaml  # 默认 ./assets/asset-config.yaml
