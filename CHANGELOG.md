@@ -3,6 +3,66 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.20.1 (2026-09-21)
+
+修 3.16.0–3.20.0 这批改动自己带进来的问题。一次外部评审（Fable 5.1）报的，
+每一条都复现过。
+
+### 3.19.0 的治理提示，自己给的建议是错的
+
+提示里写「是业务数据的话用 `data_source.columns` 改个名」。**`columns` 是
+加别名，不是改名** —— `data_source.py:297` 先写原列名再写别名，原列名照样
+留在条目里。照着做的结果：治理问题一条没少，还因为 3.20.0 多出一条运行错误
+（`backend=image-gen 不支持 model`），从退 3 变成退 1。
+
+删掉那条假出路。真正有效的只有 `item_overrides: {...}` 和 `item_overrides: {}`。
+
+### 来源检查不认 YAML 层级，误报自己文档里的示例
+
+`来源：` 注释的检查用行首正则扫原文，不看嵌套。3.19.0 新增 `item_overrides`
+之后，`item_overrides: {model: gen_model}` 里的 `model:` 被当成「必须询问」档
+的字段 —— 而那正是 `examples/README.md` 里的示例写法。`columns:` / `extra_fields:`
+之下同理。
+
+改成按 YAML 节点位置判（`yaml.compose` 带行号），只认四类有意义的位置：
+顶层、`style`、`categories.*`、`categories.*.data_source`。
+
+测试为什么没抓到：夹具给**任何**层级的同名键自动塞 `# 来源：`，把整类误报
+结构性地遮住了。夹具同时改了两处 —— 限制缩进，字段名单从被测模块取而不是
+硬编码（两边分家的话测试会静默失去覆盖）。
+
+### 3.16.0 的回归：全局参考图的路径错误查不出来
+
+`check` 里那句「解析失败已由计划那边报过」，在所有 category 都
+`skip_global_style: true`（或都自带 `reference_paths`）时不成立 —— 全局 refs
+根本不进任何一份计划。一条写错的全局路径从此静默通过，基线查得出来。
+
+### 治理判定挪到过滤之前
+
+它是**配置属性**，不是本次运行属性。以前算在 `--limit` / `--names` 截断之后，
+`--limit 1` 恰好跳过带 `model` 的那条就不报了；也算在 `extra_fields` 注入之后，
+于是配置里明写的 `extra_fields: {model: ...}` 被判成「没声明过」。
+
+### 补上四处没人看守的能力
+
+外部评审自己做了 14 个变异，5 个全绿。复验属实，都补了测试：
+
+| 把它改回旧行为 | 原来 |
+|---|---|
+| 自定义后端 `capability_known` 改回 True | 423 全绿 —— 3.20.0 的招牌能力在真正产生自定义后端的代码路径上零覆盖 |
+| 导入提示改回跟 adapter 走 | 423 全绿 —— 3.17.0 声称换来的能力从没端到端测过，测试里一个 `.uproject` 都没有 |
+| `aspect_ratio` / `preset` / `reference_paths` 划进「丢了也无所谓」 | 423 全绿 —— 3.20.0 表里六个阻止类字段只测了三个 |
+| 治理判定只看第一条 item | 423 全绿 —— **`items[0]` 抽样正是 3.16.0 存在的全部理由**，新代码里又埋了一个 |
+
+### 文档与代码不符
+
+`SKILL.md` 还写着「配了 `model:` 会被告警指向 `chain:`」「告警后继续，不静默
+忽略也不中断」（3.20.0 起都是阻止），文件结构缺 `asset_context.py` /
+`asset_plan.py` / `image_backend.py` / `backends/`，`engine_adapter.py` 仍标着
+3.17.0 拆走的两个职责。`examples/README.md` 同一文件内自相矛盾。
+`generate_assets.py` 的 docstring 说 `--names` 只对 inline / json_dict 生效 ——
+测试里早就注明那句过期了。
+
 ## 3.20.0 (2026-09-21)
 
 后端不支持显式要求时默认**阻止**，不再一律告警继续。
