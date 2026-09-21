@@ -303,14 +303,14 @@ def _route_data_source_path(cat_name: str, spec, ctx, plan: "CategoryPlan"):
     """数据源路径也交给适配器解析。返回（可能改写过的）spec，致命问题返回 None。
 
     以前 `data_source.py` 无条件剥 `res://`、不问适配器，而 output_root /
-    reference_paths / image 都走适配器 —— 同一份 `adapter: generic` 配置里，
+    reference_paths / image 都走适配器 —— 同一份 `adapter: filesystem` 配置里，
     `output_root: res://art` 报错，`data_source.path: res://items.json` 却通过。
     同一个概念两个解释器。
 
     这里先让适配器解析，把结果换成绝对路径再交下去（`data_source` 见到绝对
     路径原样用，所以它一行不用改）。
 
-    **过渡期**：generic 下的 `res://` 是 `examples/README.md` 明写过「接受」的
+    **过渡期**：filesystem 下的 `res://` 是 `examples/README.md` 明写过「接受」的
     行为，直接报错会让照文档写的配置一上来就坏。所以现在告警、照旧按工程根
     解析；5.0.0 起报错（见 PLANNED.md）。和 `adapter: unreal` 同一个节奏。
     """

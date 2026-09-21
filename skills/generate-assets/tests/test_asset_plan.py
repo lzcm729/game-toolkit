@@ -14,7 +14,7 @@ from asset_plan import MAX_ITEM_ERRORS, build_category_plan
 
 
 def _ctx(tmp_path: Path, conf: dict) -> "asset_context.AssetContext":
-    conf = {"adapter": "generic", "output_root": "art", **conf}
+    conf = {"adapter": "filesystem", "output_root": "art", **conf}
     p = tmp_path / "asset-config.yaml"
     p.write_text(yaml.safe_dump(conf, sort_keys=False, allow_unicode=True),
                  encoding="utf-8")

@@ -418,8 +418,8 @@ def test_extract_summary_handles_multiple_json_lines():
 
 # -------------------- non-Godot warn --------------------
 
-def test_non_godot_falls_back_to_generic_engine(tmp_path, capsys, mock_subprocess_run, monkeypatch):
-    """没有已支持的引擎工程文件时退到 generic，并说明这意味着什么。"""
+def test_non_godot_falls_back_to_filesystem_engine(tmp_path, capsys, mock_subprocess_run, monkeypatch):
+    """没有已支持的引擎工程文件时退到 filesystem，并说明这意味着什么。"""
     calls, set_result = mock_subprocess_run
     set_result(returncode=0)
     cfg = tmp_path / "asset-config.yaml"          # tmp_path 没 project.godot
@@ -427,30 +427,30 @@ def test_non_godot_falls_back_to_generic_engine(tmp_path, capsys, mock_subproces
     monkeypatch.chdir(tmp_path)
     ga.main(["ingredients", "--config", str(cfg), "--dry-run"])
     err = capsys.readouterr().err
-    assert "adapter=generic" in err
+    assert "adapter=filesystem" in err
 
 
-def test_explicit_engine_generic_skips_detection(tmp_project, capsys, mock_subprocess_run):
+def test_explicit_engine_filesystem_skips_detection(tmp_project, capsys, mock_subprocess_run):
     """显式声明 engine 后不再探测 —— 即使目录里有 project.godot。"""
     calls, set_result = mock_subprocess_run
     set_result(returncode=0)
     cfg = tmp_project / "asset-config.yaml"
     config = _minimal_config()
-    config["engine"] = "generic"
-    config["output_root"] = "res://art"      # generic 不认 res://：被拒 = 声明生效
+    config["engine"] = "filesystem"
+    config["output_root"] = "res://art"      # filesystem 不认 res://：被拒 = 声明生效
     _write_yaml(cfg, config)
     assert ga.main(["ingredients", "--config", str(cfg), "--dry-run"]) == 1
     assert "res://" in capsys.readouterr().err
     assert calls == []
 
 
-def test_generic_engine_rejects_res_prefix(tmp_path, mock_subprocess_run, monkeypatch, capsys):
-    """generic 模式撞见 res:// 要报错，不能硬拼成 <root>/res:/art。"""
+def test_filesystem_engine_rejects_res_prefix(tmp_path, mock_subprocess_run, monkeypatch, capsys):
+    """filesystem 模式撞见 res:// 要报错，不能硬拼成 <root>/res:/art。"""
     calls, set_result = mock_subprocess_run
     set_result(returncode=0)
     cfg = tmp_path / "asset-config.yaml"
     config = _minimal_config()
-    config["engine"] = "generic"
+    config["engine"] = "filesystem"
     config["output_root"] = "res://art"
     _write_yaml(cfg, config)
     monkeypatch.chdir(tmp_path)
@@ -618,7 +618,7 @@ def test_unregistered_engine_prefix_does_not_suggest_unknown_engine():
     """
     import engine_adapter as ea
     with pytest.raises(ValueError) as ex:
-        ea.GENERIC.resolve_path("/Game/Art/a.uasset", Path("C:/p"))
+        ea.FILESYSTEM.resolve_path("/Game/Art/a.uasset", Path("C:/p"))
     msg = str(ex.value)
     assert "adapter 改成 unreal" not in msg      # 别把人指进死胡同
     assert "普通相对路径" in msg                  # 给出真正的出路
@@ -628,7 +628,7 @@ def test_unregistered_engine_prefix_does_not_suggest_unknown_engine():
 def test_registered_engine_prefix_does_suggest_switching():
     import engine_adapter as ea
     with pytest.raises(ValueError) as ex:
-        ea.GENERIC.resolve_path("res://art/a.png", Path("C:/p"))
+        ea.FILESYSTEM.resolve_path("res://art/a.png", Path("C:/p"))
     assert "adapter 改成 godot" in str(ex.value)
 
 
@@ -639,7 +639,7 @@ def test_adapter_field_preferred_over_legacy_engine(tmp_project, mock_subprocess
     set_result(returncode=0)
     cfg = tmp_project / "asset-config.yaml"
     config = _minimal_config()
-    config["adapter"] = "generic"
+    config["adapter"] = "filesystem"
     config["output_root"] = "res://art"      # 同上
     _write_yaml(cfg, config)
     assert ga.main(["ingredients", "--config", str(cfg), "--dry-run"]) == 1
@@ -652,7 +652,7 @@ def test_adapter_and_engine_conflict_is_an_error(tmp_project, mock_subprocess_ru
     set_result(returncode=0)
     cfg = tmp_project / "asset-config.yaml"
     config = _minimal_config()
-    config["adapter"], config["engine"] = "generic", "godot"
+    config["adapter"], config["engine"] = "filesystem", "godot"
     _write_yaml(cfg, config)
     assert ga.main(["ingredients", "--config", str(cfg), "--dry-run"]) == 1
     assert "engine 是 adapter 的旧名" in capsys.readouterr().err
@@ -675,20 +675,20 @@ def test_explicit_project_root_wins(tmp_project, tmp_path, mock_subprocess_run):
 
 # -------------------- 新用户的三道坎（3.4.3） --------------------
 
-def _generic_res_config(tmp_path: Path) -> Path:
+def _filesystem_res_config(tmp_path: Path) -> Path:
     """没有 project.godot 的目录 + res:// 路径 —— 插件自带示例在陌生目录跑就是这个组合。"""
     cfg = _minimal_config()
     cfg["output_root"] = "res://art"
-    cfg["adapter"] = "generic"
+    cfg["adapter"] = "filesystem"
     cfg.pop("engine", None)
     p = tmp_path / "asset-config.yaml"
     _write_yaml(p, cfg)
     return p
 
 
-def test_res_prefix_under_generic_is_a_clean_fatal(tmp_path, capsys):
+def test_res_prefix_under_filesystem_is_a_clean_fatal(tmp_path, capsys):
     """曾经是一整屏 traceback，把「改 adapter 或换相对路径」那句话埋在栈帧下面。"""
-    p = _generic_res_config(tmp_path)
+    p = _filesystem_res_config(tmp_path)
     rc = ga.main(["--config", str(p), "ingredients", "--dry-run"])
     err = capsys.readouterr().err
     assert rc == 1
@@ -698,7 +698,7 @@ def test_res_prefix_under_generic_is_a_clean_fatal(tmp_path, capsys):
 
 def test_list_only_needs_config(tmp_path, capsys):
     """list 不该被路径解析拦住 —— 看一眼有哪些 category 不需要工程根。"""
-    p = _generic_res_config(tmp_path)
+    p = _filesystem_res_config(tmp_path)
     assert ga.main(["--config", str(p), "list"]) == 0
     assert "ingredients" in capsys.readouterr().out
 
@@ -812,31 +812,31 @@ def test_dry_run_prints_rendered_prompts(tmp_project, capsys, mock_subprocess_ru
     assert "[prompt]" in out and "black pearls" in out
 
 
-def test_generic_hint_is_silent_when_adapter_is_declared(tmp_path, capsys, mock_subprocess_run):
+def test_filesystem_hint_is_silent_when_adapter_is_declared(tmp_path, capsys, mock_subprocess_run):
     cfg = _minimal_config()
-    cfg["adapter"] = "generic"
+    cfg["adapter"] = "filesystem"
     cfg.pop("engine", None)
     p = tmp_path / "asset-config.yaml"
     _write_yaml(p, cfg)
     assert ga.main(["--config", str(p), "ingredients", "--dry-run"]) == 0
-    assert "[info] adapter=generic" not in capsys.readouterr().err
+    assert "[info] adapter=filesystem" not in capsys.readouterr().err
 
 
-def test_generic_hint_shows_when_auto_detected(tmp_path, capsys, mock_subprocess_run):
+def test_filesystem_hint_shows_when_auto_detected(tmp_path, capsys, mock_subprocess_run):
     cfg = _minimal_config()
     cfg.pop("adapter", None)
     cfg.pop("engine", None)
     p = tmp_path / "asset-config.yaml"
     _write_yaml(p, cfg)
     assert ga.main(["--config", str(p), "ingredients", "--dry-run"]) == 0
-    assert "[info] adapter=generic" in capsys.readouterr().err
+    assert "[info] adapter=filesystem" in capsys.readouterr().err
 
 
 # -------------------- codex 第二轮（3.4.4） --------------------
 
 def test_categories_list_is_a_clean_fatal(tmp_path, capsys):
     p = tmp_path / "asset-config.yaml"
-    p.write_text("output_root: art\nadapter: generic\ncategories:\n  - icons\n", encoding="utf-8")
+    p.write_text("output_root: art\nadapter: filesystem\ncategories:\n  - icons\n", encoding="utf-8")
     assert ga.main(["--config", str(p), "list"]) == 1
     assert "categories 应为映射" in capsys.readouterr().err
     assert ga.main(["--config", str(p), "icons", "--dry-run"]) == 1
@@ -844,7 +844,7 @@ def test_categories_list_is_a_clean_fatal(tmp_path, capsys):
 
 def test_null_category_spec_is_a_clean_fatal(tmp_path, capsys, mock_subprocess_run):
     cfg = _minimal_config()
-    cfg["adapter"] = "generic"
+    cfg["adapter"] = "filesystem"
     cfg.pop("engine", None)
     cfg["categories"]["broken"] = None
     p = tmp_path / "asset-config.yaml"
@@ -855,7 +855,7 @@ def test_null_category_spec_is_a_clean_fatal(tmp_path, capsys, mock_subprocess_r
 
 def test_empty_categories_still_lists_nothing_without_error(tmp_path, capsys):
     p = tmp_path / "asset-config.yaml"
-    p.write_text("output_root: art\nadapter: generic\ncategories: {}\n", encoding="utf-8")
+    p.write_text("output_root: art\nadapter: filesystem\ncategories: {}\n", encoding="utf-8")
     assert ga.main(["--config", str(p), "list"]) == 0
     assert "empty config" in capsys.readouterr().out
 
@@ -865,7 +865,7 @@ def test_printed_command_quotes_paths_with_spaces(tmp_path, capsys, mock_subproc
     root = tmp_path / "with space"
     root.mkdir()
     cfg = _minimal_config()
-    cfg["adapter"] = "generic"
+    cfg["adapter"] = "filesystem"
     cfg.pop("engine", None)
     p = root / "asset-config.yaml"
     _write_yaml(p, cfg)
@@ -1469,7 +1469,7 @@ def test_declared_item_overrides_silences_the_warning(tmp_project, capsys, mock_
 
 
 def test_unreal_import_hint_reaches_stdout_end_to_end(tmp_path, capsys, mock_subprocess_run):
-    """**假绿补课**：3.17.0 声称「UE 项目用 generic 也能拿到导入提示」，
+    """**假绿补课**：3.17.0 声称「UE 项目用 generic 也能拿到导入提示」（那时还叫 generic），
     但从没有一个测试跑过 main()，也没有一个测试造过 .uproject。
     把提示改回跟 adapter 走，423 个测试全绿。
     """
@@ -1478,7 +1478,7 @@ def test_unreal_import_hint_reaches_stdout_end_to_end(tmp_path, capsys, mock_sub
     (tmp_path / "Game.uproject").write_text("{}", encoding="utf-8")
     cfg = tmp_path / "asset-config.yaml"
     conf = _minimal_config()
-    conf["adapter"] = "generic"          # 正常默认，不是 unreal
+    conf["adapter"] = "filesystem"          # 正常默认，不是 unreal
     _write_yaml(cfg, conf)
 
     assert ga.main(["ingredients", "--config", str(cfg)]) == 0
@@ -1492,7 +1492,7 @@ def test_no_import_hint_when_project_is_not_recognised(tmp_path, capsys, mock_su
     set_result(returncode=0)
     cfg = tmp_path / "asset-config.yaml"
     conf = _minimal_config()
-    conf["adapter"] = "generic"
+    conf["adapter"] = "filesystem"
     _write_yaml(cfg, conf)
     assert ga.main(["ingredients", "--config", str(cfg)]) == 0
     assert "[unreal]" not in capsys.readouterr().out
@@ -1505,7 +1505,7 @@ def _raw_config(tmp_path, cat_line: str) -> Path:
     (tmp_path / "items.json").write_text('{"p1": {"visual": "pearl"}}', encoding="utf-8")
     p = tmp_path / "asset-config.yaml"
     p.write_text(
-        "$schema_version: 1\nadapter: generic\noutput_root: art\ncategories:\n"
+        "$schema_version: 1\nadapter: filesystem\noutput_root: art\ncategories:\n"
         f"  {cat_line}\n"
         "    data_source:\n      type: json_dict\n      path: items.json\n"
         '    prompt_template: "Icon of {visual}."\n',
@@ -1539,8 +1539,8 @@ def test_quoted_on_works(tmp_path, capsys, mock_subprocess_run):
 
 # -------------------- data_source.path 的 res:// --------------------
 
-def test_res_prefix_in_data_source_under_generic_warns(tmp_path, capsys, mock_subprocess_run):
-    """同一份 generic 配置里，output_root 写 res:// 报错、数据源写却通过 ——
+def test_res_prefix_in_data_source_under_filesystem_warns(tmp_path, capsys, mock_subprocess_run):
+    """同一份 filesystem 配置里，output_root 写 res:// 报错、数据源写却通过 ——
     两个解释器。过渡期告警、照旧能跑；5.0.0 起报错。
     """
     # _minimal_config 的模板引用了 {visual} 和 {main}，数据要两样都有
@@ -1548,7 +1548,7 @@ def test_res_prefix_in_data_source_under_generic_warns(tmp_path, capsys, mock_su
         '{"p1": {"visual": "pearl", "main": "#000"}}', encoding="utf-8")
     cfg = tmp_path / "asset-config.yaml"
     conf = _minimal_config()
-    conf["adapter"] = "generic"
+    conf["adapter"] = "filesystem"
     conf["categories"]["ingredients"]["data_source"] = {
         "type": "json_dict", "path": "res://items.json"}
     _write_yaml(cfg, conf)
@@ -1575,7 +1575,7 @@ def test_game_prefix_in_data_source_is_an_error(tmp_path, capsys, mock_subproces
     """
     cfg = tmp_path / "asset-config.yaml"
     conf = _minimal_config()
-    conf["adapter"] = "generic"
+    conf["adapter"] = "filesystem"
     conf["categories"]["ingredients"]["data_source"] = {
         "type": "json_dict", "path": "/Game/Data/items"}
     _write_yaml(cfg, conf)

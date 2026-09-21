@@ -60,7 +60,7 @@ class AssetContext:
     output_root: Path
     backend: object              # image_backend.ImageBackend
     # 工程根**本身**是哪种引擎工程（探测所得，不是用户声明）。
-    # 导入提示按它给 —— UE 项目用 generic 适配器照样该拿到那句提示。
+    # 导入提示按它给 —— UE 项目用 filesystem 适配器照样该拿到那句提示。
     project_kind: "str | None" = None
     # 解析过程中值得说一句、但不影响成败的事。调用方自己决定怎么打。
     notes: tuple = ()
@@ -199,7 +199,7 @@ def resolve_project_root(
     `assets/asset-config.yaml` 这个默认位置的直接推论。
 
     **第 3 条不问适配器。** 工程根在选路径处理方式之前就该定下来 ——
-    否则「把 adapter 从 unreal 换成 generic」会顺带换掉工程根，
+    否则「把 adapter 从 unreal 换成 filesystem」会顺带换掉工程根，
     而那两件事在概念上毫无关系。
     """
     if explicit is not None:
@@ -272,7 +272,7 @@ def load_context(
         if kind is None:
             notes.append(
                 f"adapter={adapter.name}（{project_root} 下没有识别到 Godot / Unreal 工程）："
-                "路径按普通相对路径解析。在 config 里显式写 adapter: generic "
+                "路径按普通相对路径解析。在 config 里显式写 adapter: filesystem "
                 "可以关掉这条探测（engine: 是旧名，别再用）。"
             )
         else:

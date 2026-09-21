@@ -103,14 +103,14 @@ def test_root_falls_back_to_project_detection(tmp_path):
 def test_root_detection_does_not_depend_on_adapter(tmp_path):
     """**拆分的全部理由**：换路径适配器不该换掉工程根。
 
-    UE 工程里把 adapter 从 unreal 改成 generic（完全正常的选择），以前会让
+    UE 工程里把 adapter 从 unreal 改成 filesystem（完全正常的选择），以前会让
     工程根从「*.uproject 所在目录」退化成「config 所在目录」，所有相对路径
     跟着换基准。现在工程探测与适配器选择完全无关。
     """
     (tmp_path / "Game.uproject").write_text("{}", encoding="utf-8")
     sub = tmp_path / "tools"
     sub.mkdir()
-    for adapter_name in ("unreal", "generic", "godot"):
+    for adapter_name in ("unreal", "filesystem", "godot"):
         cfg = _write(sub / "asset-config.yaml", {"adapter": adapter_name})
         ctx = asset_context.load_context(cfg)
         assert ctx.project_root == tmp_path.resolve(), adapter_name
@@ -118,22 +118,22 @@ def test_root_detection_does_not_depend_on_adapter(tmp_path):
 
 
 def test_root_assets_dir_implies_parent(tmp_path):
-    cfg = _write(tmp_path / "assets" / "asset-config.yaml", {"adapter": "generic"})
-    root, source = asset_context.resolve_project_root(cfg, {"adapter": "generic"})
+    cfg = _write(tmp_path / "assets" / "asset-config.yaml", {"adapter": "filesystem"})
+    root, source = asset_context.resolve_project_root(cfg, {"adapter": "filesystem"})
     assert root == tmp_path.resolve()
     assert "assets/" in source
 
 
 def test_root_plain_dir_is_config_dir(tmp_path):
-    cfg = _write(tmp_path / "asset-config.yaml", {"adapter": "generic"})
-    root, _ = asset_context.resolve_project_root(cfg, {"adapter": "generic"})
+    cfg = _write(tmp_path / "asset-config.yaml", {"adapter": "filesystem"})
+    root, _ = asset_context.resolve_project_root(cfg, {"adapter": "filesystem"})
     assert root == tmp_path.resolve()
 
 
 def test_legacy_adapter_note_reaches_the_context(tmp_path):
     cfg = _write(tmp_path / "asset-config.yaml", {"adapter": "unreal"})
     ctx = asset_context.load_context(cfg)
-    assert ctx.adapter.name == "generic"
+    assert ctx.adapter.name == "filesystem"
     assert any("兼容值" in n for n in ctx.notes)
 
 
@@ -146,7 +146,7 @@ def test_context_honours_declared_project_root(tmp_path):
     子目录时两者算出的根不同，于是所有相对路径（output_root、参考图、
     数据源）的基准都不同 —— 同一份配置检查一个位置、跑另一个位置。
     """
-    conf = {"adapter": "generic", "project_root": "..", "output_root": "art",
+    conf = {"adapter": "filesystem", "project_root": "..", "output_root": "art",
             "categories": {}}
     cfg = _write(tmp_path / "tools" / "asset-config.yaml", conf)
     ctx = asset_context.load_context(cfg)
@@ -155,7 +155,7 @@ def test_context_honours_declared_project_root(tmp_path):
 
 
 def test_context_explicit_override_is_reported(tmp_path):
-    conf = {"adapter": "generic", "project_root": "..", "output_root": "art"}
+    conf = {"adapter": "filesystem", "project_root": "..", "output_root": "art"}
     cfg = _write(tmp_path / "tools" / "asset-config.yaml", conf)
     other = tmp_path / "other"
     other.mkdir()
@@ -167,28 +167,28 @@ def test_context_explicit_override_is_reported(tmp_path):
 
 def test_context_output_root_must_be_string(tmp_path):
     cfg = _write(tmp_path / "asset-config.yaml",
-                 {"adapter": "generic", "output_root": ["a"]})
+                 {"adapter": "filesystem", "output_root": ["a"]})
     with pytest.raises(asset_context.ContextError, match="output_root 应为字符串"):
         asset_context.load_context(cfg)
 
 
-def test_context_rejects_engine_prefix_under_generic(tmp_path):
+def test_context_rejects_engine_prefix_under_filesystem(tmp_path):
     cfg = _write(tmp_path / "asset-config.yaml",
-                 {"adapter": "generic", "output_root": "res://art"})
+                 {"adapter": "filesystem", "output_root": "res://art"})
     with pytest.raises(asset_context.ContextError, match="output_root 解析失败"):
         asset_context.load_context(cfg)
 
 
 def test_context_propagates_unknown_backend(tmp_path):
     cfg = _write(tmp_path / "asset-config.yaml",
-                 {"adapter": "generic", "backend": "nope"})
+                 {"adapter": "filesystem", "backend": "nope"})
     with pytest.raises(asset_context.ContextError, match="未知的 backend"):
         asset_context.load_context(cfg)
 
 
 def test_context_propagates_adapter_conflict(tmp_path):
     cfg = _write(tmp_path / "asset-config.yaml",
-                 {"adapter": "generic", "engine": "godot"})
+                 {"adapter": "filesystem", "engine": "godot"})
     with pytest.raises(asset_context.ContextError, match="engine 是 adapter 的旧名"):
         asset_context.load_context(cfg)
 
@@ -197,8 +197,8 @@ def test_context_reuses_preloaded_config(tmp_path):
     """给了 config 就不再读盘 —— 调用方已经读过一遍的不该读第二遍。"""
     cfg = tmp_path / "asset-config.yaml"
     cfg.write_text("!!! not yaml at all: [", encoding="utf-8")
-    ctx = asset_context.load_context(cfg, config={"adapter": "generic"})
-    assert ctx.adapter.name == "generic"
+    ctx = asset_context.load_context(cfg, config={"adapter": "filesystem"})
+    assert ctx.adapter.name == "filesystem"
 
 
 def test_project_kind_follows_the_final_root_not_the_config_location(tmp_path):
@@ -208,7 +208,7 @@ def test_project_kind_follows_the_final_root_not_the_config_location(tmp_path):
     一个不是 UE 工程的目录说「记得走 UE 导入」。
     """
     (tmp_path / "Game.uproject").write_text("{}", encoding="utf-8")
-    cfg = _write(tmp_path / "asset-config.yaml", {"adapter": "generic"})
+    cfg = _write(tmp_path / "asset-config.yaml", {"adapter": "filesystem"})
     plain = tmp_path / "elsewhere"
     plain.mkdir()
 

@@ -40,7 +40,7 @@ def _minimal(tmp_path: Path, **override) -> dict:
         json.dumps({"pearl": {"visual": "black pearls"}}), encoding="utf-8")
     conf = {
         "$schema_version": 1,
-        "adapter": "generic",
+        "adapter": "filesystem",
         "output_root": "art",
         "categories": {
             "ingredients": {
@@ -143,7 +143,7 @@ def test_derived_field_failure_reported(tmp_path):
 
 # -------------------- 路径与后端相容 --------------------
 
-def test_game_prefix_with_generic_adapter(tmp_path):
+def test_game_prefix_with_filesystem_adapter(tmp_path):
     conf = _minimal(tmp_path)
     conf["output_root"] = "/Game/Art"
     cfg = _write(tmp_path, conf)
@@ -331,7 +331,7 @@ def _write_raw(tmp_path: Path, text: str) -> Path:
 
 
 _BASE = """$schema_version: 1
-adapter: generic
+adapter: filesystem
 output_root: art
 categories:
   ingredients:
@@ -390,7 +390,7 @@ backend: laozhang
 
 def test_category_level_field_also_needs_source(tmp_path):
     cfg = _write_raw(tmp_path, """$schema_version: 1
-adapter: generic
+adapter: filesystem
 output_root: art
 categories:
   ingredients:
@@ -409,7 +409,7 @@ def test_id_column_needs_source_too(tmp_path):
     """复用既有决定也算来源 —— 要写的是「从哪来」，不是「问过谁」。"""
     (tmp_path / "f.csv").write_text("fid,v\na,x\n", encoding="utf-8")
     cfg = _write_raw(tmp_path, """$schema_version: 1
-adapter: generic
+adapter: filesystem
 output_root: art
 categories:
   c:
@@ -454,7 +454,7 @@ def test_project_root_comes_from_config_not_config_dir(tmp_path):
         json.dumps({"pearl": {"visual": "black pearls"}}), encoding="utf-8")
 
     conf = {
-        "adapter": "generic",
+        "adapter": "filesystem",
         "project_root": "..",
         "output_root": "art",
         "style": {"reference_paths": ["anchor.png"]},
@@ -578,7 +578,7 @@ def test_main_does_not_hard_fill_project_root(tmp_path, monkeypatch, capsys):
         json.dumps({"pearl": {"visual": "x"}}), encoding="utf-8")
 
     conf = {
-        "adapter": "generic",
+        "adapter": "filesystem",
         "project_root": "..",
         "output_root": "art",
         "style": {"reference_paths": ["anchor.png"]},
@@ -735,7 +735,7 @@ def test_top_level_model_check_is_not_duplicated(tmp_path):
 # -------------------- 来源检查只认有意义的位置 --------------------
 
 _NESTED = """$schema_version: 1
-adapter: generic
+adapter: filesystem
 output_root: art
 categories:
   ing:
@@ -789,7 +789,7 @@ def test_category_field_still_needs_a_source(tmp_path):
 def test_data_source_id_column_still_needs_a_source(tmp_path):
     (tmp_path / "f.csv").write_text("fid,v" + chr(10) + "a,x" + chr(10), encoding="utf-8")
     cfg = _write_raw(tmp_path, """$schema_version: 1
-adapter: generic
+adapter: filesystem
 output_root: art
 categories:
   c:

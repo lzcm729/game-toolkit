@@ -3,18 +3,19 @@
 """引擎相关的知识：工程怎么认、路径前缀怎么解析、生成完要不要提示导入。
 
 这三件事**互相独立**，3.17.0 之前被捆在一个 `EngineAdapter` 里，代价是
-「切换路径处理能力」会顺带换掉工程根 —— 于是「UE 项目用 generic 完全合理」
+「切换路径处理能力」会顺带换掉工程根 —— 于是「UE 项目用普通文件路径完全合理」
 这句话，在 config 放子目录时变成行为不等价。现在分开：
 
   1. `detect_project()` / `project_kind()` —— 工程是什么、根在哪。
      **与选哪个适配器无关**，工程根在选路径处理方式之前就该定下来。
   2. `EngineAdapter` —— 只管路径：认哪个虚拟前缀、怎么解析成绝对路径。
   3. `import_hint()` —— 生成后的导入说明，按**探测到的工程**给，
-     不按用户选的适配器给。UE 项目用 generic 照样拿得到那句提示。
+     不按用户选的适配器给。UE 项目用 filesystem 照样拿得到那句提示。
 
-注册的适配器只有两个：`godot`（认 `res://`）和 `generic`（不认任何前缀）。
-`unreal` 是兼容值，等价于 generic —— 它当年的三个职责在上面都各有归属，
-而「认得一种不合法输入」不足以支撑一个用户可选的适配器。详见 `LEGACY_ADAPTERS`。
+注册的适配器只有两个，**名字说的是路径系统**：`godot`（Godot 的 `res://` 路径）
+和 `filesystem`（普通文件系统路径，不认任何虚拟前缀）。
+
+`unreal` 和 `generic` 是兼容值，都等价于 filesystem，详见 `LEGACY_ADAPTERS`。
 """
 from __future__ import annotations
 
@@ -94,7 +95,7 @@ def import_hint(kind: "str | None", output_dir: Path) -> "str | None":
 
 # -------------------- 路径解析 --------------------
 
-# 各引擎的虚拟根前缀。generic 模式下撞见任何一个都要报错，
+# 各引擎的虚拟根前缀。filesystem 模式下撞见任何一个都要报错，
 # 否则 "res://art" 会被硬拼成 "<root>/res:/art" 这种没人想要的路径。
 KNOWN_ENGINE_PREFIXES = {"res://": "godot", "/Game/": "unreal"}
 
@@ -109,7 +110,7 @@ _PREFIX_REJECTIONS = {
 }
 
 
-def _generic_resolve(raw: str, root: Path) -> Path:
+def _filesystem_resolve(raw: str, root: Path) -> Path:
     """不认任何引擎前缀。绝对路径原样，相对路径接在 root 下。"""
     for prefix, engine in KNOWN_ENGINE_PREFIXES.items():
         if not raw.startswith(prefix):
@@ -129,7 +130,7 @@ def _generic_resolve(raw: str, root: Path) -> Path:
                 ).format(engine, " / ".join(sorted(ADAPTERS)))
         raise ValueError(
             "adapter={} 不认识路径前缀 {!r}（那是 {} 的写法）：{}。{}"
-            .format("generic", prefix, engine, raw, fix)
+            .format("filesystem", prefix, engine, raw, fix)
         )
     p = Path(raw)
     return p if p.is_absolute() else (Path(root) / p).resolve()
@@ -141,26 +142,36 @@ GODOT = EngineAdapter(
     virtual_prefix="res://",
 )
 
-GENERIC = EngineAdapter(
-    name="generic",
-    resolve_path=_generic_resolve,
+FILESYSTEM = EngineAdapter(
+    name="filesystem",
+    resolve_path=_filesystem_resolve,
     virtual_prefix=None,
 )
 
-ADAPTERS = {"godot": GODOT, "generic": GENERIC}
+ADAPTERS = {"godot": GODOT, "filesystem": FILESYSTEM}
 
-# 兼容值 —— 仍然接受，但不再是推荐写法。
+# 兼容值 —— 仍然接受，但不再是推荐写法。两个都 5.0.0 移除（见 PLANNED.md）。
+# 在那之前每次都打一条提示说明等价关系 —— 提示本身是成本，不该永远背着。
 #
-# `unreal` 当年做三件事，现在各有归属：找 *.uproject 归 `detect_project`，
-# 拒绝 `/Game/` 归通用路径校验（generic 本来就在做），提醒走 UE 导入归
-# `import_hint`（现在按探测到的工程给，UE 项目写 generic 照样拿得到）。
-# 剩下的路径解析行为和 generic 一模一样，所以直接映射过去。
+# `unreal`（3.17.0 降级）：当年做三件事，现在各有归属 —— 找 *.uproject 归
+# `detect_project`，拒绝 `/Game/` 归通用路径校验，提醒走 UE 导入归
+# `import_hint`（按探测到的工程给）。剩下的路径解析和 filesystem 一模一样。
 #
-# 不是直接删掉：删了会让写着 `adapter: unreal` 的配置一上来就报错；
-# 而它在 3.16.0 之前还承担着工程根探测，那部分的行为差异刚刚才消除。
-# 下线计划：5.0.0 移除。在那之前它每次都会打一条提示说明等价关系 ——
-# 提示本身是成本，不该永远背着。
-LEGACY_ADAPTERS = {"unreal": "generic"}
+# `generic`（4.2.0 改名）：行为一点没变，改的是名字。它读起来像「通用的、
+# 没认出引擎」，于是写着 `adapter: generic` 的 UE 项目看上去像配错了。而这个
+# 字段选的从来是**路径系统**，不是引擎。
+LEGACY_ADAPTERS = {"unreal": "filesystem", "generic": "filesystem"}
+
+_LEGACY_WHY = {
+    "unreal": (
+        "它当年多做的工程根探测已经归入通用的工程探测（对所有适配器都生效），"
+        "导入提示也改成按探测到的工程给"
+    ),
+    "generic": (
+        "只是改了名 —— 这个字段选的是路径系统，不是引擎；generic 读起来像"
+        "「没认出引擎」，UE 项目写着它看上去像配错了"
+    ),
+}
 
 
 # -------------------- 选择 --------------------
@@ -172,18 +183,25 @@ def declared_adapter(config: dict) -> "str | None":
       - **引擎身份**（项目用的是 UE 还是 Godot）属于项目环境声明，人工填，见
         `game-toolkit:layer-contracts` 的「项目环境声明」。
       - **适配器**（本生成器提供哪套路径规则）是这里选的东西。
-        `generic` 是一个适配器，不是一种引擎 —— UE 项目用 generic 完全正常。
+        `filesystem` 是一种路径系统，不是一种引擎 —— UE 项目用它完全正常。
 
     两者同时存在且不同则报错，不替用户猜哪个是他真正想要的。
     """
     adapter_name = (config.get("adapter") or "").strip().lower()
     legacy_name = (config.get("engine") or "").strip().lower()
-    if adapter_name and legacy_name and adapter_name != legacy_name:
+    # 比较的是**归一化之后**的值。迁移期里 `adapter: filesystem` 配旧字段
+    # `engine: generic` 意思完全一样，按字符串比就会误报「不一致」。
+    if (adapter_name and legacy_name
+            and _canonical(adapter_name) != _canonical(legacy_name)):
         raise ValueError(
             "config 同时有 adapter={!r} 和 engine={!r} 且不一致。"
             "engine 是 adapter 的旧名，请只保留 adapter。".format(adapter_name, legacy_name)
         )
     return adapter_name or legacy_name or None
+
+
+def _canonical(name: str) -> str:
+    return LEGACY_ADAPTERS.get(name, name)
 
 
 def legacy_note(config: dict) -> "str | None":
@@ -193,9 +211,8 @@ def legacy_note(config: dict) -> "str | None":
         return None
     target = LEGACY_ADAPTERS[declared]
     return (
-        "adapter: {} 现在是兼容值，等价于 {} —— 它当年多做的工程根探测已经"
-        "归入通用的工程探测（对所有适配器都生效），导入提示也改成按探测到的"
-        "工程给。可以直接改成 {}，行为不变。".format(declared, target, target)
+        "adapter: {} 现在是兼容值，等价于 {} —— {}。改成 adapter: {}，行为不变；"
+        "5.0.0 起旧值不再接受。".format(declared, target, _LEGACY_WHY[declared], target)
     )
 
 
@@ -203,8 +220,8 @@ def select(config: dict, detected_kind: "str | None" = None) -> EngineAdapter:
     """选适配器。声明优先；没声明就按探测到的工程给默认。
 
     多对一是正常的：只有 Godot 需要一套自己的路径规则（`res://`），
-    UE / Unity / 自研 / 没探到 全都用普通文件路径。`generic` 表达的是
-    「用普通文件路径」，不是「这个项目没有引擎」。
+    UE / Unity / 自研 / 没探到 全都用普通文件系统路径。`filesystem`
+    说的是路径系统，不是「这个项目没有引擎」。
     """
     declared = declared_adapter(config)
     if declared:
@@ -214,11 +231,11 @@ def select(config: dict, detected_kind: "str | None" = None) -> EngineAdapter:
             raise ValueError(
                 "未知的 adapter: {!r}（可选：{}；{} 是仍然接受的兼容值）。"
                 "注意这里选的是本生成器的路径适配，不是项目用的引擎 —— "
-                "没有对应适配时用 generic。".format(
+                "没有对应的路径系统时用 filesystem。".format(
                     declared, " / ".join(sorted(ADAPTERS)),
                     " / ".join(sorted(LEGACY_ADAPTERS)),
                 )
             )
         return ADAPTERS[declared]
 
-    return GODOT if detected_kind == "godot" else GENERIC
+    return GODOT if detected_kind == "godot" else FILESYSTEM

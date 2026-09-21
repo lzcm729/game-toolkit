@@ -1,6 +1,6 @@
 # asset-config.yaml — Schema 文档
 
-`generate-assets` 的项目级配置文件。一个 yaml 描述一个游戏项目的所有 asset（引擎无关；Godot 有专门适配，其他引擎走 generic）
+`generate-assets` 的项目级配置文件。一个 yaml 描述一个游戏项目的所有 asset（引擎无关；Godot 用 `res://` 路径，其他引擎走普通文件系统路径）
 category（顾客、配料、配方、建筑、背景……）。底层调用生图后端（缺省 image-gen），
 本框架只负责"yaml → batch JSON → 后端 subprocess"翻译 + 调度。
 
@@ -18,7 +18,7 @@ category（顾客、配料、配方、建筑、背景……）。底层调用生
 $schema_version: 1   # 当前版本
 style: { ... }       # 全局风格（被所有 category 继承，可单独跳过）
 output_root: "..."   # 输出根目录（接受 res:// 前缀）
-adapter: godot       # 路径写法（可选，缺省按探测到的工程定；godot / generic）
+adapter: godot       # 路径系统（可选，缺省按探测到的工程定；godot / filesystem）
 backend: image-gen   # 生图后端（可选，缺省 image-gen）
 model: gemini-3-pro-image   # 生图模型（可选，category 可覆盖）
 categories:
@@ -51,7 +51,7 @@ prefix/suffix（背景图等独立 prompt 场景适用）。
 ## `adapter` 与 `project_root`
 
 ```yaml
-adapter: godot        # 可选。godot / generic；不写就按探测到的工程定
+adapter: godot        # 可选。godot / filesystem；不写就按探测到的工程定
 project_root: ".."    # 可选。相对本文件；也可用 CLI 的 --project-root 覆盖
 ```
 
@@ -60,13 +60,17 @@ project_root: ".."    # 可选。相对本文件；也可用 CLI 的 --project-r
 | `adapter` | 路径写法 |
 |---|---|
 | `godot` | 认 `res://`（等价于工程根） |
-| `generic` | 普通文件路径，不认任何虚拟前缀 |
+| `filesystem` | 普通文件系统路径，不认任何虚拟前缀 |
 
-多对一是正常的：UE / Unity / 自研 / 没探到，全都用 `generic`。**`generic` 表达的是
+多对一是正常的：UE / Unity / 自研 / 没探到，全都用 `filesystem`。**`filesystem` 说的是
 「用普通文件路径」，不是「这个项目没有引擎」** —— UE 项目声明「引擎：unreal」而这里
-写 `adapter: generic`，两者不矛盾。
+写 `adapter: filesystem`，两者不矛盾。
 
-`adapter: unreal` 是**兼容值**，等价于 `generic`（3.17.0 起）。它当年多做的工程根
+`adapter: generic` 是 4.2.0 改名前的叫法，**兼容值**，等价于 `filesystem`。只改了名 ——
+`generic` 读起来像「通用的、没认出引擎」，写着它的 UE 项目看上去像配错了，而这个字段
+选的从来是路径系统。
+
+`adapter: unreal` 也是**兼容值**，等价于 `filesystem`（3.17.0 起）。它当年多做的工程根
 探测已经归入通用的工程探测，对所有适配器一视同仁；导入提示也改成按探测到的工程给。
 写着它的配置照样能跑，只会多一条提示。
 
@@ -102,7 +106,7 @@ config 移动而改变相对路径基准，config 不在工程根时建议显式
 
 **不需要写 `adapter`。** 向上找 `*.uproject` 是通用的工程探测在做，`/Game/` 由
 通用路径校验拒绝，导入提示按探测到的工程给 —— 三件事都不依赖一个叫 `unreal`
-的适配器。留空或写 `generic` 都行。
+的适配器。留空或写 `filesystem` 都行。
 
 **`/Game/` 不能用**，这不是「暂未支持」而是它本来就不该用在这里：
 
@@ -131,7 +135,7 @@ Content/Fish/F_River.uasset         ← /Game/Fish/F_River 指的是这个
 ## `output_root`
 
 输出根目录，相对项目根。`adapter: godot` 时**支持 `res://` 前缀**，等价于剥掉前缀（项目根 =
-`project.godot` 所在目录）。`generic` 不认 `res://`，会直接报错 —— 不会退回 yaml 父目录猜。
+`project.godot` 所在目录）。`filesystem` 不认 `res://`，会直接报错 —— 不会退回 yaml 父目录猜。
 
 ```yaml
 output_root: "res://art"   # = <project_root>/art
@@ -208,7 +212,7 @@ item_overrides:
 ## 数据源 type（v1）
 
 所有数据源的 `path` 都相对 **project_root**，走和 `output_root` 同一个适配器解析：
-`adapter: godot` 下认 `res://`；`adapter: generic` 下写 `res://` 目前**告警但照旧
+`adapter: godot` 下认 `res://`；`adapter: filesystem` 下写 `res://` 目前**告警但照旧
 能用**（以前一直被放行，文档也这么写过），**5.0.0 起报错** —— 去掉 `res://`
 写成普通相对路径即可，意思不变。
 
@@ -393,7 +397,7 @@ buildings / backgrounds）。
 - `res://` 路径自动剥前缀，等价于相对项目根
 - 跑完后扫输出目录，提示有多少 `.import` 文件缺失（用 Godot 编辑器打开自动 import）
 - 输出子目录自动 `mkdir -p`（image-gen 不建多层目录）
-- 检测 `project.godot`：缺则退到 generic 适配 —— generic **不认** `res://`，会直接报错让你改 `adapter` 或换相对路径，不会按 yaml 父目录猜
+- 检测 `project.godot`：缺则退到 filesystem —— 它**不认** `res://`，会直接报错让你改 `adapter` 或换相对路径，不会按 yaml 父目录猜
 
 ## 不做的事
 

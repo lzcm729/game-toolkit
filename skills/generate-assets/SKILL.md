@@ -3,8 +3,8 @@ name: generate-assets
 description: |
   schema-driven 批量资源生成。读项目 asset-config.yaml → 加载数据源 → 渲染 prompt
   → 调生图后端批量生成 → 写到项目的资源目录。
-  核心流程引擎无关；引擎相关的部分（虚拟路径前缀、导入检查）在适配层，
-  当前提供 Godot 适配，其他引擎走 generic（普通相对路径、不做导入检查）。
+  核心流程引擎无关。路径系统两种：Godot 的 `res://`，其余引擎走 filesystem
+  （普通文件系统路径）；工程探测与导入提示按探测到的工程给（Godot / Unreal）。
 
   **触发条件**：
   - 项目根存在 `asset-config.yaml`（或 `assets/asset-config.yaml`）
@@ -198,15 +198,15 @@ categories:
 | 做什么 | 由什么决定 | 说明 |
 |---|---|---|
 | 工程根在哪 | **探测到的工程标志** | 向上找 `project.godot` / `*.uproject`。不问适配器 |
-| 路径怎么写 | `adapter`（可声明） | `godot` 认 `res://`；`generic` 只认普通文件路径 |
+| 路径怎么写 | `adapter`（可声明） | `godot` 认 `res://`；`filesystem` 只认普通文件系统路径 |
 | 生成后提示什么 | **探测到的工程** | Godot 扫 `.import`；Unreal 提示走一次导入 |
 
 **换 `adapter` 不会换掉工程根**，也不会让导入提示消失 —— 那两件事跟着工程事实走。
-UE 项目写 `adapter: generic`（正常默认）照样拿得到那句导入提示。
+UE 项目写 `adapter: filesystem`（正常默认）照样拿得到那句导入提示。
 
 > **`adapter` 不是「项目用什么引擎」。** 引擎身份属于项目环境声明（人工填，见
 > `game-toolkit:layer-contracts` 的「项目环境声明」）；这里选的只是**路径写法**。
-> `generic` 表达「用普通文件路径」，不表达「这个项目没有引擎」。
+> `filesystem` 说的是路径系统，不表达「这个项目没有引擎」。
 >
 > 旧配置的 `engine:` 按 `adapter:` 处理；两者同时存在且不同会报错。
 
@@ -215,12 +215,14 @@ UE 项目写 `adapter: generic`（正常默认）照样拿得到那句导入提�
 | `adapter` | 路径前缀 |
 |---|---|
 | `godot` | 认 `res://`（＝工程根） |
-| `generic` | 不认任何虚拟前缀；写了 `res://` / `/Game/` 会**报错** |
+| `filesystem` | 不认任何虚拟前缀；写了 `res://` / `/Game/` 会**报错** |
 
-未声明时按探测到的工程给默认：Godot 工程 → `godot`，其余一律 `generic`。
+未声明时按探测到的工程给默认：Godot 工程 → `godot`，其余一律 `filesystem`。
 多对一是正常的 —— 只有 Godot 需要一套自己的路径写法。
 
-`adapter: unreal` 是**兼容值**，等价于 `generic`。它当年的三个职责在上表里都各有
+`adapter: generic`（4.2.0 改名前的叫法）和 `adapter: unreal` 都是**兼容值**，等价于
+`filesystem`，5.0.0 移除。`generic` 只是改了名 —— 它读起来像「没认出引擎」，
+写着它的 UE 项目看上去像配错了。`unreal` 当年的三个职责在上表里都各有
 归属，而「认得一种不合法输入」（`/Game/`）不足以支撑一个用户可选的适配器。
 写着它的配置照样跑，只多一条提示。
 

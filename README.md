@@ -55,7 +55,7 @@
 - **文档发布** — `doc-summary-layer`（仓库详稿是真值，阅读平台每页只放规则版摘要；三条数据流、草稿迁入、检查与构建脚本，平台适配在项目侧）
 - **文档 ↔ 代码** — `sync-code-ahead`（代码改了、文档没跟）、`sync-docs-ahead`（文档写了、代码没实现）
 - **实现执行** — `parallel-implement`（git worktree 并行实现 + 顺序合并）
-- **资源管线** — `asset-config`（建立与维护 `asset-config.yaml`，含配置校验）、`generate-assets`（schema-driven 批量生成；数据源支持 CSV / JSON / inline，路径适配 Godot / generic，工程探测与导入提示按探测到的工程走，生图后端可插拔）
+- **资源管线** — `asset-config`（建立与维护 `asset-config.yaml`，含配置校验）、`generate-assets`（schema-driven 批量生成；数据源支持 CSV / JSON / inline，路径系统 Godot / filesystem，工程探测与导入提示按探测到的工程走，生图后端可插拔）
 - **可选技术适配** — `react-game-ui`（Web 栈的游戏 UI 实现模式，只在项目确实用 React 时才用）
 
 ## 项目侧要做一件事

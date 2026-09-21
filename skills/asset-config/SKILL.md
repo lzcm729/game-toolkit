@@ -242,7 +242,7 @@ python <本 skill 目录>/scripts/check_config.py --config <配置路径> --chec
 - 数据源能不能加载；id 有没有缺失、重复；会不会产出同名文件
 - **每个条目的模板占位符都能渲染** —— 不是抽第一条，也不只是 YAML 语法对
 - 每张图最终落到哪个文件；`output_subdir` 有没有越出 `output_root`
-- 路径解析与后端能力相容（`/Game/` 配 generic、`model` 配 image-gen、
+- 路径解析与后端能力相容（`/Game/` 配 filesystem、`model` 配 image-gen、
   走 OpenAI 路径的模型配多图参考这类；能力由后端自己声明）。
   **丢掉会改变结果含义的字段算错，不是提示** —— 要降级跑就加 `--allow-degrade`，
   生成器有同名开关，两边判断一致
