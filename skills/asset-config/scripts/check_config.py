@@ -63,39 +63,90 @@ _MUST_ASK_FIELDS = frozenset({"backend", "model", "chain", "aspect_ratio", "id_c
 _SOURCE_MARKER = "来源："
 
 
+# 检查分组。两种问题的性质不同，退码也不同 —— 见 Report。
+CHECK_RUNTIME = "runtime"
+CHECK_GOVERNANCE = "governance"
+CHECK_ALL = "all"
+CHECK_CHOICES = (CHECK_ALL, CHECK_RUNTIME, CHECK_GOVERNANCE)
+
+
 @dataclass
 class Report:
+    """三类结果，性质不同，不该共用一个退码。
+
+    - `errors`（**运行合法性**）：会让生成失败或产出错的东西。退码 1。
+    - `governance`（**配置治理**）：「必须询问」档的字段没写来源。
+      配置照样能正确生成图片 —— 格式化工具重排 YAML、删掉注释就会触发它，
+      而运行语义完全没变。冒充运行合法性的话，每个未来的消费者都要被迫
+      继承某个 agent 写配置时的交互规矩。退码 3。
+    - `notes`：提示，不影响退码。
+    """
+
     errors: list[str] = field(default_factory=list)
+    governance: list[str] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
+        """运行合法性。**不含治理** —— 「能不能跑」和「有没有留决策记录」是两回事。"""
         return not self.errors
+
+    @property
+    def governance_ok(self) -> bool:
+        return not self.governance
+
+    @property
+    def clean(self) -> bool:
+        """两样都过。初始化交付要求的是这个。"""
+        return self.ok and self.governance_ok
 
     def error(self, msg: str) -> None:
         self.errors.append(msg)
+
+    def governance_issue(self, msg: str) -> None:
+        self.governance.append(msg)
 
     def note(self, msg: str) -> None:
         self.notes.append(msg)
 
 
-def check_config(config_path: Path, project_root: "Path | None" = None) -> Report:
+def check_config(
+    config_path: Path,
+    project_root: "Path | None" = None,
+    *,
+    checks: str = CHECK_ALL,
+) -> Report:
     """校验一份 asset-config.yaml，返回 Report。不抛异常。
 
     `project_root` 只是**覆盖**本次校验的工程根（对应 `--project-root`）。
     不给就由 asset_context 按四级规则定 —— 和真正跑生成时同一套规则，
     否则会出现「检查了一个位置、跑的是另一个位置」。
+
+    `checks` 选跑哪一组：`all`（缺省）/ `runtime` / `governance`。
+    治理检查纯看原文注释，不需要工程、数据源、后端就位，所以
+    `governance` 这一档不加载上下文。
     """
+    if checks not in CHECK_CHOICES:
+        raise ValueError(f"checks 只能是 {' / '.join(CHECK_CHOICES)}，收到 {checks!r}")
+
     r = Report()
     config_path = Path(config_path)
+
+    if not config_path.exists():
+        # 任何档位都要报。否则 governance 档会对着一个不存在的文件返回「干净」。
+        r.error(f"配置文件不存在：{config_path}")
+        return r
+
+    if checks in (CHECK_ALL, CHECK_GOVERNANCE):
+        _check_decision_sources(config_path, r)
+    if checks == CHECK_GOVERNANCE:
+        return r
 
     try:
         config = asset_context.load_config(config_path)
     except asset_context.ContextError as e:
         r.error(str(e))
         return r
-
-    _check_decision_sources(config_path, r)
 
     try:
         ctx = asset_context.load_context(
@@ -247,7 +298,7 @@ def _check_decision_sources(config_path: Path, r: Report) -> None:
             j -= 1
 
         if not found:
-            r.error(
+            r.governance_issue(
                 "第 {} 行的 {!r} 是「必须询问」档的字段，但上面没写它从哪来。"
                 "在紧邻的注释里加一行「{}…」，例如"
                 "「# {}用户选定（候选 A / B）」或"
@@ -258,9 +309,19 @@ def _check_decision_sources(config_path: Path, r: Report) -> None:
 
 
 def main(argv: "list[str] | None" = None) -> int:
+    """退码：0 全过 / 1 运行合法性有错 / 3 只有治理问题。
+
+    3 单独留给治理，是为了让消费者能机械地分辨「这份配置跑不了」和
+    「这份配置没留下决策记录」—— 后者不该拦住任何一个下游。
+    """
     ap = argparse.ArgumentParser(description="校验 asset-config.yaml")
     ap.add_argument("--config", help="配置文件路径；不给就按默认位置找")
     ap.add_argument("--project-root", help="工程根；不给就从配置位置推断")
+    ap.add_argument(
+        "--check", choices=CHECK_CHOICES, default=CHECK_ALL,
+        help="跑哪一组：all（缺省）/ runtime（只看能不能跑）/ "
+             "governance（只看「必须询问」档的字段有没有写来源）",
+    )
     args = ap.parse_args(argv)
 
     config_path = asset_context.locate_config(
@@ -279,19 +340,35 @@ def main(argv: "list[str] | None" = None) -> int:
     report = check_config(
         config_path,
         Path(args.project_root) if args.project_root else None,
+        checks=args.check,
     )
 
     for note in report.notes:
         print(f"  [note] {note}")
     for err in report.errors:
         print(f"[error] {err}", file=sys.stderr)
+    for issue in report.governance:
+        print(f"[治理] {issue}", file=sys.stderr)
 
-    if report.ok:
-        tail = f"（{len(report.notes)} 条提示）" if report.notes else ""
-        print(f"✓ {config_path} 校验通过{tail}")
-        return 0
-    print(f"\n✗ {len(report.errors)} 处错误", file=sys.stderr)
-    return 1
+    if not report.ok:
+        print(f"\n✗ {len(report.errors)} 处错误（运行合法性）", file=sys.stderr)
+        if report.governance:
+            print(f"  另有 {len(report.governance)} 处治理问题", file=sys.stderr)
+        return 1
+
+    if report.governance:
+        print(
+            f"\n✗ {len(report.governance)} 处治理问题 —— 配置本身能跑，"
+            "但「必须询问」档的字段没留下决策记录。",
+            file=sys.stderr,
+        )
+        return 3
+
+    tail = f"（{len(report.notes)} 条提示）" if report.notes else ""
+    scope = {CHECK_RUNTIME: "运行检查", CHECK_GOVERNANCE: "治理检查"}.get(
+        args.check, "校验")
+    print(f"✓ {config_path} {scope}通过{tail}")
+    return 0
 
 
 if __name__ == "__main__":

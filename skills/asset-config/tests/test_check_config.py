@@ -50,7 +50,7 @@ def _minimal(tmp_path: Path, **override) -> dict:
 
 
 def _messages(report) -> str:
-    return "\n".join(report.errors + report.notes)
+    return chr(10).join(report.errors + report.governance + report.notes)
 
 
 # -------------------- 通过的情况 --------------------
@@ -298,7 +298,7 @@ def test_openai_model_without_reference_is_fine(tmp_path):
     conf["model"] = "gpt-image-2.5-flare"
     cfg = _write(tmp_path, conf)
     report = check_config(cfg, tmp_path)
-    assert report.ok, report.errors
+    assert report.clean, _messages(report)
 
 
 def test_openai_model_with_image_is_fine(tmp_path):
@@ -338,10 +338,16 @@ categories:
 """
 
 
-def test_must_ask_field_without_source_is_an_error(tmp_path):
-    cfg = _write_raw(tmp_path, _BASE + "backend: laozhang\n")
+def test_must_ask_field_without_source_is_a_governance_issue(tmp_path):
+    """缺来源注释**不影响这份配置能不能跑** —— 所以它不进 errors。
+
+    格式化工具重排 YAML、删掉注释就会触发它，而运行语义完全没变。
+    """
+    cfg = _write_raw(tmp_path, _BASE + "backend: laozhang" + chr(10))
     report = check_config(cfg, tmp_path)
-    assert not report.ok
+    assert report.ok                    # 运行合法性没问题
+    assert not report.governance_ok     # 但没留下决策记录
+    assert not report.clean
     msg = _messages(report)
     assert "backend" in msg
     assert "来源" in msg
@@ -364,7 +370,7 @@ def test_source_can_sit_in_a_multiline_comment_block(tmp_path):
 # （image-gen 那条要另外装，这个项目没装）
 backend: laozhang
 """)
-    assert check_config(cfg, tmp_path).ok
+    assert check_config(cfg, tmp_path).clean
 
 
 def test_blank_line_breaks_the_comment_block(tmp_path):
@@ -374,7 +380,8 @@ def test_blank_line_breaks_the_comment_block(tmp_path):
 
 backend: laozhang
 """)
-    assert not check_config(cfg, tmp_path).ok
+    report = check_config(cfg, tmp_path)
+    assert report.ok and not report.governance_ok
 
 
 def test_category_level_field_also_needs_source(tmp_path):
@@ -390,7 +397,7 @@ categories:
     prompt_template: "Icon of {visual}."
 """)
     report = check_config(cfg, tmp_path)
-    assert not report.ok
+    assert report.ok and not report.governance_ok
     assert "aspect_ratio" in _messages(report)
 
 
@@ -409,13 +416,13 @@ categories:
       id_column: fid
     prompt_template: "{v}"
 """)
-    assert check_config(cfg, tmp_path).ok
+    assert check_config(cfg, tmp_path).clean
 
 
 def test_absent_field_needs_no_source(tmp_path):
     """没写的字段用默认值，不需要注释。"""
     cfg = _write_raw(tmp_path, _BASE)
-    assert check_config(cfg, tmp_path).ok
+    assert check_config(cfg, tmp_path).clean
 
 
 # -------------------- 与生成器共用同一份解析 --------------------
@@ -590,3 +597,66 @@ def test_main_finds_config_in_cwd(tmp_path, monkeypatch):
     assert cfg.name == "asset-config.yaml"
     monkeypatch.chdir(tmp_path)
     assert cc.main([]) == 0
+
+
+# -------------------- 治理与运行合法性各走各的 --------------------
+
+def test_governance_only_failure_exits_3(tmp_path, monkeypatch, capsys):
+    """退码 3 让消费者机械地分辨「跑不了」和「没留决策记录」。"""
+    import check_config as cc
+    cfg = _write_raw(tmp_path, _BASE + "backend: laozhang" + chr(10))
+    assert cc.main(["--config", str(cfg)]) == 3
+    err = capsys.readouterr().err
+    assert "[治理]" in err
+    assert "配置本身能跑" in err
+
+
+def test_runtime_error_still_exits_1_even_with_governance_issues(tmp_path, capsys):
+    """运行合法性优先 —— 两样都坏时报 1，不报 3。"""
+    import check_config as cc
+    cfg = _write_raw(tmp_path, _BASE.replace(
+        "path: items.json", "path: missing.json") + "backend: laozhang" + chr(10))
+    assert cc.main(["--config", str(cfg)]) == 1
+    err = capsys.readouterr().err
+    assert "运行合法性" in err
+    assert "另有 1 处治理问题" in err
+
+
+def test_check_runtime_skips_governance(tmp_path, capsys):
+    """下游只关心能不能跑时，不该被某个 agent 写配置的交互规矩拦住。"""
+    import check_config as cc
+    cfg = _write_raw(tmp_path, _BASE + "backend: laozhang" + chr(10))
+    assert cc.main(["--config", str(cfg), "--check", "runtime"]) == 0
+    assert "[治理]" not in capsys.readouterr().err
+
+
+def test_check_governance_skips_runtime(tmp_path, capsys):
+    """治理检查纯看原文注释 —— 数据源不在位也该能跑。"""
+    import check_config as cc
+    cfg = _write_raw(tmp_path, _BASE.replace(
+        "path: items.json", "path: missing.json") + "backend: laozhang" + chr(10))
+    assert cc.main(["--config", str(cfg), "--check", "governance"]) == 3
+    err = capsys.readouterr().err
+    assert "[治理]" in err
+    assert "数据源" not in err          # 运行性检查根本没跑
+
+
+def test_check_governance_on_a_valid_config_passes(tmp_path, capsys):
+    import check_config as cc
+    cfg = _write_raw(tmp_path, _BASE.replace("path: items.json", "path: missing.json"))
+    assert cc.main(["--config", str(cfg), "--check", "governance"]) == 0
+    assert "治理检查通过" in capsys.readouterr().out
+
+
+def test_missing_file_is_a_runtime_error_in_every_mode(tmp_path):
+    """治理档不能对着一个不存在的文件返回「干净」。"""
+    missing = tmp_path / "nope.yaml"
+    for mode in ("all", "runtime", "governance"):
+        report = check_config(missing, tmp_path, checks=mode)
+        assert not report.ok, mode
+
+
+def test_unknown_check_mode_is_rejected(tmp_path):
+    cfg = _write_raw(tmp_path, _BASE)
+    with pytest.raises(ValueError, match="checks 只能是"):
+        check_config(cfg, tmp_path, checks="nope")
