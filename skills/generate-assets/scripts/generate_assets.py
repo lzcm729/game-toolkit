@@ -153,6 +153,7 @@ def main(argv: list[str] | None = None) -> int:
             force=args.force,
             name_filter=name_filter,
             limit=args.limit,
+            allow_degrade=args.allow_degrade,
         )
         results.append(result)
 
@@ -214,6 +215,12 @@ def _build_parser() -> argparse.ArgumentParser:
         default=None,
         help="只取前 N 条。用来抽样验模板，省得先去数据源里查 id 叫什么",
     )
+    parser.add_argument(
+        "--allow-degrade",
+        action="store_true",
+        help="后端不支持配置里的模型/风格/底图时仍然跑。默认阻止 —— 丢掉这些，"
+             "产出的就不是你要的那件事了",
+    )
     parser.add_argument("--dry-run", action="store_true", help="image-gen 走 --dry-run")
     parser.add_argument("--force", action="store_true", help="覆盖已存在的输出文件")
     return parser
@@ -270,6 +277,7 @@ def _run_category(
     force: bool,
     name_filter: "set[str] | None",
     limit: "int | None" = None,
+    allow_degrade: bool = False,
 ) -> CategoryRunResult:
     """算出计划 → 落盘 → 调后端。
 
@@ -279,7 +287,8 @@ def _run_category(
     """
     print(f"\n=== category: {cat_name} ===")
     plan = build_category_plan(
-        ctx, cat_name, cat_spec, name_filter=name_filter, limit=limit
+        ctx, cat_name, cat_spec, name_filter=name_filter, limit=limit,
+        allow_degrade=allow_degrade,
     )
 
     for note in plan.notes:

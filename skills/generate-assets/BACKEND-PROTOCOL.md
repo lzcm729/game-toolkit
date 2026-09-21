@@ -33,10 +33,14 @@ python <backend.py> <batch.json> --output-dir <dir> [--dry-run] [--force]
   不解析它，放 defaults 会被静默丢掉。它与 `reference_paths` **互斥**：
   `image` 是「编辑这张图」，`reference_paths` 是「参考这些图的风格」
 - 后端应校验 `$schema_version`，不认识的版本直接报错，不要猜
-- 后端忽略不认识的 `defaults` 字段即可；告警由上层基于能力声明发出。
-  **但这个保证只覆盖按注册名选中的后端**（`backend: image-gen` / `laozhang`）：
-  脚本路径式后端和 `IMAGE_GEN_SCRIPT` 指定的后端，上层无从得知其能力，一律
-  按全集处理、不告警。这类后端要自己在丢弃字段时出声
+- 后端忽略不认识的 `defaults` 字段即可；判断由上层基于能力声明做出。
+  **丢掉会改变任务含义的字段（`model` / `chain` / `preset` / `reference_paths` /
+  `image` / `aspect_ratio`）默认阻止执行**，不是告警 —— 仍然出得来图，但那不是
+  用户要的那件事，而批量是按张烧钱的。要降级得明说（`--allow-degrade`）。
+  `seed` 那类只影响可复现性的照旧告警继续。
+  **这个保证只覆盖按注册名选中的后端**（`backend: image-gen` / `laozhang`）：
+  脚本路径式后端和 `IMAGE_GEN_SCRIPT` 指定的后端，上层无从得知其能力，
+  按「**未知**」处理 —— 既不报降级，也不声称查过。这类后端必须自己在丢弃字段时出声
 - 能力按模型而非按后端分的字段（例如某些模型没有 `seed`），字段集合式的能力声明
   表达不了。**内置后端**可以在注册表里填 `incompatibilities(defaults, asset)`，
   返回人话消息列表 —— 上层据此在发请求之前报错，校验器也走同一条。

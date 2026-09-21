@@ -665,7 +665,9 @@ def test_unknown_check_mode_is_rejected(tmp_path):
 def test_implicit_control_column_is_a_governance_issue(tmp_path, capsys):
     """表里有 model 列却没声明过 —— 能跑，但行为依赖一个列名巧合。"""
     import check_config as cc
-    cfg = _write(tmp_path, _minimal(tmp_path))
+    # backend 要认 model，否则先撞上「后端不支持 model」那条运行性错误 ——
+    # 这条测的是治理通道，不该被别的检查挡住
+    cfg = _write(tmp_path, _minimal(tmp_path, backend="laozhang"))
     (tmp_path / "items.json").write_text(
         json.dumps({"pearl": {"visual": "x", "model": "业务数据"}}), encoding="utf-8")
     report = check_config(cfg, tmp_path)
@@ -686,3 +688,39 @@ def test_declaring_item_overrides_clears_it(tmp_path):
     (tmp_path / "items.json").write_text(
         json.dumps({"pearl": {"visual": "x", "model": "业务数据"}}), encoding="utf-8")
     assert check_config(cfg, tmp_path).clean
+
+
+# -------------------- 降级：check 和生成器必须同一个判断 --------------------
+
+def test_unsupported_field_is_a_runtime_error(tmp_path):
+    """backend 不认 chain —— 丢掉它产出的不是要的那件事，所以是错，不是提示。"""
+    cfg = _write(tmp_path, _minimal(tmp_path, backend="laozhang",
+                                    style={"chain": "fancy"}))
+    report = check_config(cfg, tmp_path)
+    assert not report.ok
+    assert "不支持 chain" in _messages(report)
+    assert "--allow-degrade" in _messages(report)
+
+
+def test_allow_degrade_makes_it_pass(tmp_path):
+    cfg = _write(tmp_path, _minimal(tmp_path, backend="laozhang",
+                                    style={"chain": "fancy"}))
+    assert check_config(cfg, tmp_path, allow_degrade=True).ok
+
+
+def test_check_cli_has_the_same_switch(tmp_path):
+    """两边判断必须一致，否则校验和执行又会分家。"""
+    import check_config as cc
+    cfg = _write(tmp_path, _minimal(tmp_path, backend="laozhang",
+                                    style={"chain": "fancy"}))
+    args = ["--config", str(cfg), "--project-root", str(tmp_path)]
+    assert cc.main(args) == 1
+    assert cc.main(args + ["--allow-degrade"]) == 0
+
+
+def test_top_level_model_check_is_not_duplicated(tmp_path):
+    """顶层 model 不被后端支持这件事，计划层已经在查 —— 不该再报第二遍。"""
+    cfg = _write(tmp_path, _minimal(tmp_path, model="gemini-3-pro-image"))
+    report = check_config(cfg, tmp_path)
+    hits = [e for e in report.errors if "不支持 model" in e]
+    assert len(hits) == 1, report.errors

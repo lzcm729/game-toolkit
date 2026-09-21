@@ -86,7 +86,17 @@ config 移动而改变相对路径基准，config 不在工程根时建议显式
 
 优先级：item 的 `model` > category 的 `model` > 顶层 `model` > `LAOZHANG_MODEL` > 后端内置默认。
 
-`image-gen` 后端不认 `model`（它用 `chain`），配了会告警。
+`image-gen` 后端不认 `model`（它用 `chain`），配了会**报错**：丢掉指定的模型仍然
+出得来图，但那不是你要的那件事，而批量是按张烧钱的。
+
+同理 `laozhang` 不认 `chain` / `preset`。要临时跑一次（比如切后端试试）就加
+`--allow-degrade`，它会把这类错降回告警并说明放行了什么。`seed` 是例外 ——
+它只影响可复现性，不影响画的是什么，丢了照旧只告警。
+
+`check` 有同名开关，两边判断一致 —— 否则校验和执行又会分家。
+
+自定义后端（脚本路径 / `IMAGE_GEN_SCRIPT`）的能力**未知**：上层既不报降级，
+也不假装查过，只在开头说一句。它若丢弃字段，得自己出声。
 
 ## Unreal 项目
 

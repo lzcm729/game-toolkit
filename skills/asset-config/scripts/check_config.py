@@ -115,6 +115,7 @@ def check_config(
     project_root: "Path | None" = None,
     *,
     checks: str = CHECK_ALL,
+    allow_degrade: bool = False,
 ) -> Report:
     """校验一份 asset-config.yaml，返回 Report。不抛异常。
 
@@ -168,13 +169,6 @@ def check_config(
     if ctx.backend.resolve_script() is None:
         r.note(f"backend={ctx.backend.name} 的脚本还不在位。{ctx.backend.install_hint}")
 
-    declared_model = config.get("model")
-    if declared_model and "model" not in getattr(ctx.backend, "supports", frozenset()):
-        r.error(
-            f"backend={ctx.backend.name} 不支持 model（配的是 {declared_model!r}）。"
-            "image-gen 用 chain 表达模型选择，把 model: 改写成 chain: 才生效。"
-        )
-
     style = config.get("style") or {}
     if not isinstance(style, dict):
         r.error(f"style 应为映射，实际是 {type(style).__name__}")
@@ -198,7 +192,7 @@ def check_config(
         if not isinstance(spec, dict):
             r.error(f"category {name!r} 的配置应为映射，实际是 {type(spec).__name__}")
             continue
-        _check_category(ctx, name, spec, inputs, r)
+        _check_category(ctx, name, spec, inputs, r, allow_degrade=allow_degrade)
 
     _check_global_references(ctx, style, inputs)
     for full, label in inputs.items():
@@ -208,14 +202,15 @@ def check_config(
     return r
 
 
-def _check_category(ctx, name: str, spec: dict, inputs: dict, r: Report) -> None:
+def _check_category(ctx, name: str, spec: dict, inputs: dict, r: Report,
+                    *, allow_degrade: bool = False) -> None:
     """把这个 category 算成生成计划，再验证那个计划。
 
     **算计划用的是生成器那一份函数**（asset_plan.build_category_plan），
     不是这里另写的简化版。以前这里只渲染第一个条目，第 2 条起的模板问题
     要等真跑才暴露 —— 那时候已经在按张烧钱了。
     """
-    plan = build_category_plan(ctx, name, spec)
+    plan = build_category_plan(ctx, name, spec, allow_degrade=allow_degrade)
 
     for err in plan.errors:
         r.error(err)
@@ -320,6 +315,11 @@ def main(argv: "list[str] | None" = None) -> int:
     ap.add_argument("--config", help="配置文件路径；不给就按默认位置找")
     ap.add_argument("--project-root", help="工程根；不给就从配置位置推断")
     ap.add_argument(
+        "--allow-degrade", action="store_true",
+        help="后端不支持配置里的模型/风格/底图时不算错。和 generate_assets 的同名"
+             "开关配套 —— 两边判断必须一致，否则校验和执行又会分家",
+    )
+    ap.add_argument(
         "--check", choices=CHECK_CHOICES, default=CHECK_ALL,
         help="跑哪一组：all（缺省）/ runtime（只看能不能跑）/ "
              "governance（只看「必须询问」档的字段有没有写来源）",
@@ -343,6 +343,7 @@ def main(argv: "list[str] | None" = None) -> int:
         config_path,
         Path(args.project_root) if args.project_root else None,
         checks=args.check,
+        allow_degrade=args.allow_degrade,
     )
 
     for note in report.notes:

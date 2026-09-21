@@ -909,7 +909,11 @@ def test_nested_output_subdir_is_fine(tmp_project, mock_subprocess_run):
 def test_unsupported_field_warns_with_value(
     tmp_project, capsys, mock_subprocess_run, monkeypatch
 ):
-    """laozhang 不认 chain：要告警、要点名 category、要带上被丢弃的值。"""
+    """laozhang 不认 chain：要**阻止**、要点名 category、要带上被丢弃的值。
+
+    丢掉风格链仍然出得来图，但那不是用户要的那件事 —— 批量跑一次按张烧钱，
+    「方便切后端试一下」不足以作为默认改变任务含义的理由。
+    """
     _, _ = mock_subprocess_run
     monkeypatch.delenv("IMAGE_GEN_SCRIPT", raising=False)
     fake = tmp_project / "fake_backend.py"
@@ -928,11 +932,16 @@ def test_unsupported_field_warns_with_value(
     conf["style"]["chain"] = "default"
     _write_yaml(cfg, conf)
 
-    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 1
     err = capsys.readouterr().err
     assert "ingredients" in err          # 点名 category
     assert "chain" in err
     assert "default" in err              # 带上被丢弃的值
+    assert "--allow-degrade" in err      # 给出出路
+
+    # 明确接受降级就能跑
+    assert ga.main(["--config", str(cfg), "ingredients", "--allow-degrade"]) == 0
+    assert "已按 --allow-degrade 放行" in capsys.readouterr().err
     assert "image-gen" in err            # 指出切回哪个后端才生效
 
 
@@ -1023,10 +1032,10 @@ def test_model_not_killed_by_skip_global_style(tmp_project, mock_subprocess_run)
 def test_image_gen_backend_warns_on_model_and_points_at_chain(
     tmp_project, capsys, mock_subprocess_run, monkeypatch
 ):
-    """image-gen 用 chain 表达模型选择，不认 model——告警得指对方向。"""
+    """image-gen 用 chain 表达模型选择，不认 model——报错得指对方向。"""
     _, _ = mock_subprocess_run
     # 必须走真正的 IMAGE_GEN 条目：fixture 设的 IMAGE_GEN_SCRIPT 会走
-    # _custom()，那条按全集处理不告警（自定义后端能力未知，不该误报）。
+    # _custom()，那条的能力是**未知**，既不报降级也不假装查过。
     monkeypatch.delenv("IMAGE_GEN_SCRIPT", raising=False)
     fake = tmp_project / "fake_ig.py"
     fake.write_text("# stub", encoding="utf-8")
@@ -1039,7 +1048,7 @@ def test_image_gen_backend_warns_on_model_and_points_at_chain(
     conf["model"] = "gemini-3-pro-image"
     _write_yaml(cfg, conf)
 
-    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 1
     err = capsys.readouterr().err
     assert "不支持 model" in err
     assert "chain" in err                 # 指向正确的替代写法
@@ -1191,10 +1200,10 @@ def test_backend_runs_in_project_root(tmp_project, mock_subprocess_run):
     assert Path(calls[0]["kwargs"]["cwd"]) == tmp_project.resolve()
 
 
-def test_item_level_unsupported_field_also_warns(
+def test_item_level_unsupported_field_is_also_caught(
     tmp_project, capsys, mock_subprocess_run, monkeypatch
 ):
-    """告警只扫 defaults 的话，只在 item 上配的 model 会静默失效。"""
+    """只扫 defaults 的话，只在 item 上配的 model 会静默失效。"""
     _, _ = mock_subprocess_run
     monkeypatch.delenv("IMAGE_GEN_SCRIPT", raising=False)
     fake = tmp_project / "fake_ig.py"
@@ -1208,7 +1217,7 @@ def test_item_level_unsupported_field_also_warns(
     conf["categories"]["ingredients"]["data_source"]["items"]["pearl"]["model"] = "gemini-3-pro-image"
     _write_yaml(cfg, conf)
 
-    assert ga.main(["--config", str(cfg), "ingredients"]) == 0
+    assert ga.main(["--config", str(cfg), "ingredients"]) == 1
     err = capsys.readouterr().err
     assert "不支持 model" in err
     assert "pearl" in err             # 点名是哪个 item

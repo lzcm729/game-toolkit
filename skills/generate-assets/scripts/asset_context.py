@@ -223,6 +223,12 @@ def load_context(
     except ValueError as e:
         raise ContextError(str(e)) from e
 
+    if not getattr(backend, "capability_known", True):
+        notes.append(
+            f"backend={backend.name} 的能力未知（自定义脚本），本次不做降级检查。"
+            "它若丢弃了配置里的字段，必须自己出声 —— 见 BACKEND-PROTOCOL.md。"
+        )
+
     return AssetContext(
         config_path=config_path,
         config=config,

@@ -44,7 +44,12 @@ UNSUPPORTED_HINTS = {
 }
 
 # 这几个键是 batch 协议的必备字段，不参与「后端认不认」的判断。
-_PROTOCOL_KEYS = ("name", "filename", "prompt", "image")
+_PROTOCOL_KEYS = ("name", "filename", "prompt")
+
+# 丢掉也**不改变任务含义**的字段。seed 只影响可复现性，不影响画的是什么。
+# 其余（model / chain / preset / reference_paths / image / aspect_ratio）
+# 一旦被丢掉，产出的就不是用户要的那件事了 —— 那种情况默认阻止，不是告警。
+DEGRADE_TOLERANT = frozenset({"seed"})
 
 # 可以按条目覆盖的生成参数。数据里出现同名字段就会顶掉 category 级的设置 ——
 # 对专门做的生成清单这很方便，对复用的策划表就是**隐式控制通道**：
@@ -207,41 +212,50 @@ def apply_extra_fields(item: dict, extra_fields: dict) -> dict:
     return out
 
 
-def unsupported_field_warnings(cat_name: str, backend, defaults: dict, assets: list) -> list:
-    """后端不认的字段。defaults 和每个 asset 都要查。
+def unsupported_field_findings(
+    cat_name: str, backend, defaults: dict, assets: list, *, allow_degrade: bool = False
+) -> "tuple[list, list]":
+    """后端不认的字段，返回 (errors, warnings)。defaults 和每个 asset 都要查。
 
     只扫 defaults 的话，「只在某个 item 上配了 model」会静默失效 —— 字段
     确实送到了后端，但后端不认，而上层以为自己已经告警过了。
 
-    告警而不报错，是为了让「切个后端试一下」不至于先改一遍 yaml。
-    必须带上被丢弃的值 —— 只说「不支持 chain」，人还得回头翻 yaml。
+    **丢掉会改变任务含义的字段默认阻止执行。** 指定的模型、底图、风格参考被
+    丢掉，仍然能产出图片，但那已经不是用户要求的那件事 —— 批量跑一次是按张
+    烧钱的，「方便切后端试一下」不足以作为默认改变任务含义的理由。要试就用
+    `--allow-degrade` 明确接受这次降级。`seed` 那类只影响可复现性的照旧告警。
+
+    自定义后端的能力**未知**，两样都不报 —— 既不能说它不支持，也不该假装查过。
     """
-    out: list = []
+    errors: list = []
+    warnings: list = []
     supports = getattr(backend, "supports", None)
-    if supports is None:
-        return out
+    if supports is None or not getattr(backend, "capability_known", True):
+        return errors, warnings
     name = getattr(backend, "name", "?")
 
-    for key in sorted(k for k in defaults if k not in supports):
+    def _record(where: str, key: str, value) -> None:
         hint = UNSUPPORTED_HINTS.get(key, "该后端不认这个字段。")
-        out.append(
-            f"category={cat_name}: backend={name} 不支持 {key}"
-            f"（值 {defaults[key]!r}），已忽略。{hint}"
+        if key in DEGRADE_TOLERANT or allow_degrade:
+            tail = "已忽略。" if key in DEGRADE_TOLERANT else "已按 --allow-degrade 放行并忽略。"
+            warnings.append(f"{where}: backend={name} 不支持 {key}（值 {value!r}），{tail}{hint}")
+            return
+        errors.append(
+            f"{where}: backend={name} 不支持 {key}（值 {value!r}），"
+            f"丢掉它产出的就不是你要的那件事了。{hint}"
+            " 改配置，或加 --allow-degrade 明确接受这次降级。"
         )
+
+    for key in sorted(k for k in defaults if k not in supports):
+        _record(f"category={cat_name}", key, defaults[key])
 
     for asset in assets:
         payload = asset.payload if isinstance(asset, PlannedAsset) else asset
-        unknown = [
-            k for k in payload
-            if k not in _PROTOCOL_KEYS and k not in supports
-        ]
+        unknown = [k for k in payload if k not in _PROTOCOL_KEYS and k not in supports]
         for key in sorted(unknown):
-            hint = UNSUPPORTED_HINTS.get(key, "该后端不认这个字段。")
-            out.append(
-                f"category={cat_name} item={payload.get('name')}: "
-                f"backend={name} 不支持 {key}（值 {payload[key]!r}），已忽略。{hint}"
-            )
-    return out
+            _record(f"category={cat_name} item={payload.get('name')}", key, payload[key])
+
+    return errors, warnings
 
 
 def capability_errors(cat_name: str, backend, defaults: dict, assets: list) -> list:
@@ -337,6 +351,7 @@ def build_category_plan(
     *,
     name_filter: "set[str] | None" = None,
     limit: "int | None" = None,
+    allow_degrade: bool = False,
 ) -> CategoryPlan:
     """把一个 category 算成完整计划。不抛异常 —— 问题都进 plan.errors。
 
@@ -550,9 +565,11 @@ def build_category_plan(
             )
 
     # --- 后端能力 ---
-    plan.warnings.extend(
-        unsupported_field_warnings(cat_name, ctx.backend, plan.defaults, plan.assets)
+    unsupported_errors, unsupported_warnings = unsupported_field_findings(
+        cat_name, ctx.backend, plan.defaults, plan.assets, allow_degrade=allow_degrade,
     )
+    plan.errors.extend(unsupported_errors)
+    plan.warnings.extend(unsupported_warnings)
     plan.errors.extend(
         capability_errors(cat_name, ctx.backend, plan.defaults, plan.assets)
     )

@@ -1,6 +1,7 @@
 """asset_plan — 生成计划（校验器验证它、dry-run 展示它、执行器消费它）。"""
 from __future__ import annotations
 
+import dataclasses
 import json
 from pathlib import Path
 
@@ -233,19 +234,57 @@ def test_extra_fields_must_be_mapping(tmp_path):
 
 # -------------------- 后端能力 --------------------
 
-def test_unsupported_field_on_defaults_warns(tmp_path):
-    ctx = _simple(tmp_path, {"a": {"visual": "x"}}, chain="fancy")
-    ctx = asset_context.AssetContext(**{**ctx.__dict__, "backend": image_backend.LAOZHANG})
+def _with_backend(ctx, backend):
+    return asset_context.AssetContext(**{**ctx.__dict__, "backend": backend})
+
+
+def test_unsupported_field_on_defaults_is_an_error(tmp_path):
+    """丢掉风格链，产出的就不是你要的那件事了 —— 默认阻止，不是告警。"""
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x"}}, chain="fancy"), image_backend.LAOZHANG)
     plan = build_category_plan(ctx, "ing")
-    assert any("不支持 chain" in w and "fancy" in w for w in plan.warnings)
+    assert not plan.ok
+    assert any("不支持 chain" in e and "fancy" in e for e in plan.errors)
 
 
-def test_unsupported_field_on_item_warns(tmp_path):
+def test_unsupported_field_on_item_is_an_error(tmp_path):
     """只扫 defaults 的话，「只在某个 item 上配了 model」会静默失效。"""
-    ctx = _simple(tmp_path, {"a": {"visual": "x", "model": "m"}})
-    ctx = asset_context.AssetContext(**{**ctx.__dict__, "backend": image_backend.IMAGE_GEN})
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x", "model": "m"}},
+                item_overrides={"model": "model"}), image_backend.IMAGE_GEN)
     plan = build_category_plan(ctx, "ing")
-    assert any("item=a" in w and "不支持 model" in w for w in plan.warnings)
+    assert any("item=a" in e and "不支持 model" in e for e in plan.errors)
+
+
+def test_allow_degrade_turns_it_back_into_a_warning(tmp_path):
+    """「切个后端试一下」要明说 —— 它不再是默认。"""
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x"}}, chain="fancy"), image_backend.LAOZHANG)
+    plan = build_category_plan(ctx, "ing", allow_degrade=True)
+    assert plan.ok
+    assert any("--allow-degrade" in w for w in plan.warnings)
+
+
+def test_seed_is_degrade_tolerant(tmp_path):
+    """seed 只影响可复现性，不影响画的是什么 —— 丢了照旧只告警。"""
+    backend = dataclasses.replace(
+        image_backend.LAOZHANG,
+        supports=image_backend.LAOZHANG.supports - {"seed"})
+    ctx = _with_backend(_simple(tmp_path, {"a": {"visual": "x"}}, seed=7), backend)
+    plan = build_category_plan(ctx, "ing")
+    assert plan.ok
+    assert any("不支持 seed" in w for w in plan.warnings)
+
+
+def test_custom_backend_capability_is_unknown_not_supported(tmp_path):
+    """自定义后端既不报降级，也不假装查过 —— 「没发现」和「没看」得分开。"""
+    backend = dataclasses.replace(
+        image_backend.LAOZHANG, name="custom:x", capability_known=False)
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x"}}, chain="fancy"), backend)
+    plan = build_category_plan(ctx, "ing")
+    assert plan.ok
+    assert plan.warnings == []
 
 
 def test_supported_field_does_not_warn(tmp_path):
@@ -327,7 +366,9 @@ def test_bad_data_source_is_error_not_crash(tmp_path):
 
 def test_undeclared_control_column_still_works_but_is_reported(tmp_path):
     """行为不变 —— 改了会让现有配置静默失效。但要说出来。"""
-    ctx = _simple(tmp_path, {"a": {"visual": "x", "model": "m-from-data"}})
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x", "model": "m-from-data"}}),
+        image_backend.LAOZHANG)
     plan = build_category_plan(ctx, "ing")
     assert plan.ok
     assert plan.assets[0].payload["model"] == "m-from-data"
@@ -417,3 +458,27 @@ def test_item_overrides_must_be_a_mapping(tmp_path):
     ctx = _simple(tmp_path, {"a": {"visual": "x"}}, item_overrides=["model"])
     plan = build_category_plan(ctx, "ing")
     assert any("item_overrides 应为映射" in e for e in plan.errors)
+
+
+def test_backend_without_edit_support_rejects_image(tmp_path):
+    """编辑底图也是能力的一种。后端不支持就该拦住 —— 丢掉底图等于换了个任务。
+
+    两个内置后端都支持 image，所以这条只有造一个不支持的后端才测得到。
+    """
+    backend = dataclasses.replace(
+        image_backend.LAOZHANG,
+        supports=image_backend.LAOZHANG.supports - {"image"})
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x"}}, image="base.png"), backend)
+    plan = build_category_plan(ctx, "ing")
+    assert not plan.ok
+    assert any("不支持 image" in e for e in plan.errors)
+
+
+def test_backend_with_edit_support_accepts_image(tmp_path):
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x"}}, image="base.png"),
+        image_backend.LAOZHANG)
+    plan = build_category_plan(ctx, "ing")
+    assert plan.ok
+    assert Path(plan.assets[0].payload["image"]).name == "base.png"

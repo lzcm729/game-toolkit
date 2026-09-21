@@ -22,9 +22,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-# batch JSON defaults 里可能出现的全部字段。自定义后端能力未知，按全集处理 ——
-# 宁可不告警，也不要对着一个我们没见过的后端误报「不支持 chain」。
-ALL_FIELDS = frozenset({"chain", "preset", "model", "reference_paths", "aspect_ratio", "seed"})
+# 后端可能收到的全部可选字段（`image` 只出现在 asset 上，别的可出现在 defaults）。
+# 内置后端逐个声明认哪些；自定义后端的能力**未知**，走 capability_known=False。
+ALL_FIELDS = frozenset({
+    "chain", "preset", "model", "reference_paths", "aspect_ratio", "seed", "image",
+})
 
 SCRIPT_ENV = "IMAGE_GEN_SCRIPT"
 
@@ -42,6 +44,10 @@ class ImageBackend:
     supports: frozenset
     # 找不到脚本时告诉人怎么装
     install_hint: str
+    # 这个后端的能力是不是已知的。自定义后端（脚本路径 / 环境变量指定）填 False：
+    # 我们没见过它，既不能说「不支持 chain」，也不该假装「全部支持」。
+    # 「没发现」和「没看」得分得开。
+    capability_known: bool = True
     # 按模型判定的能力冲突 —— `supports` 那种字段集合表达不了的那类。
     # 收 (defaults, asset)，返回人话消息列表；空列表 = 没发现冲突。
     #
@@ -116,7 +122,7 @@ LAOZHANG = ImageBackend(
     name="laozhang",
     resolve_script=_laozhang_script,
     # chain / preset 是 image-gen 特有的风格链与预设，本后端没有对应概念
-    supports=frozenset({"model", "reference_paths", "aspect_ratio", "seed"}),
+    supports=frozenset({"model", "reference_paths", "aspect_ratio", "seed", "image"}),
     install_hint=(
         "laozhang 后端随插件安装，脚本却不见了 —— 插件目录可能不完整，"
         "重装插件或 /plugin update game-toolkit。"
@@ -128,12 +134,18 @@ BACKENDS = {"image-gen": IMAGE_GEN, "laozhang": LAOZHANG}
 
 
 def _custom(path: Path, origin: str) -> ImageBackend:
-    """外部脚本后端。能力未知 → supports 用全集，不误报降级。"""
+    """外部脚本后端。**能力未知** —— 不是「全部支持」。
+
+    上层据此既不报降级、也不声称查过；由后端自己在丢弃字段时出声
+    （BACKEND-PROTOCOL.md 写着这条义务）。
+    """
     return dataclasses.replace(
         IMAGE_GEN,
         name=f"custom:{path.name}",
         resolve_script=lambda: _existing(path),
         supports=ALL_FIELDS,
+        capability_known=False,
+        incompatibilities=_no_incompatibilities,
         install_hint=f"{origin} 指向的后端脚本不存在：{path}。检查路径是否写对。",
     )
 
