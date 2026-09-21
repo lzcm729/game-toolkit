@@ -3,6 +3,61 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 3.17.0 (2026-09-21)
+
+拆开引擎适配的三职责捆绑。`adapter: unreal` 降为兼容值。
+
+### 起因：换路径写法会顺带换掉工程根
+
+`EngineAdapter` 把三件事捆在一起：找工程根、解析路径前缀、生成后提示导入。
+「换引擎时可能一起变化」不是足够强的聚合理由 —— 代价是**切换路径处理能力会
+顺带换掉工程根**。于是「UE 项目用 generic 完全合理」这句概念上成立的话，
+在 config 放子目录时变成行为不等价：`unreal` 向上找 `*.uproject`，
+`generic` 退化成 config 所在目录，所有相对路径跟着换基准。
+
+`adapter: unreal` 的三个职责，没有一个要求用户去选一个叫 `unreal` 的适配器：
+
+| 当年的职责 | 现在归谁 |
+|---|---|
+| 向上找 `*.uproject` | 通用工程探测，对所有适配器一视同仁 |
+| 拒绝 `/Game/` | 通用路径校验（`generic` 本来就在做） |
+| 提醒走 UE 导入 | 按**探测到的工程**给，不按适配器给 |
+
+**认得一种不合法输入，不足以支撑一个用户可选的适配器。**
+
+### 做法
+
+`engine_adapter.py` 拆成三组互不依赖的东西：
+
+- `detect_project()` / `project_kind()` —— 工程是什么、根在哪。一次向上走，
+  每层把所有标志都看一遍（分开走的话，嵌在 UE 仓库里的 Godot 子工程会被
+  两次搜索给出不同答案）。**不问适配器。**
+- `EngineAdapter` —— 只剩路径：`resolve_path` + `virtual_prefix`
+- `import_hint(kind, output_dir)` —— 按探测到的工程给
+
+`asset_context` 的解析流变成单向：根 → 工程类型 → 适配器 → 输出根。
+以前是「先选适配器、再用适配器找根」，那个环就是行为不等价的来源。
+
+换来一项以前没有的能力：**UE 项目写 `adapter: generic`（正常默认）也能拿到
+那句导入提示**。以前只有写 `adapter: unreal` 才有。
+
+`adapter` 的可选值收回两个：`godot`（认 `res://`）和 `generic`（普通文件路径）。
+`unreal` 进 `LEGACY_ADAPTERS`，等价于 `generic`，校验和生成时各报一条提示说明
+等价关系。不直接删是因为删了会让现有配置一上来就报错，而它在 3.16.0 之前
+还承担着工程根探测 —— 那部分的行为差异刚刚才消除。
+
+`/Game/` 的报错措辞也改了。以前会说「本 skill 目前没有 unreal 适配」，
+听起来像缺了个开关；现在说清它是**导入后**的资产路径，没有任何适配器认它。
+
+顺带删掉 `godot_utils.find_project_root` —— `detect_project` 之后它是第二处
+向上走的实现，同一份知识两个口径。
+
+### 边界
+
+导入提示陈述的是**生成与导入的边界**，不是检查结果。UE 那条明写「本工具不检查
+导入状态」：`.uasset` 是二进制，源图片到资产的对应关系写在项目各自的导入脚本里，
+没法反查。
+
 ## 3.16.0 (2026-09-21)
 
 校验器和生成器改用同一份上下文解析与生成计划。以前是两份。
