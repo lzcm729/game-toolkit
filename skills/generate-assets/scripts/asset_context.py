@@ -16,6 +16,7 @@
 """
 from __future__ import annotations
 
+import difflib
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -172,6 +173,85 @@ def category_problems(cats, *, allow_empty: bool = False) -> list:
                 f"category {name!r} 的配置应为映射，实际是 {type(spec).__name__}（{spec!r}）"
             )
     return out
+
+
+# -------------------- 不认识的字段 --------------------
+#
+# 计划层只取认得的字段，剩下的没人看。于是 `aspect_ration: "4:3"`（拼错）
+# 校验照样退 0，生成时静默退回默认比例 —— 冷启动评测第一次正式运行就撞上了。
+#
+# 表是从代码里所有读配置的地方 grep 出来的，不是凭记忆写的。漏一个真字段，
+# 就会把合法配置误判成拼错；所以新增字段时这里也要加。
+
+KNOWN_FIELDS = {
+    "top": frozenset({
+        "$schema_version", "adapter", "engine", "project_root", "output_root",
+        "backend", "model", "style", "categories",
+    }),
+    "style": frozenset({
+        "prompt_prefix", "prompt_suffix", "reference_paths", "chain", "preset",
+    }),
+    "category": frozenset({
+        "desc", "data_source", "prompt_template", "derived_fields", "extra_fields",
+        "item_overrides", "skip_global_style", "output_subdir", "output_ext",
+        "aspect_ratio", "seed", "chain", "preset", "model", "image", "reference_paths",
+    }),
+    "data_source": frozenset({
+        "type", "path", "items", "id_column", "columns", "encoding", "filter",
+    }),
+}
+
+_LEVEL_LABEL = {
+    "top": "顶层", "style": "style 段", "category": "category 里", "data_source": "data_source 里",
+}
+
+
+def field_problems(mapping, level: str, where: str) -> "tuple[list, list]":
+    """一层映射里不认识的字段，返回 (errors, notes)。三种情况分开：
+
+    - **放错层**（是真字段，但这一层不认）→ 错。写在这里等于没写，比如顶层的
+      `aspect_ratio` —— 它只在 category 里生效
+    - **拼错**（和这一层某个字段很像）→ 错，并说出像哪个。拼错的字段不起任何作用
+    - **完全陌生** → 只提示。配置文件不只属于一个消费者，别的工具可能在这里放
+      自己的字段，一律报错就把它们挡死了
+    """
+    errors: list = []
+    notes: list = []
+    if not isinstance(mapping, dict):
+        return errors, notes
+    known = KNOWN_FIELDS[level]
+    lowered = {k.lower(): k for k in known}
+    for key in mapping:
+        if not isinstance(key, str) or key in known:
+            continue
+        elsewhere = [lvl for lvl, ks in KNOWN_FIELDS.items() if lvl != level and key in ks]
+        if elsewhere:
+            places = "、".join(_LEVEL_LABEL[lvl] for lvl in elsewhere)
+            errors.append(
+                f"{where}: {key!r} 写在{_LEVEL_LABEL[level]}不生效 —— 它只在{places}起作用，"
+                "写在这里等于没写"
+            )
+            continue
+        close = difflib.get_close_matches(key.lower(), list(lowered), n=1, cutoff=0.75)
+        if close:
+            errors.append(
+                f"{where}: 不认识的字段 {key!r}，像是 {lowered[close[0]]!r} 拼错了 —— "
+                "拼错的字段不起任何作用，生成时会静默用默认值"
+            )
+        else:
+            notes.append(
+                f"{where}: 不认识的字段 {key!r}，本工具不会用它"
+                "（是别的工具放的就可以不管这条）"
+            )
+    return errors, notes
+
+
+def config_field_problems(config: dict) -> "tuple[list, list]":
+    """顶层与 style 段。category 那一层由计划层逐个查 —— 只跑一个 category 时
+    只该报它自己的问题。"""
+    errors, notes = field_problems(config, "top", "顶层")
+    e, n = field_problems(config.get("style"), "style", "style")
+    return errors + e, notes + n
 
 
 def style_problem(style) -> "str | None":

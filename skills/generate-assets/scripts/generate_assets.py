@@ -109,6 +109,16 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[fatal] {e}", file=sys.stderr)
         return 1
 
+    # 顶层与 style 的字段拼错 / 放错层：和 check 同一份判定，错就不跑 ——
+    # 拼错的字段会静默用默认值，而批量是按张烧钱的
+    field_errors, field_notes = asset_context.config_field_problems(config)
+    for msg in field_notes:
+        print(f"[info] {msg}", file=sys.stderr)
+    if field_errors:
+        for msg in field_errors:
+            print(f"[fatal] {msg}", file=sys.stderr)
+        return 1
+
     # 选择 category
     categories = ctx.categories
     problems = asset_context.category_problems(categories)

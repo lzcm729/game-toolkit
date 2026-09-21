@@ -436,6 +436,15 @@ def build_category_plan(
         plan.errors.extend(shape)
         return plan
 
+    # 拼错的字段不起作用、生成时静默用默认值 —— 得在花钱之前说
+    for mapping, level, where in (
+        (cat_spec, "category", f"category {cat_name}"),
+        (cat_spec.get("data_source"), "data_source", f"category {cat_name} 的 data_source"),
+    ):
+        field_errors, field_notes = asset_context.field_problems(mapping, level, where)
+        plan.errors.extend(field_errors)
+        plan.notes.extend(field_notes)
+
     project_root = ctx.project_root
     output_root = ctx.output_root
     adapter = ctx.adapter

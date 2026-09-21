@@ -172,6 +172,12 @@ def check_config(
     # 形状规则和生成器同一份（asset_context）。style 和 categories 都坏时两样
     # 一起报 —— 以前 check 只报 style、生成器只报 category，退码一样但让人
     # 修两轮才修得完。
+    field_errors, field_notes = asset_context.config_field_problems(config)
+    for msg in field_errors:
+        r.error(msg)
+    for msg in field_notes:
+        r.note(msg)
+
     style_issue = asset_context.style_problem(config.get("style"))
     if style_issue:
         r.error(style_issue)

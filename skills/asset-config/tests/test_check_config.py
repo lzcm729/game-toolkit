@@ -977,3 +977,90 @@ def test_project_root_without_any_project_marker_is_not_noted(tmp_path):
     """探测不到工程时，写 project_root 是唯一能钉住根的办法。"""
     cfg = _write(tmp_path, _minimal(tmp_path, project_root="."))
     assert not any("可以不写" in n for n in check_config(cfg).notes)
+
+
+# -------------------- 不认识的字段（冷启动评测第一次正式运行挖出来的） --------------------
+
+def _cat(**extra):
+    return {"ingredients": {
+        "data_source": {"type": "json_dict", "path": "items.json"},
+        "prompt_template": "Icon of {visual}.", **extra}}
+
+
+def test_misspelled_category_field_is_an_error(tmp_path):
+    """**回归**：`aspect_ration: "4:3"` 以前校验照样退 0，生成时静默用默认比例。"""
+    cfg = _write(tmp_path, _minimal(tmp_path, categories=_cat(aspect_ration="4:3")))
+    report = check_config(cfg, tmp_path)
+    assert not report.ok
+    assert "像是 'aspect_ratio' 拼错了" in _messages(report)
+
+
+def test_misspelled_top_level_field_is_an_error(tmp_path):
+    cfg = _write(tmp_path, _minimal(tmp_path, backnd="laozhang"))
+    report = check_config(cfg, tmp_path)
+    assert not report.ok
+    assert "像是 'backend' 拼错了" in _messages(report)
+
+
+def test_misspelled_data_source_field_is_an_error(tmp_path):
+    cfg = _write(tmp_path, _minimal(tmp_path, categories={"ingredients": {
+        "data_source": {"type": "json_dict", "path": "items.json", "filtr": {"a": 1}},
+        "prompt_template": "Icon of {visual}."}}))
+    assert "像是 'filter' 拼错了" in _messages(check_config(cfg, tmp_path))
+
+
+def test_typo_detection_ignores_case(tmp_path):
+    """用全大写：`Aspect_Ratio` 只差两个字母，大小写敏感地比相似度也有 0.83，
+    照样越过阈值 —— 第一版用的就是它，变异验证发现它根本测不出大小写处理。
+    """
+    cfg = _write(tmp_path, _minimal(tmp_path, categories=_cat(ASPECT_RATIO="4:3")))
+    assert "像是 'aspect_ratio' 拼错了" in _messages(check_config(cfg, tmp_path))
+
+
+def test_real_field_at_the_wrong_level_is_an_error(tmp_path):
+    """顶层的 aspect_ratio 不生效 —— 它只在 category 里起作用。看着像写对了，
+    其实什么都没发生，是最难自己发现的那种。
+    """
+    cfg = _write(tmp_path, _minimal(tmp_path, aspect_ratio="16:9"))
+    report = check_config(cfg, tmp_path)
+    assert not report.ok
+    msg = _messages(report)
+    assert "写在顶层不生效" in msg and "category 里" in msg
+
+
+def test_model_inside_style_is_an_error(tmp_path):
+    """指引专门说过 model 放顶层不放 style —— 放进 style 就没人读了。"""
+    cfg = _write(tmp_path, _minimal(tmp_path, style={"model": "gemini-3-pro-image"}))
+    assert "写在style 段不生效" in _messages(check_config(cfg, tmp_path))
+
+
+def test_entirely_foreign_field_is_only_a_note(tmp_path):
+    """配置不只属于一个消费者。完全陌生的字段可能是别的工具的，不能挡死。"""
+    cfg = _write(tmp_path, _minimal(tmp_path, quality="high",
+                                    categories=_cat(owner="美术组")))
+    report = check_config(cfg, tmp_path)
+    assert report.ok, report.errors
+    assert any("'quality'" in n and "不会用它" in n for n in report.notes)
+    assert any("'owner'" in n for n in report.notes)
+
+
+def test_schema_version_and_legacy_engine_are_known(tmp_path):
+    cfg = _write(tmp_path, _minimal(tmp_path))          # _minimal 带 $schema_version
+    assert not any("不认识" in n for n in check_config(cfg, tmp_path).notes)
+
+
+def test_bundled_example_has_no_unknown_fields():
+    """字段表是从代码里 grep 出来的。漏一个真字段，合法配置就会被判成拼错 ——
+    插件自带的完整示例用了大部分字段，拿它守着这张表。
+    """
+    import yaml
+    import asset_context
+    ex = Path(__file__).resolve().parents[2] / "generate-assets" / "examples" / "milk-tea-defense.yaml"
+    conf = yaml.safe_load(ex.read_text(encoding="utf-8"))
+    errs, notes = asset_context.config_field_problems(conf)
+    for name, spec in conf["categories"].items():
+        for m, lvl in ((spec, "category"), (spec.get("data_source"), "data_source")):
+            e, n = asset_context.field_problems(m, lvl, name)
+            errs += e
+            notes += n
+    assert errs == [] and notes == [], errs + notes

@@ -1581,3 +1581,37 @@ def test_game_prefix_in_data_source_is_an_error(tmp_path, capsys, mock_subproces
     _write_yaml(cfg, conf)
     assert ga.main(["ingredients", "--config", str(cfg), "--dry-run"]) == 1
     assert "导入后" in capsys.readouterr().err
+
+
+# -------------------- 不认识的字段：生成器和 check 同一份判定 --------------------
+
+def test_misspelled_field_blocks_generation(tmp_project, capsys, mock_subprocess_run):
+    """拼错的字段会静默用默认值，而批量是按张烧钱的 —— 生成器也得拦住。"""
+    calls, _ = mock_subprocess_run
+    cfg = _minimal_config()
+    cfg["categories"]["ingredients"]["aspect_ration"] = "4:3"
+    p = tmp_project / "asset-config.yaml"
+    _write_yaml(p, cfg)
+    assert ga.main(["ingredients", "--config", str(p), "--dry-run"]) == 1
+    assert "像是 'aspect_ratio' 拼错了" in capsys.readouterr().err
+    assert calls == []                  # 后端一次都没被调
+
+
+def test_misspelled_top_level_field_blocks_generation(tmp_project, capsys, mock_subprocess_run):
+    calls, _ = mock_subprocess_run
+    cfg = _minimal_config()
+    cfg["modle"] = "gemini-3-pro-image"
+    p = tmp_project / "asset-config.yaml"
+    _write_yaml(p, cfg)
+    assert ga.main(["ingredients", "--config", str(p), "--dry-run"]) == 1
+    assert "像是 'model' 拼错了" in capsys.readouterr().err
+    assert calls == []
+
+
+def test_foreign_field_does_not_block_generation(tmp_project, capsys, mock_subprocess_run):
+    cfg = _minimal_config()
+    cfg["quality"] = "high"
+    p = tmp_project / "asset-config.yaml"
+    _write_yaml(p, cfg)
+    assert ga.main(["ingredients", "--config", str(p), "--dry-run"]) == 0
+    assert "不会用它" in capsys.readouterr().err
