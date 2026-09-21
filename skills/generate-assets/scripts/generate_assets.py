@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
-"""generate-assets: schema-driven asset orchestrator，引擎无关；引擎相关的部分在 engine_adapter.py。
+"""generate-assets: schema-driven asset orchestrator。
 
-读项目 asset-config.yaml → 加载数据源 → 渲染 prompt → 调底层 image-gen SDK 批量生成
-→ 输出到 res:// 路径。
+职责只有一段：拿到生成计划之后把它落盘、交给后端、汇总结果。
+
+  - 配置的定位与解析（工程根、输出根、适配器、后端）在 asset_context
+  - 计划的构造（数据源 → prompt → 文件名 → 落盘位置）在 asset_plan
+  - 引擎相关的路径与导入规则在 engine_adapter
+  - 实际调哪个生图程序在 image_backend，协议见 BACKEND-PROTOCOL.md
+
+前两个模块和 asset-config skill 的校验器是同一份 —— 校验和执行看到的是
+同一个计划，这是刻意的：两套解析迟早给出不同结论。
 
 CLI:
     python generate_assets.py <category>          # 生成单个 category
@@ -26,36 +33,20 @@ import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 # 允许包外直接 `python generate_assets.py`：把脚本所在目录加进 sys.path
 _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
-from data_source import load_data_source  # noqa: E402
-import engine_adapter  # noqa: E402
+import asset_context  # noqa: E402
 import image_backend  # noqa: E402
-from godot_utils import (  # noqa: E402
-    ensure_parent_dirs,
-    find_project_root,
-    is_godot_project,
-    resolve_res_path,
-    scan_imports,
-    strip_res_prefix,
-)
-from prompt_render import compose_prompt, evaluate_derived, render_template  # noqa: E402
+from asset_plan import build_category_plan  # noqa: E402
+from godot_utils import ensure_parent_dirs  # noqa: E402
 
-try:
-    import yaml  # type: ignore
-except ImportError:  # pragma: no cover - 启动期检测
-    yaml = None  # type: ignore[assignment]
-
-
-DEFAULT_CONFIG_PATHS = [
-    Path("asset-config.yaml"),
-    Path("assets/asset-config.yaml"),
-]
+# 配置的定位与解析在 asset_context，计划的构造在 asset_plan —— 校验器用的是
+# 同两个模块。本文件只剩「拿到计划之后怎么落盘、怎么调后端、怎么汇总」。
+DEFAULT_CONFIG_PATHS = asset_context.DEFAULT_CONFIG_PATHS
 
 
 # -------------------- 数据结构 --------------------
@@ -74,32 +65,18 @@ def main(argv: list[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
 
-    if yaml is None:
-        print(
-            "[fatal] 缺少 PyYAML。请装：pip install pyyaml",
-            file=sys.stderr,
-        )
-        return 1
-
-    config_path = _locate_config(args.config)
+    config_path = asset_context.locate_config(args.config)
     if config_path is None:
         print(
-            f"[fatal] 找不到 asset-config.yaml（默认搜索：{[str(p) for p in DEFAULT_CONFIG_PATHS]}）",
+            f"[fatal] 找不到 asset-config.yaml（默认搜索：{asset_context.default_config_hint()}）",
             file=sys.stderr,
         )
         return 1
 
     try:
-        with config_path.open(encoding="utf-8") as f:
-            config = yaml.safe_load(f)
-    except yaml.YAMLError as e:
-        mark = getattr(e, "problem_mark", None)
-        where = f" 第 {mark.line + 1} 行第 {mark.column + 1} 列" if mark else ""
-        print(f"[fatal] asset-config.yaml 解析失败{where}：{getattr(e, 'problem', e)}",
-              file=sys.stderr)
-        return 1
-    if not isinstance(config, dict):
-        print(f"[fatal] config 顶层必须是 dict，实际 {type(config).__name__}", file=sys.stderr)
+        config = asset_context.load_config(config_path)
+    except asset_context.ContextError as e:
+        print(f"[fatal] {e}", file=sys.stderr)
         return 1
 
     # list 只看 config，不解析路径 —— 插件自带的示例用 res://，
@@ -112,24 +89,22 @@ def main(argv: list[str] | None = None) -> int:
         _cmd_list(config)
         return 0
 
-    # 适配器与路径解析的报错都是写给人看的（改 adapter、换相对路径……），
+    # 上下文解析的报错都是写给人看的（改 adapter、换相对路径……），
     # 不接住就变成 traceback，把那句话埋在栈帧下面。
     try:
-        adapter = engine_adapter.select(config, config_path.parent)
-        project_root = _resolve_project_root(
-            config_path, config, adapter,
-            explicit=Path(args.project_root) if getattr(args, "project_root", None) else None,
+        ctx = asset_context.load_context(
+            config_path,
+            explicit_project_root=(
+                Path(args.project_root) if getattr(args, "project_root", None) else None
+            ),
+            config=config,
         )
-        raw_root = config.get("output_root", "")
-        if not isinstance(raw_root, str):
-            raise ValueError(f"output_root 应为字符串，实际是 {type(raw_root).__name__}（{raw_root!r}）")
-        output_root = _resolve_output_root(config, project_root, adapter)
-    except ValueError as e:
+    except asset_context.ContextError as e:
         print(f"[fatal] {e}", file=sys.stderr)
         return 1
 
     # 选择 category
-    categories = config.get("categories") or {}
+    categories = ctx.categories
     bad = _categories_problem(categories)
     if bad:
         print(f"[fatal] {bad}", file=sys.stderr)
@@ -146,27 +121,26 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         target_names = [args.command]
 
-    try:
-        backend = image_backend.select(config, project_root)
-    except ValueError as e:
-        print(f"[fatal] {e}", file=sys.stderr)
-        return 1
-    backend_script = backend.resolve_script()
+    backend_script = ctx.backend.resolve_script()
     if backend_script is None:
         print(
-            f"[fatal] backend={backend.name} 的脚本不存在。{backend.install_hint}",
+            f"[fatal] backend={ctx.backend.name} 的脚本不存在。{ctx.backend.install_hint}",
             file=sys.stderr,
         )
         return 1
 
     declared_adapter = str(config.get("adapter") or config.get("engine") or "").strip()
-    if adapter.name == "generic" and not declared_adapter:
+    if ctx.adapter.name == "generic" and not declared_adapter:
         print(
-            f"[info] adapter=generic（{project_root} 下没有识别到已支持的引擎工程）："
+            f"[info] adapter=generic（{ctx.project_root} 下没有识别到已支持的引擎工程）："
             "路径按普通相对路径解析，不做引擎导入检查。"
             " 在 config 里显式写 adapter: generic 可以关掉这条探测（engine: 是旧名，别再用）。",
             file=sys.stderr,
         )
+
+    # 工程根决定了所有相对路径的基准，写进哪、读哪张参考图全看它。
+    # 它有四种定法，光看结果分不出是哪种 —— 所以把来源一起说出来。
+    print(f"[info] project_root={ctx.project_root}（{ctx.project_root_source}）", file=sys.stderr)
 
     if args.limit is not None and args.limit < 1:
         print(f"[fatal] --limit 要 ≥ 1，收到 {args.limit}", file=sys.stderr)
@@ -177,17 +151,11 @@ def main(argv: list[str] | None = None) -> int:
     # 跑每个 category
     results: list[CategoryRunResult] = []
     for cat_name in target_names:
-        cat_spec = categories[cat_name]
         result = _run_category(
+            ctx=ctx,
             cat_name=cat_name,
-            cat_spec=cat_spec,
-            global_style=config.get("style") or {},
-            output_root=output_root,
-            project_root=project_root,
-            adapter=adapter,
+            cat_spec=categories[cat_name],
             backend_script=backend_script,
-            backend=backend,
-            top_model=config.get("model"),
             dry_run=args.dry_run,
             force=args.force,
             name_filter=name_filter,
@@ -195,21 +163,21 @@ def main(argv: list[str] | None = None) -> int:
         )
         results.append(result)
 
-    # 汇总 + .import 提示
+    # 汇总 + 引擎导入提示
     overall_code = max((r.exit_code for r in results), default=0)
     _print_summary(results)
 
-    # 只要输出目录里可能有图片就给 .import 提示。两个坑：
+    # 只要输出目录里可能有图片就给导入提示。两个坑：
     #   1) 总退码取最大，一个 category 全失败会把它抬到 1，但另一个 category
     #      成功生成的图片仍然需要导入
     #   2) 全部 skipped（图片已存在）时 success=0，但那些已存在的 PNG 同样
-    #      可能还没被 Godot 导入过
+    #      可能还没被引擎导入过
     any_output = any(
         ((r.summary or {}).get("success", 0) + (r.summary or {}).get("skipped", 0)) > 0
         for r in results
     )
     if not args.dry_run and any_output:
-        hint = adapter.post_generate_hint(output_root)
+        hint = ctx.adapter.post_generate_hint(ctx.output_root)
         if hint:
             print(hint)
 
@@ -265,48 +233,6 @@ def _parse_names(raw: str | None) -> set[str] | None:
     return set(parts) if parts else None
 
 
-# -------------------- 路径解析 --------------------
-
-def _locate_config(explicit: Path | None) -> Path | None:
-    if explicit is not None:
-        return explicit if explicit.exists() else None
-    cwd = Path.cwd()
-    for rel in DEFAULT_CONFIG_PATHS:
-        cand = cwd / rel
-        if cand.exists():
-            return cand
-    return None
-
-
-def _resolve_project_root(config_path: Path, config: dict, adapter=None, explicit: Path | None = None) -> Path:
-    """显式指定 > 适配器探测 > 按 yaml 位置推断。
-
-    最后那条只是兜底：把 config 挪个子目录，推断出的根就变了，相对路径会跟着换基准。
-    非 Godot 项目建议显式给 --project-root 或在 config 里写 project_root。
-    """
-    if explicit is not None:
-        return Path(explicit).resolve()
-    declared = config.get("project_root")
-    if declared:
-        return (config_path.parent / str(declared)).resolve()
-    adapter = adapter or engine_adapter.select(config, config_path.parent)
-    found = adapter.detect_root(config_path.parent)
-    if found is not None:
-        return found
-    # fallback：yaml 直接父目录
-    parent = config_path.parent
-    # 习惯上 yaml 放 ./assets/asset-config.yaml，那么 project_root 应是再上一级
-    if parent.name == "assets":
-        return parent.parent
-    return parent
-
-
-def _resolve_output_root(config: dict, project_root: Path, adapter=None) -> Path:
-    raw = config.get("output_root", "assets/art")
-    adapter = adapter or engine_adapter.GODOT
-    return adapter.resolve_path(raw, project_root)
-
-
 # -------------------- list --------------------
 
 def _categories_problem(cats) -> str | None:
@@ -343,96 +269,57 @@ def _cmd_list(config: dict) -> None:
 
 def _run_category(
     *,
+    ctx,
     cat_name: str,
     cat_spec: dict,
-    global_style: dict,
-    output_root: Path,
-    project_root: Path,
-    adapter,
     backend_script: Path,
-    backend,
-    top_model: "str | None",
     dry_run: bool,
     force: bool,
-    name_filter: set[str] | None,
+    name_filter: "set[str] | None",
     limit: "int | None" = None,
 ) -> CategoryRunResult:
+    """算出计划 → 落盘 → 调后端。
+
+    计划本身由 asset_plan 构造，校验器用的是同一个函数 —— 所以
+    `check_config.py` 通过的那份配置，跑起来看到的是同一批 prompt、
+    同一批落盘位置。
+    """
     print(f"\n=== category: {cat_name} ===")
-    try:
-        items = load_data_source(cat_spec.get("data_source") or {}, project_root)
-    except Exception as e:
-        msg = f"data_source 加载失败：{e}"
-        print(f"[error] {msg}", file=sys.stderr)
-        return CategoryRunResult(name=cat_name, exit_code=1, summary=None, error=msg)
+    plan = build_category_plan(
+        ctx, cat_name, cat_spec, name_filter=name_filter, limit=limit
+    )
 
-    if name_filter is not None:
-        items = [it for it in items if it.get("id") in name_filter]
-        if not items:
-            print(f"[warn] --names 过滤后无项目可生成")
-            return CategoryRunResult(name=cat_name, exit_code=0, summary={"total": 0, "success": 0, "failed": 0, "skipped": 0})
+    for note in plan.notes:
+        print(f"  [note] {note}")
+    for warning in plan.warnings:
+        print(f"[warn] {warning}", file=sys.stderr)
 
-    if limit is not None and len(items) > limit:
-        # 顺序要紧：先按 id 挑，再取前 N。反过来的话 --names 指定的条目
-        # 可能根本不在前 N 里，两个参数一起用就等于 --names 失效了。
-        print(f"  [limit] {cat_name}: 取前 {limit} 条（共 {len(items)} 条）")
-        items = items[:limit]
-
-    # 注入 extra_fields 兜底（item 已有的同名字段优先）
-    extra_fields = cat_spec.get("extra_fields") or {}
-    try:
-        items = [_apply_extra_fields(it, extra_fields) for it in items]
-    except Exception as e:
-        msg = f"extra_fields 注入失败：{e}"
-        print(f"[error] {msg}", file=sys.stderr)
-        return CategoryRunResult(name=cat_name, exit_code=1, summary=None, error=msg)
-
-    # 构造 batch JSON
-    try:
-        batch = _build_batch_json(
-            cat_name=cat_name,
-            cat_spec=cat_spec,
-            items=items,
-            global_style=global_style,
-            output_root=output_root,
-            project_root=project_root,
-            adapter=adapter,
-            top_model=top_model,
+    if not plan.ok:
+        for err in plan.errors:
+            print(f"[error] {err}", file=sys.stderr)
+        return CategoryRunResult(
+            name=cat_name, exit_code=1, summary=None, error=plan.errors[0]
         )
-    except Exception as e:
-        msg = f"batch JSON 构造失败：{e}"
-        print(f"[error] {msg}", file=sys.stderr)
-        return CategoryRunResult(name=cat_name, exit_code=1, summary=None, error=msg)
 
-    _warn_unsupported(cat_name, batch.get("defaults") or {}, backend)
-    _warn_unsupported_assets(cat_name, batch.get("assets") or [], backend)
+    if not plan.assets:
+        print(f"[info] {cat_name}: 无 asset 可生成（数据源为空，或被 --names/--limit 滤光）")
+        return CategoryRunResult(
+            name=cat_name,
+            exit_code=0,
+            summary={"total": 0, "success": 0, "failed": 0, "skipped": 0},
+        )
 
-    if not batch["assets"]:
-        print(f"[info] {cat_name}: 无 asset 可生成（数据源为空？）")
-        return CategoryRunResult(name=cat_name, exit_code=0, summary={"total": 0, "success": 0, "failed": 0, "skipped": 0})
-
-    # 解析 output_dir + 预建子目录
-    out_subdir = cat_spec.get("output_subdir") or cat_name
-    output_dir = (output_root / out_subdir).resolve()
-    # output_subdir 是「子目录名」，不是任意路径。`../../x` 会把图写到工程外面 ——
-    # 实测 dry-run 连 generate.log 都写出去了。解析后必须仍在 output_root 之内。
-    try:
-        output_dir.relative_to(Path(output_root).resolve())
-    except ValueError:
-        msg = (f"output_subdir={out_subdir!r} 解析到了 output_root 之外：{output_dir}。"
-               "子目录只能往下，不能用 .. 往上或写绝对路径；要换根目录改 output_root。")
-        print(f"[error] {msg}", file=sys.stderr)
-        return CategoryRunResult(name=cat_name, exit_code=1, summary=None, error=msg)
+    output_dir = plan.output_dir
     try:
         output_dir.mkdir(parents=True, exist_ok=True)
-        asset_paths = [output_dir / a["filename"] for a in batch["assets"]]
-        ensure_parent_dirs(asset_paths)
+        ensure_parent_dirs([a.output_path for a in plan.assets])
     except (FileExistsError, NotADirectoryError, PermissionError) as e:
         msg = (f"输出目录建不了：{output_dir}（{getattr(e, 'strerror', None) or e}）"
                "—— 那个位置已经是个文件，或没有写权限")
         print(f"[error] {msg}", file=sys.stderr)
         return CategoryRunResult(name=cat_name, exit_code=1, summary=None, error=msg)
 
-    # 写临时 batch 文件
+    batch = plan.to_batch()
     with tempfile.NamedTemporaryFile(
         mode="w",
         suffix=f"_{cat_name}.json",
@@ -442,14 +329,13 @@ def _run_category(
         json.dump(batch, tf, ensure_ascii=False, indent=2)
         batch_path = Path(tf.name)
 
-    print(f"  items: {len(batch['assets'])}, output: {output_dir}")
+    print(f"  items: {len(plan.assets)}, output: {output_dir}")
     print(f"  batch JSON: {batch_path}")
     if dry_run:
         # dry-run 的目的之一是看 prompt；后端的 dry-run 通常只打计划不打 prompt
-        for a in batch["assets"]:
-            print(f"  [prompt] {a.get('id') or a['filename']}: {a.get('prompt', '')}")
+        for asset in plan.assets:
+            print(f"  [prompt] {asset.item_id}: {asset.prompt}")
 
-    # 调后端
     cmd = [
         sys.executable,
         str(backend_script),
@@ -463,7 +349,7 @@ def _run_category(
         cmd.append("--force")
 
     print(f"  $ {_shell_join(cmd)}")
-    summary, exit_code, err = _invoke_backend(cmd, cwd=project_root)
+    summary, exit_code, err = _invoke_backend(cmd, cwd=ctx.project_root)
     if summary is None and err is None and not dry_run:
         # 没有 summary 就无法确认产物，退出码 0 也不算成功。
         # dry-run 例外：上游 dry-run 本来就只打计划、不吐 summary。
@@ -471,224 +357,6 @@ def _run_category(
         print(f"[error] {err}", file=sys.stderr)
         exit_code = 1
     return CategoryRunResult(name=cat_name, exit_code=exit_code, summary=summary, error=err)
-
-
-def _apply_extra_fields(item: dict, extra_fields: dict) -> dict:
-    """extra_fields 是 {field_name: {item_id: value}}，把对应 id 的 value 注入 item（item 已有同名字段优先）。"""
-    out = dict(item)
-    item_id = item.get("id")
-    for field_name, mapping in extra_fields.items():
-        if not isinstance(mapping, dict):
-            raise ValueError(
-                f"extra_fields[{field_name!r}] 必须是 dict，实际 {type(mapping).__name__}"
-            )
-        if field_name in out:
-            continue  # item 自身字段优先
-        if item_id in mapping:
-            out[field_name] = mapping[item_id]
-    return out
-
-
-# -------------------- batch JSON 构造 --------------------
-
-def _resolve_reference(ref: str, *, project_root: Path, output_root: Path, adapter) -> str:
-    """解析 reference_paths 里的一项。
-
-    两种相对路径的基准不同，不能共用一个 root：
-      - `res://X`  → project_root / X   （res:// 按定义等价于项目根）
-      - 裸相对路径 → output_root / X    （examples/README.md 的约定）
-      - 绝对路径   → 原样返回
-    """
-    if Path(ref).is_absolute():
-        return ref
-    is_engine_path = any(ref.startswith(px) for px in engine_adapter.KNOWN_ENGINE_PREFIXES)
-    root = project_root if is_engine_path else output_root
-    return str(adapter.resolve_path(ref, root))
-
-
-# 每个字段「为什么不支持、改用什么」都不一样。统一一句「切回 image-gen」
-# 对 model 恰好是反的 —— image-gen 才是不认 model 的那个。
-_UNSUPPORTED_HINTS = {
-    "chain": "风格链是 image-gen 特有能力，切回 backend: image-gen 才生效。",
-    "preset": "预设是 image-gen 特有能力，切回 backend: image-gen 才生效。",
-    "model": "image-gen 用 chain 表达模型选择，把 model: 改写成 chain: 才生效。",
-}
-
-
-def _warn_unsupported_assets(cat_name: str, assets: list, backend) -> None:
-    """asset 上的字段也要查。
-
-    只扫 defaults 的话，「只在某个 item 上配了 model」这种写法会静默失效 ——
-    字段确实送到了后端，但后端不认，而上层以为自己已经告警过了。
-    """
-    for asset in assets:
-        unknown = [
-            k for k in asset
-            if k not in ("name", "filename", "prompt", "image")
-            and k not in backend.supports
-        ]
-        for key in sorted(unknown):
-            hint = _UNSUPPORTED_HINTS.get(key, "该后端不认这个字段。")
-            print(
-                f"[warn] category={cat_name} item={asset.get('name')}: "
-                f"backend={backend.name} 不支持 {key}（值 {asset[key]!r}），已忽略。{hint}",
-                file=sys.stderr,
-            )
-
-
-def _warn_unsupported(cat_name: str, defaults: dict, backend) -> None:
-    """defaults 里有后端不认的字段就说出来。
-
-    静默忽略会让人以为风格链生效了实则没有；报错又会让「切个后端试一下」
-    变得很麻烦。所以告警后继续，并且必须带上被丢弃的值 —— 只说「不支持
-    chain」，人还得回头翻 yaml 才知道丢了什么。
-    """
-    unknown = [k for k in defaults if k not in backend.supports]
-    for key in sorted(unknown):
-        hint = _UNSUPPORTED_HINTS.get(key, "该后端不认这个字段。")
-        print(
-            f"[warn] category={cat_name}: backend={backend.name} 不支持 {key}"
-            f"（值 {defaults[key]!r}），已忽略。{hint}",
-            file=sys.stderr,
-        )
-
-
-def _build_batch_json(
-    *,
-    cat_name: str,
-    cat_spec: dict,
-    items: list[dict],
-    global_style: dict,
-    output_root: Path,
-    project_root: Path,
-    adapter,
-    top_model: "str | None" = None,
-) -> dict:
-    template = cat_spec.get("prompt_template")
-    if not template:
-        raise ValueError(f"category {cat_name!r} 缺 prompt_template")
-
-    derived = cat_spec.get("derived_fields")
-    skip_global = bool(cat_spec.get("skip_global_style", False))
-    global_prefix = (global_style.get("prompt_prefix") or "") if not skip_global else ""
-    global_suffix = (global_style.get("prompt_suffix") or "") if not skip_global else ""
-
-    # defaults：global style 提供默认（skip_global_style 时不继承），category 覆盖
-    defaults: dict[str, Any] = {}
-    if not skip_global:
-        for key in ("chain", "preset"):
-            if global_style.get(key) is not None:
-                defaults[key] = global_style[key]
-    # model 不走 skip_global_style：那个开关关的是风格，模型是后端配置。
-    # 也因此 model 声明在 config 顶层而非 style 段里。
-    model = cat_spec.get("model") or top_model
-    if model:
-        defaults["model"] = model
-
-    if "aspect_ratio" in cat_spec:
-        defaults["aspect_ratio"] = cat_spec["aspect_ratio"]
-    if "seed" in cat_spec:
-        defaults["seed"] = cat_spec["seed"]
-    if "chain" in cat_spec:
-        defaults["chain"] = cat_spec["chain"]
-    if "preset" in cat_spec:
-        defaults["preset"] = cat_spec["preset"]
-
-    # global style refs（如果设了 reference_paths 且不 skip_global）
-    if not skip_global:
-        refs = global_style.get("reference_paths") or []
-        if refs:
-            # ref 也接受 res:// → 解析为绝对路径
-            resolved_refs = [
-                _resolve_reference(r, project_root=project_root, output_root=output_root, adapter=adapter)
-                for r in refs
-            ]
-            defaults["reference_paths"] = resolved_refs
-
-    # 还允许 category 自带 reference_paths（覆盖 global 的内容层）
-    if "reference_paths" in cat_spec:
-        cat_refs = cat_spec["reference_paths"] or []
-        defaults["reference_paths"] = [
-            _resolve_reference(r, project_root=project_root, output_root=output_root, adapter=adapter)
-            for r in cat_refs
-        ]
-
-    assets: list[dict] = []
-    for item in items:
-        try:
-            enriched = evaluate_derived(item, derived)
-            rendered = render_template(template, enriched)
-            full_prompt = compose_prompt(
-                rendered,
-                global_prefix=global_prefix,
-                global_suffix=global_suffix,
-                skip_global=skip_global,
-            )
-        except Exception as e:
-            raise ValueError(
-                f"item id={item.get('id')!r} prompt 渲染失败：{e}"
-            ) from e
-
-        item_id = item.get("id")
-        if not item_id:
-            raise ValueError(f"item 缺 id 字段: {item!r}")
-
-        ext = cat_spec.get("output_ext", "png")
-        filename = f"{item_id}.{ext}"
-
-        asset: dict[str, Any] = {
-            "name": str(item_id),
-            "filename": filename,
-            "prompt": full_prompt,
-        }
-        # edit 底图：item 级覆盖 category 级。只放 asset 不放 defaults ——
-        # image-gen 的 Defaults 不解析 image，放 defaults 会被静默丢掉。
-        raw_image = item.get("image") or cat_spec.get("image")
-        if raw_image:
-            asset["image"] = _resolve_reference(
-                str(raw_image), project_root=project_root,
-                output_root=output_root, adapter=adapter,
-            )
-        # item-level overrides（优先级最高）
-        if "model" in item:
-            asset["model"] = item["model"]
-        if "aspect_ratio" in item and "aspect_ratio" not in asset:
-            asset["aspect_ratio"] = item["aspect_ratio"]
-        if "seed" in item:
-            asset["seed"] = item["seed"]
-
-        assets.append(asset)
-
-    # image（编辑底图）与 reference_paths（风格参考）语义不同，上游 provider
-    # 本就互斥。早点报比发到后端才炸好 —— 后者要等一轮网络往返。
-    if defaults.get("reference_paths"):
-        with_image = [a["name"] for a in assets if a.get("image")]
-        if with_image:
-            raise ValueError(
-                "category {!r} 同时给了 image 和 reference_paths，两者互斥："
-                "image 是「编辑这张底图」，reference_paths 是「参考这些图的风格」。"
-                "涉及 item：{}".format(cat_name, ", ".join(with_image))
-            )
-
-    # 两个 asset 写同一个文件，后写的覆盖先写的，用户必然少拿一张。
-    # 与其让下游各自处理这种歧义，不如在这里就说清楚。
-    seen: dict[str, str] = {}
-    for a in assets:
-        prev = seen.get(a["filename"])
-        if prev is not None:
-            raise ValueError(
-                "category {!r} 有两个 item 输出同一个文件 {}：{} 和 {}。"
-                "后写的会覆盖先写的 —— 检查数据源里的 id 是否重复。"
-                .format(cat_name, a["filename"], prev, a["name"])
-            )
-        seen[a["filename"]] = a["name"]
-
-    batch = {
-        "$schema_version": 2,
-        "defaults": defaults,
-        "assets": assets,
-    }
-    return batch
 
 
 # -------------------- image-gen subprocess --------------------

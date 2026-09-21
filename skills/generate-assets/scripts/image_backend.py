@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import dataclasses
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
@@ -28,6 +29,10 @@ ALL_FIELDS = frozenset({"chain", "preset", "model", "reference_paths", "aspect_r
 SCRIPT_ENV = "IMAGE_GEN_SCRIPT"
 
 
+def _no_incompatibilities(defaults: dict, asset: dict) -> list:
+    return []
+
+
 @dataclass(frozen=True)
 class ImageBackend:
     name: str
@@ -37,10 +42,51 @@ class ImageBackend:
     supports: frozenset
     # 找不到脚本时告诉人怎么装
     install_hint: str
+    # 按模型判定的能力冲突 —— `supports` 那种字段集合表达不了的那类。
+    # 收 (defaults, asset)，返回人话消息列表；空列表 = 没发现冲突。
+    #
+    # 这是后端对外的能力声明入口。有了它，上层校验不必再按后端名特判、
+    # 也不必伸手去拿后端的私有函数 —— 新增后端只要填这一格。
+    incompatibilities: Callable[[dict, dict], list] = _no_incompatibilities
 
 
 def _existing(p: Path) -> "Path | None":
     return p if p.exists() else None
+
+
+def _effective(defaults: dict, asset: dict, key: str):
+    """asset 级覆盖 defaults —— 和 BACKEND-PROTOCOL.md 的优先级一致。"""
+    value = asset.get(key)
+    return value if value is not None else defaults.get(key)
+
+
+def _laozhang_incompatibilities(defaults: dict, asset: dict) -> list:
+    """gpt-image-* 走 OpenAI 路径，那条路径没有多图 reference。
+
+    「哪个模型走哪条 API」的判断问后端自己要，不在这里重写一份 —— 规则
+    重复两份，后端哪天改了标准，校验就开始说谎。拿不到就返回空，
+    这条检查跳过而不是瞎猜。
+    """
+    refs = _effective(defaults, asset, "reference_paths")
+    model = _effective(defaults, asset, "model")
+    if not refs or not model:
+        return []
+
+    backends_dir = Path(__file__).resolve().parent / "backends"
+    if str(backends_dir) not in sys.path:
+        sys.path.insert(0, str(backends_dir))
+    try:
+        from laozhang_backend import _is_openai_style  # type: ignore
+    except ImportError:  # pragma: no cover - 脚本缺失时的兜底
+        return []
+
+    if not _is_openai_style(str(model)):
+        return []
+    return [
+        f"model={model!r} 走 OpenAI 路径、不支持多图 reference_paths，"
+        f"但这里配了 {len(refs)} 张风格参考图。"
+        "改用 gemini-* 模型，或把风格参考换成 image（单张编辑底图）。"
+    ]
 
 
 def _image_gen_script() -> "Path | None":
@@ -75,6 +121,7 @@ LAOZHANG = ImageBackend(
         "laozhang 后端随插件安装，脚本却不见了 —— 插件目录可能不完整，"
         "重装插件或 /plugin update game-toolkit。"
     ),
+    incompatibilities=_laozhang_incompatibilities,
 )
 
 BACKENDS = {"image-gen": IMAGE_GEN, "laozhang": LAOZHANG}

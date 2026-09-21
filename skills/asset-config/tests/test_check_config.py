@@ -416,3 +416,177 @@ def test_absent_field_needs_no_source(tmp_path):
     """没写的字段用默认值，不需要注释。"""
     cfg = _write_raw(tmp_path, _BASE)
     assert check_config(cfg, tmp_path).ok
+
+
+# -------------------- 与生成器共用同一份解析 --------------------
+
+def _write_at(path: Path, conf: dict) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(yaml.safe_dump(conf, sort_keys=False, allow_unicode=True),
+                    encoding="utf-8")
+    return path
+
+
+def test_project_root_comes_from_config_not_config_dir(tmp_path):
+    """**回归**：工程根按 config 的声明算，不是按 config 所在目录。
+
+    以前校验器硬填 `config_path.parent`，生成器却走四级回退。config 放在
+    子目录时，两者的相对路径基准不同 —— 校验通过的那份配置，跑起来读的是
+    另一个位置的参考图，写的是另一个位置的输出目录。
+
+    这里的参考图放在真正的工程根下；按旧口径会去 tools/art/ 找，报不存在。
+    """
+    (tmp_path / "art").mkdir()
+    (tmp_path / "art" / "anchor.png").write_bytes(b"x")
+    (tmp_path / "tools").mkdir(exist_ok=True)
+    (tmp_path / "tools" / "items.json").write_text(
+        json.dumps({"pearl": {"visual": "black pearls"}}), encoding="utf-8")
+
+    conf = {
+        "adapter": "generic",
+        "project_root": "..",
+        "output_root": "art",
+        "style": {"reference_paths": ["anchor.png"]},
+        "categories": {
+            "ing": {
+                "data_source": {"type": "json_dict", "path": "tools/items.json"},
+                "prompt_template": "Icon of {visual}.",
+            }
+        },
+    }
+    cfg = _write_at(tmp_path / "tools" / "asset-config.yaml", conf)
+
+    report = check_config(cfg)          # 不传 project_root —— 让它自己按规则定
+    assert report.ok, _messages(report)
+    assert any(str(tmp_path.resolve()) in n for n in report.notes)
+
+
+def test_explicit_project_root_still_overrides(tmp_path):
+    """--project-root 仍然能覆盖本次校验，并且覆盖来源要说出来。"""
+    cfg = _write(tmp_path, _minimal(tmp_path))
+    other = tmp_path / "other"
+    other.mkdir()
+    (other / "items.json").write_text(
+        json.dumps({"pearl": {"visual": "x"}}), encoding="utf-8")
+    report = check_config(cfg, other)
+    assert any("--project-root" in n for n in report.notes)
+
+
+def test_every_item_is_rendered_not_just_the_first(tmp_path):
+    """**回归**：以前只在第一个条目上试渲染，后面的模板问题要等真跑才暴露。"""
+    cfg = _write(tmp_path, _minimal(tmp_path, categories={
+        "ing": {
+            "data_source": {"type": "json_dict", "path": "items.json"},
+            "prompt_template": "Icon of {visual}.",
+        }
+    }))
+    # _minimal 自己会写一份 items.json，所以这份要后写才不被盖掉
+    (tmp_path / "items.json").write_text(
+        json.dumps({"a": {"visual": "x"}, "b": {"other": "y"}}), encoding="utf-8")
+    report = check_config(cfg, tmp_path)
+    assert not report.ok
+    assert "item='b'" in _messages(report)
+
+
+def test_output_subdir_escape_is_caught(tmp_path):
+    """越界的 output_subdir 会把图写到工程外面。校验以前完全不查这一项。"""
+    cfg = _write(tmp_path, _minimal(tmp_path, categories={
+        "ing": {
+            "data_source": {"type": "json_dict", "path": "items.json"},
+            "prompt_template": "Icon of {visual}.",
+            "output_subdir": "../../escaped",
+        }
+    }))
+    report = check_config(cfg, tmp_path)
+    assert not report.ok
+    assert "output_root 之外" in _messages(report)
+
+
+def test_missing_global_reference_reported_once(tmp_path):
+    """全局参考图进了每个 category 的计划 —— 不能有几个 category 就报几遍。"""
+    cat = {
+        "data_source": {"type": "json_dict", "path": "items.json"},
+        "prompt_template": "Icon of {visual}.",
+    }
+    cfg = _write(tmp_path, _minimal(
+        tmp_path,
+        style={"reference_paths": ["missing.png"]},
+        categories={"one": dict(cat), "two": dict(cat)},
+    ))
+    report = check_config(cfg, tmp_path)
+    hits = [e for e in report.errors if "missing.png" in e]
+    assert len(hits) == 1, report.errors
+
+
+def test_unused_global_reference_still_checked(tmp_path):
+    """所有 category 都 skip_global_style 时它不进任何计划，但路径写错仍值得说。"""
+    cfg = _write(tmp_path, _minimal(
+        tmp_path,
+        style={"reference_paths": ["missing.png"]},
+        categories={"one": {
+            "data_source": {"type": "json_dict", "path": "items.json"},
+            "prompt_template": "Icon of {visual}.",
+            "skip_global_style": True,
+        }},
+    ))
+    report = check_config(cfg, tmp_path)
+    assert any("missing.png" in e for e in report.errors)
+
+
+def test_item_level_model_capability_conflict_is_caught(tmp_path):
+    """能力冲突问后端自己要 —— item 级的 model 以前也在检查范围外。"""
+    (tmp_path / "art").mkdir(exist_ok=True)
+    (tmp_path / "art" / "anchor.png").write_bytes(b"x")
+    cfg = _write(tmp_path, _minimal(
+        tmp_path,
+        backend="laozhang",
+        style={"reference_paths": ["anchor.png"]},
+        categories={"ing": {
+            "data_source": {"type": "json_dict", "path": "items.json"},
+            "prompt_template": "Icon of {visual}.",
+        }},
+    ))
+    # _minimal 自己会写一份 items.json，所以这份要后写才不被盖掉
+    (tmp_path / "items.json").write_text(
+        json.dumps({"a": {"visual": "x", "model": "gpt-image-1"}}), encoding="utf-8")
+    report = check_config(cfg, tmp_path)
+    assert "OpenAI 路径" in _messages(report)
+
+
+def test_main_does_not_hard_fill_project_root(tmp_path, monkeypatch, capsys):
+    """**回归**：缺陷原本在 CLI 入口 —— 不给 --project-root 时它硬填 config 的父目录。
+
+    走函数入口的测试看不到这条路径，所以这里跑真正的 main()。
+    """
+    import check_config as cc
+
+    (tmp_path / "art").mkdir()
+    (tmp_path / "art" / "anchor.png").write_bytes(b"x")
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "tools" / "items.json").write_text(
+        json.dumps({"pearl": {"visual": "x"}}), encoding="utf-8")
+
+    conf = {
+        "adapter": "generic",
+        "project_root": "..",
+        "output_root": "art",
+        "style": {"reference_paths": ["anchor.png"]},
+        "categories": {"ing": {
+            "data_source": {"type": "json_dict", "path": "tools/items.json"},
+            "prompt_template": "Icon of {visual}.",
+        }},
+    }
+    cfg = _write_at(tmp_path / "tools" / "asset-config.yaml", conf)
+
+    assert cc.main(["--config", str(cfg)]) == 0
+    assert str(tmp_path.resolve()) in capsys.readouterr().out
+
+
+def test_main_finds_config_in_cwd(tmp_path, monkeypatch):
+    """不给 --config 时按共享的默认位置找，和生成器同一套顺序。"""
+    import check_config as cc
+
+    cfg = _write(tmp_path, _minimal(tmp_path))
+    assert cfg.name == "asset-config.yaml"
+    monkeypatch.chdir(tmp_path)
+    assert cc.main([]) == 0

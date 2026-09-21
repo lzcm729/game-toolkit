@@ -1,0 +1,323 @@
+"""asset_plan — 生成计划（校验器验证它、dry-run 展示它、执行器消费它）。"""
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+import yaml
+
+import asset_context
+import image_backend
+from asset_plan import MAX_ITEM_ERRORS, build_category_plan
+
+
+def _ctx(tmp_path: Path, conf: dict) -> "asset_context.AssetContext":
+    conf = {"adapter": "generic", "output_root": "art", **conf}
+    p = tmp_path / "asset-config.yaml"
+    p.write_text(yaml.safe_dump(conf, sort_keys=False, allow_unicode=True),
+                 encoding="utf-8")
+    return asset_context.load_context(p)
+
+
+def _items(tmp_path: Path, data: dict) -> dict:
+    (tmp_path / "items.json").write_text(json.dumps(data, ensure_ascii=False),
+                                         encoding="utf-8")
+    return {"type": "json_dict", "path": "items.json"}
+
+
+def _simple(tmp_path: Path, items: dict, **cat) -> "asset_context.AssetContext":
+    spec = {"data_source": _items(tmp_path, items),
+            "prompt_template": "Icon of {visual}.", **cat}
+    return _ctx(tmp_path, {"categories": {"ing": spec}})
+
+
+# -------------------- 全部条目都渲染，不是只渲染第一条 --------------------
+
+def test_renders_every_item(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}, "b": {"visual": "y"}})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.ok
+    assert [a.item_id for a in plan.assets] == ["a", "b"]
+    assert plan.assets[1].prompt == "Icon of y."
+
+
+def test_second_item_missing_field_is_caught(tmp_path):
+    """**回归**：以前只渲染第一个条目，第 2 条起的模板问题要等真跑才暴露。
+
+    那时候已经在按张烧钱了 —— 第一张成功、第二张炸，钱花了一半。
+    """
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}, "b": {"other": "y"}})
+    plan = build_category_plan(ctx, "ing")
+    assert not plan.ok
+    assert any("item='b'" in e and "渲染失败" in e for e in plan.errors)
+    # 第一条仍然算得出来，报告里不该因为第二条坏就丢掉它
+    assert [a.item_id for a in plan.assets] == ["a"]
+
+
+def test_item_errors_are_capped(tmp_path):
+    """一千条同类错误会把别的问题顶没。超过上限只留一条汇总。"""
+    items = {f"i{n}": {"other": "y"} for n in range(MAX_ITEM_ERRORS + 7)}
+    ctx = _simple(tmp_path, items)
+    plan = build_category_plan(ctx, "ing")
+    assert len(plan.errors) == MAX_ITEM_ERRORS + 1
+    assert "另有 7 条同类错误未列出" in plan.errors[-1]
+
+
+def test_missing_id_is_error_not_crash(tmp_path):
+    """json_dict 里显式写了 id: null 时 key 补不进去 —— 得报错，不能 traceback。"""
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "id": None}})
+    plan = build_category_plan(ctx, "ing")
+    assert any("缺 id" in e for e in plan.errors)
+
+
+# -------------------- 输出位置 --------------------
+
+def test_output_path_is_output_root_plus_subdir(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}}, output_subdir="icons")
+    plan = build_category_plan(ctx, "ing")
+    assert plan.output_dir == (tmp_path / "art" / "icons").resolve()
+    assert plan.assets[0].output_path == plan.output_dir / "a.png"
+
+
+def test_output_subdir_defaults_to_category_name(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.output_dir == (tmp_path / "art" / "ing").resolve()
+
+
+def test_output_subdir_cannot_escape_output_root(tmp_path):
+    """`../../x` 会把图写到工程外面 —— 实测连 dry-run 的日志都写出去了。"""
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}}, output_subdir="../../escaped")
+    plan = build_category_plan(ctx, "ing")
+    assert not plan.ok
+    assert any("output_root 之外" in e for e in plan.errors)
+
+
+def test_output_ext_is_honoured(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}}, output_ext="webp")
+    plan = build_category_plan(ctx, "ing")
+    assert plan.assets[0].filename == "a.webp"
+
+
+def test_duplicate_filename_is_error(tmp_path):
+    (tmp_path / "items.json").write_text(
+        json.dumps([{"id": "a", "visual": "x"}, {"id": "a", "visual": "y"}]),
+        encoding="utf-8")
+    spec = {"data_source": {"type": "json_list", "path": "items.json"},
+            "prompt_template": "Icon of {visual}."}
+    ctx = _ctx(tmp_path, {"categories": {"ing": spec}})
+    plan = build_category_plan(ctx, "ing")
+    assert any("同一个文件" in e for e in plan.errors)
+
+
+# -------------------- 过滤与截断 --------------------
+
+def test_name_filter_applies_before_limit(tmp_path):
+    """顺序要紧：先按 id 挑再取前 N，反过来 --names 指定的条目可能落在 N 之外。"""
+    items = {f"i{n}": {"visual": f"v{n}"} for n in range(5)}
+    ctx = _simple(tmp_path, items)
+    plan = build_category_plan(ctx, "ing", name_filter={"i3", "i4"}, limit=1)
+    assert [a.item_id for a in plan.assets] == ["i3"]
+
+
+def test_total_items_counts_before_filtering(tmp_path):
+    items = {f"i{n}": {"visual": f"v{n}"} for n in range(5)}
+    ctx = _simple(tmp_path, items)
+    plan = build_category_plan(ctx, "ing", limit=2)
+    assert plan.total_items == 5
+    assert len(plan.assets) == 2
+
+
+def test_empty_data_source_is_note_not_error(tmp_path):
+    ctx = _simple(tmp_path, {})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.ok
+    assert any("没有条目" in n for n in plan.notes)
+
+
+# -------------------- 参考图与底图 --------------------
+
+def test_bare_relative_reference_resolves_under_output_root(tmp_path):
+    (tmp_path / "art").mkdir()
+    (tmp_path / "art" / "anchor.png").write_bytes(b"x")
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}},
+                  reference_paths=["anchor.png"])
+    plan = build_category_plan(ctx, "ing")
+    assert plan.defaults["reference_paths"] == [str((tmp_path / "art" / "anchor.png").resolve())]
+    assert plan.input_paths[0][1] == (tmp_path / "art" / "anchor.png").resolve()
+
+
+def test_category_reference_overrides_global(tmp_path):
+    spec = {"data_source": _items(tmp_path, {"a": {"visual": "x"}}),
+            "prompt_template": "Icon of {visual}.",
+            "reference_paths": ["cat.png"]}
+    ctx = _ctx(tmp_path, {"style": {"reference_paths": ["global.png"]},
+                          "categories": {"ing": spec}})
+    plan = build_category_plan(ctx, "ing")
+    assert [Path(p).name for p in plan.defaults["reference_paths"]] == ["cat.png"]
+
+
+def test_skip_global_style_drops_global_reference(tmp_path):
+    spec = {"data_source": _items(tmp_path, {"a": {"visual": "x"}}),
+            "prompt_template": "Icon of {visual}.",
+            "skip_global_style": True}
+    ctx = _ctx(tmp_path, {"style": {"reference_paths": ["global.png"],
+                                    "prompt_prefix": "PRE"},
+                          "categories": {"ing": spec}})
+    plan = build_category_plan(ctx, "ing")
+    assert "reference_paths" not in plan.defaults
+    assert not plan.assets[0].prompt.startswith("PRE")
+
+
+def test_image_and_reference_paths_are_mutually_exclusive(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "image": "base.png"}},
+                  reference_paths=["anchor.png"])
+    plan = build_category_plan(ctx, "ing")
+    assert any("互斥" in e for e in plan.errors)
+
+
+def test_item_image_overrides_category_image(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "image": "mine.png"}},
+                  image="cat.png")
+    plan = build_category_plan(ctx, "ing")
+    assert Path(plan.assets[0].payload["image"]).name == "mine.png"
+
+
+# -------------------- 字段优先级 --------------------
+
+def test_item_model_lands_on_asset(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "model": "m-item"}})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.assets[0].payload["model"] == "m-item"
+
+
+def test_category_model_beats_top_level(tmp_path):
+    spec = {"data_source": _items(tmp_path, {"a": {"visual": "x"}}),
+            "prompt_template": "Icon of {visual}.", "model": "m-cat"}
+    ctx = _ctx(tmp_path, {"model": "m-top", "categories": {"ing": spec}})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.defaults["model"] == "m-cat"
+
+
+def test_model_ignores_skip_global_style(tmp_path):
+    """skip_global_style 关的是风格，模型是后端配置 —— 不该被一起关掉。"""
+    spec = {"data_source": _items(tmp_path, {"a": {"visual": "x"}}),
+            "prompt_template": "Icon of {visual}.", "skip_global_style": True}
+    ctx = _ctx(tmp_path, {"model": "m-top", "categories": {"ing": spec}})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.defaults["model"] == "m-top"
+
+
+def test_extra_fields_do_not_override_item(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "mine"}},
+                  extra_fields={"visual": {"a": "injected"}})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.assets[0].prompt == "Icon of mine."
+
+
+def test_extra_fields_fill_missing(tmp_path):
+    spec = {"data_source": _items(tmp_path, {"a": {"other": "z"}}),
+            "prompt_template": "Icon of {visual}.",
+            "extra_fields": {"visual": {"a": "injected"}}}
+    ctx = _ctx(tmp_path, {"categories": {"ing": spec}})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.assets[0].prompt == "Icon of injected."
+
+
+def test_extra_fields_must_be_mapping(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}}, extra_fields={"visual": "nope"})
+    plan = build_category_plan(ctx, "ing")
+    assert any("必须是 dict" in e for e in plan.errors)
+
+
+# -------------------- 后端能力 --------------------
+
+def test_unsupported_field_on_defaults_warns(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}}, chain="fancy")
+    ctx = asset_context.AssetContext(**{**ctx.__dict__, "backend": image_backend.LAOZHANG})
+    plan = build_category_plan(ctx, "ing")
+    assert any("不支持 chain" in w and "fancy" in w for w in plan.warnings)
+
+
+def test_unsupported_field_on_item_warns(tmp_path):
+    """只扫 defaults 的话，「只在某个 item 上配了 model」会静默失效。"""
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "model": "m"}})
+    ctx = asset_context.AssetContext(**{**ctx.__dict__, "backend": image_backend.IMAGE_GEN})
+    plan = build_category_plan(ctx, "ing")
+    assert any("item=a" in w and "不支持 model" in w for w in plan.warnings)
+
+
+def test_supported_field_does_not_warn(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}}, seed=7)
+    ctx = asset_context.AssetContext(**{**ctx.__dict__, "backend": image_backend.LAOZHANG})
+    plan = build_category_plan(ctx, "ing")
+    assert not plan.warnings
+
+
+def test_backend_declares_model_capability_conflict(tmp_path):
+    """能力冲突问后端自己要，上层不按后端名特判、不碰后端私有函数。"""
+    (tmp_path / "art").mkdir()
+    (tmp_path / "art" / "anchor.png").write_bytes(b"x")
+    spec = {"data_source": _items(tmp_path, {"a": {"visual": "x"}}),
+            "prompt_template": "Icon of {visual}.",
+            "reference_paths": ["anchor.png"]}
+    ctx = _ctx(tmp_path, {"model": "gpt-image-1", "categories": {"ing": spec}})
+    ctx = asset_context.AssetContext(**{**ctx.__dict__, "backend": image_backend.LAOZHANG})
+    plan = build_category_plan(ctx, "ing")
+    assert any("OpenAI 路径" in e for e in plan.errors)
+
+
+def test_item_level_model_conflict_is_caught(tmp_path):
+    (tmp_path / "art").mkdir()
+    (tmp_path / "art" / "anchor.png").write_bytes(b"x")
+    spec = {"data_source": _items(tmp_path, {"a": {"visual": "x", "model": "gpt-image-1"}}),
+            "prompt_template": "Icon of {visual}.",
+            "reference_paths": ["anchor.png"]}
+    ctx = _ctx(tmp_path, {"categories": {"ing": spec}})
+    ctx = asset_context.AssetContext(**{**ctx.__dict__, "backend": image_backend.LAOZHANG})
+    plan = build_category_plan(ctx, "ing")
+    assert any("OpenAI 路径" in e and "item=a" in e for e in plan.errors)
+
+
+def test_gemini_model_with_references_is_fine(tmp_path):
+    (tmp_path / "art").mkdir()
+    (tmp_path / "art" / "anchor.png").write_bytes(b"x")
+    spec = {"data_source": _items(tmp_path, {"a": {"visual": "x"}}),
+            "prompt_template": "Icon of {visual}.",
+            "reference_paths": ["anchor.png"]}
+    ctx = _ctx(tmp_path, {"model": "gemini-3-pro-image", "categories": {"ing": spec}})
+    ctx = asset_context.AssetContext(**{**ctx.__dict__, "backend": image_backend.LAOZHANG})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.ok
+
+
+# -------------------- batch 序列化 --------------------
+
+def test_to_batch_matches_protocol(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}}, aspect_ratio="16:9")
+    batch = build_category_plan(ctx, "ing").to_batch()
+    assert batch["$schema_version"] == 2
+    assert batch["defaults"]["aspect_ratio"] == "16:9"
+    assert batch["assets"] == [{"name": "a", "filename": "a.png", "prompt": "Icon of x."}]
+
+
+def test_missing_prompt_template_is_error(tmp_path):
+    spec = {"data_source": _items(tmp_path, {"a": {"visual": "x"}})}
+    ctx = _ctx(tmp_path, {"categories": {"ing": spec}})
+    plan = build_category_plan(ctx, "ing")
+    assert any("缺 prompt_template" in e for e in plan.errors)
+
+
+def test_unknown_category_is_error(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}})
+    plan = build_category_plan(ctx, "nope")
+    assert not plan.ok
+
+
+def test_bad_data_source_is_error_not_crash(tmp_path):
+    spec = {"data_source": {"type": "json_dict", "path": "missing.json"},
+            "prompt_template": "x"}
+    ctx = _ctx(tmp_path, {"categories": {"ing": spec}})
+    plan = build_category_plan(ctx, "ing")
+    assert any("数据源加载失败" in e for e in plan.errors)
