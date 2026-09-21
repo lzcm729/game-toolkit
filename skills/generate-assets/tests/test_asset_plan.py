@@ -649,3 +649,31 @@ def test_unreadable_backend_rules_speak_up(tmp_path, monkeypatch):
     plan = build_category_plan(ctx, "ing")
     assert not plan.ok
     assert any("没检查" in e for e in plan.errors)
+
+
+
+# -------------------- prompt 字符串里的 TODO 会被发给模型 --------------------
+
+def test_todo_in_template_is_warned_as_sent_to_model(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}}, prompt_template="Icon of {visual}. TODO")
+    plan = build_category_plan(ctx, "ing")
+    assert plan.ok
+    assert "TODO" in plan.assets[0].prompt          # 确实会被发出去
+    assert any("prompt_template" in w and "原样发给" in w for w in plan.warnings)
+
+
+def test_todo_in_global_prefix_is_warned_only_where_it_is_used(tmp_path):
+    """skip_global_style 的 category 不会带上全局前缀 —— 那里不该告警。"""
+    (tmp_path / "items.json").write_text(json.dumps({"a": {"visual": "x"}}), encoding="utf-8")
+    uses = {"data_source": {"type": "json_dict", "path": "items.json"},
+            "prompt_template": "Icon of {visual}."}
+    skips = dict(uses, skip_global_style=True)
+    ctx = _ctx(tmp_path, {"style": {"prompt_prefix": "Cute. TODO palette"},
+                          "categories": {"uses": uses, "skips": skips}})
+    assert any("style.prompt_prefix" in w for w in build_category_plan(ctx, "uses").warnings)
+    assert not any("style.prompt_prefix" in w for w in build_category_plan(ctx, "skips").warnings)
+
+
+def test_prompt_without_todo_is_quiet(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}})
+    assert not any("原样发给" in w for w in build_category_plan(ctx, "ing").warnings)

@@ -31,7 +31,8 @@ if _GA_SCRIPTS.is_dir() and str(_GA_SCRIPTS) not in sys.path:
 
 try:
     import asset_context
-    from asset_plan import build_category_plan, resolve_reference
+    import engine_adapter
+    from asset_plan import TODO_MARKER, build_category_plan, resolve_reference
 except ImportError as e:  # pragma: no cover - 环境缺失时的兜底
     print(
         f"[fatal] 找不到 generate-assets 的脚本（{e}）。"
@@ -49,7 +50,6 @@ except ImportError:  # pragma: no cover
 
 # 未完成标记。只用于**创作性**未定稿 —— 功能性缺失（比如模板引用了不存在的
 # 字段）由检查本身发现，不需要人手标。
-TODO_MARKER = "TODO"
 
 DEFAULT_CONFIG_NAMES = tuple(str(p) for p in asset_context.DEFAULT_CONFIG_PATHS)
 
@@ -182,7 +182,8 @@ def check_config(
         return r
 
     style = config.get("style") or {}
-    _check_style_markers(style, r)
+    _check_todo_comments(config_path, r)
+    _check_redundant_project_root(config, config_path, ctx, r)
     categories = ctx.categories
 
     # 输入图的存在性攒到最后一起查。全局 reference_paths 会进每个 category
@@ -200,6 +201,15 @@ def check_config(
     for full, label in inputs.items():
         if not Path(full).exists():
             r.error(f"{label} 指向的文件不存在：{full}")
+            continue
+        kind, head = _image_kind(full)
+        if kind is None:
+            # 「在」不等于「是一张图」。一段被命名成 .png 的文本、一个下到一半的
+            # 文件，存在性检查全都放行，要等后端把它发出去才炸。
+            r.error(
+                f"{label} 指向的文件不是认得出的图片（认得 PNG / JPEG / WebP / GIF）："
+                f"{full}，文件头是 {head!r}"
+            )
 
     return r
 
@@ -227,13 +237,6 @@ def _check_category(ctx, name: str, spec: dict, inputs: dict, r: Report,
     for issue in plan.governance:
         r.governance_issue(issue)
 
-    template = spec.get("prompt_template")
-    if isinstance(template, str) and TODO_MARKER in template:
-        r.note(
-            f"category {name}: prompt_template 还带着 {TODO_MARKER} 标记，"
-            "是创作性未定稿 —— 能出图，但风格多半还没调到位"
-        )
-
     for label, full in plan.input_paths:
         inputs.setdefault(full, label)
 
@@ -259,18 +262,6 @@ def _check_global_references(ctx, style: dict, inputs: dict, r: Report) -> None:
         inputs.setdefault(full, "style.reference_paths")
 
 
-def _check_style_markers(style: dict, r: Report) -> None:
-    """style 段的未完成标记。
-
-    prompt_prefix 为空**不算错** —— 风格可以写在 category 里，也可以用
-    skip_global_style 整个关掉，强制非空是把一种用法当成唯一用法。
-    """
-    for key in ("prompt_prefix", "prompt_suffix"):
-        value = style.get(key)
-        if isinstance(value, str) and TODO_MARKER in value:
-            r.note(f"style.{key} 还带着 {TODO_MARKER} 标记，是创作性未定稿：{value!r}")
-
-
 # 「必须询问」档的字段**有意义的位置**。别处叫同一个名字是别的东西 ——
 # `item_overrides: {model: gen_model}` 里的 model 是「哪一列覆盖生图模型」，
 # `columns: {model: x}` 里的是表头名。给它们要求来源注释纯属噪音。
@@ -285,19 +276,23 @@ _MUST_ASK_CONTAINERS = (
 )
 
 
-def _must_ask_lines(config_path: Path, r: Report) -> "dict[int, str] | None":
-    """扫出「必须询问」档字段所在的行号（0 基），只认有意义的位置。
+def _key_lines(config_path: Path, names, containers,
+               r: "Report | None" = None) -> "dict[int, str] | None":
+    """扫出指定键所在的行号（0 基），只认 `containers` 里列出的位置。
 
     用 `yaml.compose` 拿节点树 —— 它保留 `start_mark`（行号），而
-    `safe_load` 把位置和注释都丢了。返回 None 表示 YAML 本身就读不了。
+    `safe_load` 把位置和注释都丢了。返回 None 表示 YAML 本身就读不了；
+    给了 `r` 才报错（同一份文件好几项检查都要扫，别报好几遍）。
     """
     try:
         root = yaml.compose(config_path.read_text(encoding="utf-8"))
     except yaml.YAMLError as e:
-        r.error(f"{config_path} 不是合法 YAML：{e}")
+        if r is not None:
+            r.error(f"{config_path} 不是合法 YAML：{e}")
         return None
     except OSError as e:
-        r.error(f"{config_path} 读不了：{e}")
+        if r is not None:
+            r.error(f"{config_path} 读不了：{e}")
         return None
     if root is None:
         return {}
@@ -308,17 +303,97 @@ def _must_ask_lines(config_path: Path, r: Report) -> "dict[int, str] | None":
         if not isinstance(node, yaml.MappingNode):
             return
         here = tuple(path)
-        collect = any(_path_matches(here, pat) for pat in _MUST_ASK_CONTAINERS)
+        collect = any(_path_matches(here, pat) for pat in containers)
         for key_node, value_node in node.value:
             name = getattr(key_node, "value", None)
             if not isinstance(name, str):
                 continue
-            if collect and name in _MUST_ASK_FIELDS:
+            if collect and name in names:
                 found[key_node.start_mark.line] = name
             walk(value_node, here + (name,))
 
     walk(root, ())
     return found
+
+
+def _comment_block_above(lines: list, i: int) -> list:
+    """第 i 行上方紧邻的注释块。空行中断 —— 隔了空行的注释是在说别的事。"""
+    out: list = []
+    j = i - 1
+    while j >= 0 and lines[j].lstrip().startswith("#"):
+        out.append(lines[j])
+        j -= 1
+    return out
+
+
+def _must_ask_lines(config_path: Path, r: Report) -> "dict[int, str] | None":
+    return _key_lines(config_path, _MUST_ASK_FIELDS, _MUST_ASK_CONTAINERS, r)
+
+
+# 创作性文本所在的位置。TODO 该标在它们上方的注释里 —— 写进字符串会被发给模型。
+_PROMPT_FIELDS = frozenset({"prompt_prefix", "prompt_suffix", "prompt_template"})
+_PROMPT_CONTAINERS = (("style",), ("categories", "*"))
+
+
+def _check_todo_comments(config_path: Path, r: Report) -> None:
+    """prompt 字段上方的注释里标了 TODO —— 创作性未定稿，提示一声。
+
+    以前只扫 prompt 字符串本身。可那是错的位置：字符串里的 TODO 会原样发给
+    生图模型。一个没有上下文的 AI 冷启动照着指引做，把 TODO 写进了注释 ——
+    更合理，但校验器看不见，「未定稿」这条提示从此形同虚设。
+    （字符串里的 TODO 由计划层告警，那边说的是「会被发给模型」。）
+    """
+    targets = _key_lines(config_path, _PROMPT_FIELDS, _PROMPT_CONTAINERS)
+    if not targets:
+        return
+    lines = config_path.read_text(encoding="utf-8").splitlines()
+    for i in sorted(targets):
+        if any(TODO_MARKER in c for c in _comment_block_above(lines, i)):
+            r.note(
+                f"第 {i + 1} 行的 {targets[i]} 上方注释标了 {TODO_MARKER}，是创作性未定稿 "
+                "—— 能出图，但还没调到位"
+            )
+
+
+def _check_redundant_project_root(config: dict, config_path: Path, ctx, r: Report) -> None:
+    """config 写了 project_root，但它和探测结果一模一样。
+
+    不算错。但多写一份就多一处可能对不上：项目环境声明里通常也有一份，
+    config 挪个位置 `.` 就指错了，而不写的话探测会一直找对。
+    冷启动的 AI 照着指引建配置时就写了这么一份重复声明 —— 指引没说清。
+    """
+    declared = config.get("project_root")
+    if not declared:
+        return
+    _, found = engine_adapter.detect_project(config_path.parent)
+    if found is not None and Path(found).resolve() == Path(ctx.project_root).resolve():
+        r.note(
+            f"project_root: {declared!r} 和探测结果一样（{found}）—— 可以不写。"
+            "多一份声明就多一处可能对不上，config 挪位置时 `.` 也会跟着指错"
+        )
+
+
+# 常见图片格式的文件头。只回答「这是不是一张图」，不管后端收不收 —— 那是后端的事。
+_IMAGE_SIGNATURES = (
+    (b"\x89PNG\r\n\x1a\n", "PNG"),
+    (b"\xff\xd8\xff", "JPEG"),
+    (b"GIF87a", "GIF"),
+    (b"GIF89a", "GIF"),
+)
+
+
+def _image_kind(path) -> "tuple[str | None, bytes]":
+    try:
+        with open(path, "rb") as f:
+            head = f.read(16)
+    except OSError:
+        return None, b""
+    for sig, kind in _IMAGE_SIGNATURES:
+        if head.startswith(sig):
+            return kind, head[:8]
+    if head[:4] == b"RIFF" and head[8:12] == b"WEBP":
+        return "WebP", head[:12]
+    return None, head[:8]
 
 
 def _path_matches(path: tuple, pattern: tuple) -> bool:
@@ -353,15 +428,7 @@ def _check_decision_sources(config_path: Path, r: Report) -> None:
     for i in sorted(targets):
         if i >= len(lines):  # pragma: no cover - 防御
             continue
-        # 往上扫紧邻的注释块。空行中断 —— 隔了空行的注释是在说别的事。
-        found = False
-        j = i - 1
-        while j >= 0 and lines[j].lstrip().startswith("#"):
-            if _SOURCE_MARKER in lines[j]:
-                found = True
-                break
-            j -= 1
-
+        found = any(_SOURCE_MARKER in c for c in _comment_block_above(lines, i))
         if not found:
             r.governance_issue(
                 "第 {} 行的 {!r} 是「必须询问」档的字段，但上面没写它从哪来。"

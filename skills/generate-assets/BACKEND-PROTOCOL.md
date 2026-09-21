@@ -10,7 +10,8 @@ generate-assets 自己不生图。它把 asset 列表翻译成 batch JSON，然�
 python <backend.py> <batch.json> --output-dir <dir> [--dry-run] [--force]
 ```
 
-- `--dry-run`：只打印计划，不发请求、不写文件
+- `--dry-run`：只打印计划，不发请求、不写文件。**跳过规则照样生效**：已存在的目标在 dry-run
+  里也按 skipped 计、并说明正式跑会跳过 —— 否则看 dry-run 会以为它们都会重画
 - `--force`：目标文件已存在时仍重新生成（缺省则计入 skipped）
 - 输出目录里的 `.generate-assets.json` 归编排层（生成记录），**后端别读也别写**。
   后端只管「文件在就跳过」；那张图还对不对得上当前配置，由编排层判断

@@ -78,7 +78,8 @@ project_root: ".."    # 可选。相对本文件；也可用 CLI 的 --project-r
 
 `project_root` 不给时按「工程标志探测（`project.godot` / `*.uproject`）→ yaml 位置
 推断」兜底。**探测不问适配器** —— 换 `adapter` 不会换掉工程根。最后那条兜底会随
-config 移动而改变相对路径基准，config 不在工程根时建议显式写 `project_root`。
+config 移动而改变相对路径基准，config 不在工程根时建议显式写 `project_root`；**在工程根就别写**（`check` 会提示）——
+探测找到的就是它，多写一份就多一处可能对不上。
 
 工程根按哪一条定下来的，`check` 和生成时都会打出来。
 

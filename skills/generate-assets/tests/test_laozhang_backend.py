@@ -1084,3 +1084,59 @@ def test_small_reference_does_not_warn(tmp_path, capsys, monkeypatch):
                    defaults={"reference_paths": [str(small)]})
     lb.main([str(batch), "--output-dir", str(out)])
     assert "参考图" not in capsys.readouterr().err
+
+
+
+# -------------------- 4.4.0：mime 看内容；dry-run 按跳过规则计数 --------------------
+
+@pytest.mark.parametrize("name, data, want", [
+    ("a.webp", b"RIFF\x00\x00\x00\x00WEBPVP8 ", "image/webp"),   # 以前被标成 image/jpeg
+    ("a.png", b"\xff\xd8\xff\xe0rest", "image/jpeg"),            # 改过扩展名的 JPEG
+    ("a.jpg", b"\x89PNG\r\n\x1a\nrest", "image/png"),
+    ("a.png", b"????????", "image/png"),                             # 认不出：退回按扩展名
+    ("a.bin", b"????????", "image/jpeg"),
+])
+def test_mime_follows_content_not_extension(name, data, want):
+    import laozhang_backend as lb
+    assert lb._sniff_mime(data, name) == want
+
+
+def test_dry_run_counts_existing_targets_as_skipped(tmp_path, capsys):
+    """以前 dry-run 先打 [plan] 再判断跳过，于是永远 skipped=0。"""
+    import laozhang_backend as lb
+    out = tmp_path / "out"
+    out.mkdir()
+    (out / "a.png").write_bytes(b"old")
+    batch = tmp_path / "b.json"
+    batch.write_text(json.dumps({"$schema_version": 2, "defaults": {}, "assets": [
+        {"name": "a", "filename": "a.png", "prompt": "x"},
+        {"name": "b", "filename": "b.png", "prompt": "y"},
+    ]}), encoding="utf-8")
+    lb.main([str(batch), "--output-dir", str(out), "--dry-run"])
+    captured = capsys.readouterr().out
+    summary = json.loads(captured.strip().splitlines()[-1])
+    assert summary["skipped"] == 1
+    assert "正式跑会跳过" in captured
+
+
+def test_gpt_image_edit_labels_base_image_by_content(tmp_path, monkeypatch):
+    """OpenAI 编辑路径也按内容定 mime。
+
+    变异验证抓出来的：上面那条测试截获了 files，却从没看过底图的 mime ——
+    把这条路径改回按扩展名，全部测试照样绿。
+    """
+    base = tmp_path / "renamed.png"
+    base.write_bytes(bytes([0xFF, 0xD8, 0xFF, 0xE0]) + b"jpeg-body")   # 其实是 JPEG
+    seen = {}
+
+    def fake_post(url, headers=None, files=None, timeout=None, **kw):
+        seen["files"] = files
+        return _FakeResp(payload={"data": [{"b64_json": "aGk="}]})
+
+    monkeypatch.setattr(lb.requests, "post", fake_post)
+    lb._generate_one(
+        "edit", model="gpt-image-2.5-flare", api_key="k",
+        base_url="https://x", aspect_ratio="1:1", seed=None,
+        reference_paths=[], image_path=str(base), timeout_s=30.0,
+    )
+    assert seen["files"]["image"][2] == "image/jpeg"

@@ -87,13 +87,28 @@ class _Retryable(RuntimeError):
 _REF_CACHE: dict = {}
 
 
+def _sniff_mime(data: bytes, name: str) -> str:
+    """按文件头定 mime，认不出才按扩展名。
+
+    以前只看扩展名：`.png` 标 image/png，其余一律 image/jpeg —— 一张 `.webp`
+    风格锚就被当成 JPEG 发出去；一张改过扩展名的 JPEG 也会被标成 PNG。
+    """
+    if data[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if data[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "image/webp"
+    return "image/png" if name.lower().endswith(".png") else "image/jpeg"
+
+
 def _encode_image(path: Path) -> tuple:
     """读图并 base64，返回 (mime, data)。同一路径只做一次。"""
     key = str(path)
     hit = _REF_CACHE.get(key)
     if hit is None:
-        mime = "image/png" if key.lower().endswith(".png") else "image/jpeg"
-        hit = (mime, base64.b64encode(path.read_bytes()).decode())
+        raw = path.read_bytes()
+        hit = (_sniff_mime(raw, key), base64.b64encode(raw).decode())
         _REF_CACHE[key] = hit
     return hit
 
@@ -356,9 +371,9 @@ def _openai_style(
             img = Path(image_path)
             if not img.exists():
                 raise RuntimeError(f"编辑底图不存在：{img}")
-            mime = "image/png" if str(img).lower().endswith(".png") else "image/jpeg"
+            raw = img.read_bytes()
             files = {
-                "image": (img.name, img.read_bytes(), mime),
+                "image": (img.name, raw, _sniff_mime(raw, str(img))),
                 "model": (None, model),
                 "prompt": (None, prompt),
                 "size": (None, size),
@@ -523,7 +538,13 @@ def main(argv: "list[str] | None" = None) -> int:
         target = out_dir / filename
 
         if args.dry_run:
-            print(f"  [plan] {name} -> {target}  (model={asset.get('model') or default_model})")
+            # 跳过规则要在 dry-run 里照样生效。以前先打 [plan] 再判断跳过，于是
+            # dry-run 永远 skipped=0 —— 看它会以为已存在的图正式跑时也会重画。
+            if target.exists() and not args.force:
+                print(f"  [plan] {name} -> {target}  （已存在，正式跑会跳过；--force 可覆盖）")
+                skipped += 1
+            else:
+                print(f"  [plan] {name} -> {target}  (model={asset.get('model') or default_model})")
             continue
 
         if target.exists() and not args.force:

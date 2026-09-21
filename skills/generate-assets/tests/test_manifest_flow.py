@@ -341,3 +341,40 @@ def test_dry_run_with_force_does_not_touch_existing_records(project):
     write(template="A shiny icon of {visual}.")
     run("--dry-run", "--force")
     assert _manifest(root) == before
+
+
+
+# -------------------- dry-run 要反映正式跑会怎样（4.4.0） --------------------
+
+def test_dry_run_prompt_lines_mark_images_that_would_be_skipped(project, capsys):
+    """冷启动测试里 codex 指出：dry-run 对已存在的图也照打，看了会以为全部重画。"""
+    root, write, run = project
+    run()
+    write(template="A shiny icon of {visual}.")
+    capsys.readouterr()
+    run("--dry-run")
+    out = capsys.readouterr().out
+    prompt_lines = [l for l in out.splitlines() if "[prompt]" in l]
+    assert prompt_lines and all("正式跑会跳过" in l for l in prompt_lines), prompt_lines
+    assert any("过期" in l for l in prompt_lines)
+
+
+def test_dry_run_marks_untracked_and_new_differently(project, capsys):
+    root, _, run = project
+    _out(root).mkdir(parents=True)
+    (_out(root) / "pearl.png").write_text("hand-made", encoding="utf-8")
+    capsys.readouterr()
+    run("--dry-run")
+    lines = {l.split("[prompt] ")[1].split(":")[0]: l
+             for l in capsys.readouterr().out.splitlines() if "[prompt]" in l}
+    assert "未追踪" in lines["pearl（已存在·未追踪，正式跑会跳过）"]
+    assert "taro" in lines                                  # 新的：不加标记
+
+
+def test_dry_run_with_force_says_it_would_redraw(project, capsys):
+    root, _, run = project
+    run()
+    capsys.readouterr()
+    run("--dry-run", "--force")
+    out = capsys.readouterr().out
+    assert all("--force 会重画" in l for l in out.splitlines() if "[prompt]" in l)

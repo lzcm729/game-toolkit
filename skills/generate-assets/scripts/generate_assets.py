@@ -359,7 +359,8 @@ def _run_category(
     if dry_run:
         # dry-run 的目的之一是看 prompt；后端的 dry-run 通常只打计划不打 prompt
         for asset in plan.assets:
-            print(f"  [prompt] {asset.item_id}: {asset.prompt}")
+            tag = _dry_run_tag(statuses[asset.filename], force=force)
+            print(f"  [prompt] {asset.item_id}{tag}: {asset.prompt}")
 
     cmd = [
         sys.executable,
@@ -391,6 +392,22 @@ def _run_category(
 
 
 _MAX_LISTED = 5
+
+_STATUS_WORDS = {
+    asset_manifest.CURRENT: "最新",
+    asset_manifest.STALE: "过期",
+    asset_manifest.UNTRACKED: "未追踪",
+}
+
+
+def _dry_run_tag(status, *, force: bool) -> str:
+    """dry-run 里每张图正式跑时会怎样。在编排层标，换哪个后端都看得到。"""
+    if status.kind == asset_manifest.NEW:
+        return ""
+    if force:
+        return "（已存在，--force 会重画）"
+    word = _STATUS_WORDS.get(status.kind, status.kind)
+    return f"（已存在·{word}，正式跑会跳过）"
 
 
 def _report_staleness(cat_name: str, statuses: dict, *, force: bool) -> int:

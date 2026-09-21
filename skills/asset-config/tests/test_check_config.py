@@ -53,6 +53,12 @@ def _minimal(tmp_path: Path, **override) -> dict:
     return conf
 
 
+# 最小的「认得出的图」：只要文件头对。check 从 4.4.0 起会看文件头 ——
+# 以前这里随手写的 b"png" / b"x" 占位字节，正是冷启动测试里 codex 指出
+# 「存在性检查证明不了它是一张图」的那种假图。
+_PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 8
+
+
 def _messages(report) -> str:
     return chr(10).join(report.errors + report.governance + report.notes)
 
@@ -180,8 +186,8 @@ def test_image_and_reference_paths_conflict(tmp_path):
     测试照样通过。
     """
     (tmp_path / "art").mkdir()
-    (tmp_path / "art" / "anchor.png").write_bytes(b"png")
-    (tmp_path / "art" / "base.png").write_bytes(b"png")
+    (tmp_path / "art" / "anchor.png").write_bytes(_PNG)
+    (tmp_path / "art" / "base.png").write_bytes(_PNG)
     conf = _minimal(tmp_path)
     conf["style"] = {"reference_paths": ["anchor.png"]}
     conf["categories"]["ingredients"]["image"] = "base.png"
@@ -268,7 +274,7 @@ def test_openai_model_with_reference_paths_is_an_error(tmp_path):
     这是配置层就能静态判定的事，不该拖到烧钱的运行时才发现。
     """
     (tmp_path / "art").mkdir()
-    (tmp_path / "art" / "anchor.png").write_bytes(b"png")
+    (tmp_path / "art" / "anchor.png").write_bytes(_PNG)
     conf = _minimal(tmp_path)
     conf["backend"] = "laozhang"
     conf["model"] = "gpt-image-2.5-flare"
@@ -285,7 +291,7 @@ def test_openai_model_with_reference_paths_is_an_error(tmp_path):
 def test_openai_model_at_category_level_also_checked(tmp_path):
     """category 级的 model 同样要查 —— 顶层配 gemini 不代表每个 category 都是。"""
     (tmp_path / "art").mkdir()
-    (tmp_path / "art" / "anchor.png").write_bytes(b"png")
+    (tmp_path / "art" / "anchor.png").write_bytes(_PNG)
     conf = _minimal(tmp_path)
     conf["backend"] = "laozhang"
     conf["model"] = "gemini-3-pro-image"
@@ -308,7 +314,7 @@ def test_openai_model_without_reference_is_fine(tmp_path):
 def test_openai_model_with_image_is_fine(tmp_path):
     """image（单张编辑底图）走的是 edits 端点，OpenAI 路径支持。"""
     (tmp_path / "art").mkdir()
-    (tmp_path / "art" / "base.png").write_bytes(b"png")
+    (tmp_path / "art" / "base.png").write_bytes(_PNG)
     conf = _minimal(tmp_path)
     conf["backend"] = "laozhang"
     conf["model"] = "gpt-image-2.5-flare"
@@ -448,7 +454,7 @@ def test_project_root_comes_from_config_not_config_dir(tmp_path):
     这里的参考图放在真正的工程根下；按旧口径会去 tools/art/ 找，报不存在。
     """
     (tmp_path / "art").mkdir()
-    (tmp_path / "art" / "anchor.png").write_bytes(b"x")
+    (tmp_path / "art" / "anchor.png").write_bytes(_PNG)
     (tmp_path / "tools").mkdir(exist_ok=True)
     (tmp_path / "tools" / "items.json").write_text(
         json.dumps({"pearl": {"visual": "black pearls"}}), encoding="utf-8")
@@ -547,7 +553,7 @@ def test_unused_global_reference_still_checked(tmp_path):
 def test_item_level_model_capability_conflict_is_caught(tmp_path):
     """能力冲突问后端自己要 —— item 级的 model 以前也在检查范围外。"""
     (tmp_path / "art").mkdir(exist_ok=True)
-    (tmp_path / "art" / "anchor.png").write_bytes(b"x")
+    (tmp_path / "art" / "anchor.png").write_bytes(_PNG)
     cfg = _write(tmp_path, _minimal(
         tmp_path,
         backend="laozhang",
@@ -572,7 +578,7 @@ def test_main_does_not_hard_fill_project_root(tmp_path, monkeypatch, capsys):
     import check_config as cc
 
     (tmp_path / "art").mkdir()
-    (tmp_path / "art" / "anchor.png").write_bytes(b"x")
+    (tmp_path / "art" / "anchor.png").write_bytes(_PNG)
     (tmp_path / "tools").mkdir()
     (tmp_path / "tools" / "items.json").write_text(
         json.dumps({"pearl": {"visual": "x"}}), encoding="utf-8")
@@ -862,3 +868,112 @@ def test_res_prefix_in_data_source_is_a_note_in_check(tmp_path):
     report = check_config(cfg, tmp_path)
     assert report.ok
     assert any("res://" in n and "5.0.0" in n for n in report.notes)
+
+
+
+# -------------------- 冷启动测试暴露的问题（4.4.0） --------------------
+# 一个没有上下文的 AI（codex）只读 SKILL.md 从零建配置时撞上的。
+
+def test_todo_in_a_comment_above_the_template_is_noticed(tmp_path):
+    """TODO 该写在注释里 —— 写进字符串会被发给生图模型。
+
+    冷启动的 AI 正是这么做的，而校验器以前只扫字符串，看不见它。
+    """
+    cfg = _write_raw(tmp_path, _BASE.replace(
+        '    prompt_template: "Icon of {visual}."',
+        '    # TODO：构图还没定' + chr(10) + '    prompt_template: "Icon of {visual}."'))
+    report = check_config(cfg, tmp_path)
+    assert report.ok
+    assert any("prompt_template" in n and "未定稿" in n for n in report.notes), report.notes
+
+
+def test_todo_in_a_comment_above_style_prefix_is_noticed(tmp_path):
+    cfg = _write_raw(tmp_path, _BASE.replace(
+        "output_root: art",
+        "output_root: art" + chr(10) + "style:" + chr(10)
+        + "  # TODO：配色待定" + chr(10) + '  prompt_prefix: "Cute."'))
+    report = check_config(cfg, tmp_path)
+    assert any("prompt_prefix" in n and "未定稿" in n for n in report.notes), report.notes
+
+
+def test_todo_comment_separated_by_blank_line_is_not_attached(tmp_path):
+    """隔了空行的注释是在说别的事。"""
+    cfg = _write_raw(tmp_path, _BASE.replace(
+        '    prompt_template: "Icon of {visual}."',
+        '    # TODO：别的事' + chr(10) + chr(10) + '    prompt_template: "Icon of {visual}."'))
+    report = check_config(cfg, tmp_path)
+    assert not any("未定稿" in n for n in report.notes), report.notes
+
+
+def test_todo_inside_the_prompt_text_warns_it_will_be_sent(tmp_path):
+    """写进字符串的 TODO 会原样发给生图模型 —— 要说的是这个，不只是「未定稿」。"""
+    cfg = _write_raw(tmp_path, _BASE.replace(
+        'prompt_template: "Icon of {visual}."',
+        'prompt_template: "Icon of {visual}. TODO try side view"'))
+    report = check_config(cfg, tmp_path)
+    assert report.ok
+    assert any("原样发给" in n for n in report.notes), report.notes
+
+
+def test_placeholder_file_named_png_is_not_an_image(tmp_path):
+    """「在」不等于「是一张图」—— 冷启动测试里 codex 自己发现了夹具里的假 PNG。"""
+    (tmp_path / "art").mkdir(exist_ok=True)
+    (tmp_path / "art" / "anchor.png").write_text("PNG-style-anchor", encoding="utf-8")
+    cfg = _write(tmp_path, _minimal(tmp_path, style={"reference_paths": ["anchor.png"]}))
+    report = check_config(cfg, tmp_path)
+    assert not report.ok
+    assert "不是认得出的图片" in _messages(report)
+
+
+@pytest.mark.parametrize("head", [
+    b"\x89PNG\r\n\x1a\n" + b"\x00" * 8,
+    b"\xff\xd8\xff\xe0" + b"\x00" * 12,
+    b"RIFF\x00\x00\x00\x00WEBPVP8 ",
+    b"GIF89a" + b"\x00" * 10,
+])
+def test_real_image_headers_pass(tmp_path, head):
+    (tmp_path / "art").mkdir(exist_ok=True)
+    (tmp_path / "art" / "anchor.img").write_bytes(head)
+    cfg = _write(tmp_path, _minimal(tmp_path, style={"reference_paths": ["anchor.img"]}))
+    assert check_config(cfg, tmp_path).ok
+
+
+def test_edit_base_image_is_also_checked(tmp_path):
+    (tmp_path / "art").mkdir(exist_ok=True)
+    (tmp_path / "art" / "base.png").write_text("not an image", encoding="utf-8")
+    cfg = _write(tmp_path, _minimal(tmp_path, categories={"ing": {
+        "data_source": {"type": "json_dict", "path": "items.json"},
+        "prompt_template": "Icon of {visual}.",
+        "image": "base.png",
+    }}))
+    assert "不是认得出的图片" in _messages(check_config(cfg, tmp_path))
+
+
+def test_redundant_project_root_is_noted(tmp_path):
+    """config 就在工程根还写 project_root: . —— 冷启动的 AI 写了一份和项目环境
+    声明重复的。不算错，但多一份声明就多一处可能对不上。
+    """
+    (tmp_path / "Game.uproject").write_text("{}", encoding="utf-8")
+    cfg = _write(tmp_path, _minimal(tmp_path, project_root="."))
+    report = check_config(cfg)
+    assert report.ok
+    assert any("可以不写" in n for n in report.notes), report.notes
+
+
+def test_project_root_that_changes_the_root_is_not_noted(tmp_path):
+    """config 在子目录、靠 project_root 指回工程根 —— 这份声明是有用的。"""
+    (tmp_path / "tools").mkdir()
+    (tmp_path / "tools" / "items.json").write_text(
+        json.dumps({"pearl": {"visual": "x"}}), encoding="utf-8")
+    cfg = _write_at(tmp_path / "tools" / "asset-config.yaml", {
+        "adapter": "filesystem", "project_root": "..", "output_root": "art",
+        "categories": {"ing": {"data_source": {"type": "json_dict", "path": "tools/items.json"},
+                               "prompt_template": "Icon of {visual}."}}})
+    report = check_config(cfg)
+    assert not any("可以不写" in n for n in report.notes), report.notes
+
+
+def test_project_root_without_any_project_marker_is_not_noted(tmp_path):
+    """探测不到工程时，写 project_root 是唯一能钉住根的办法。"""
+    cfg = _write(tmp_path, _minimal(tmp_path, project_root="."))
+    assert not any("可以不写" in n for n in check_config(cfg).notes)

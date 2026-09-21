@@ -32,6 +32,11 @@ import engine_adapter  # noqa: E402
 from data_source import load_data_source  # noqa: E402
 from prompt_render import compose_prompt, evaluate_derived, render_template  # noqa: E402
 
+# 创作性未定稿的标记。**应该写在注释里**：写进 prompt 字符串的话，它会原样
+# 发给生图模型（「Cute style. TODO: settle palette.」）。校验器两处都认 ——
+# 注释里的算「未定稿」提示，字符串里的额外告警「会被发给模型」。
+TODO_MARKER = "TODO"
+
 # 逐条渲染失败时，同类错误报到这个数就打住。数据源有一千条、模板引用了一个
 # 不存在的字段，那就是一千条一模一样的错 —— 刷屏会把别的问题顶没。
 MAX_ITEM_ERRORS = 5
@@ -533,6 +538,19 @@ def build_category_plan(
     global_prefix = (global_style.get("prompt_prefix") or "") if not skip_global else ""
     global_suffix = (global_style.get("prompt_suffix") or "") if not skip_global else ""
     derived = cat_spec.get("derived_fields")
+
+    # 未定稿标记写进了 prompt 本身 —— 它会原样发给生图模型。只看这个 category
+    # 真正会用到的那几段：skip_global_style 的 category 不会带上全局前后缀。
+    for label, text in (
+        ("prompt_template", template),
+        ("style.prompt_prefix", global_prefix),
+        ("style.prompt_suffix", global_suffix),
+    ):
+        if isinstance(text, str) and TODO_MARKER in text:
+            plan.warnings.append(
+                f"category {cat_name}: {label} 的文字里有 {TODO_MARKER}，它会原样发给"
+                "生图模型。未定稿的备注写在紧邻的 # 注释里 —— check 同样认得出来。"
+            )
     ext = cat_spec.get("output_ext", "png")
 
     render_errors = _ErrorSink(plan.errors)
