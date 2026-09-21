@@ -3,6 +3,76 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 4.4.0 (2026-09-21)
+
+一次冷启动测试暴露的五处问题。
+
+### 怎么测的
+
+让 codex（GPT）在一个仿真 UE 工程上照着 `asset-config/SKILL.md` 从零建配置。它只拿到
+SKILL.md 的路径和一句「帮我把 asset-config.yaml 建起来」，没有这个插件任何的开发上下文。
+工程里埋了容易做错的决策点（`engine: unreal`、带业务含义 `model` 列的策划表、一个被
+`.gitignore` 忽略的美术目录、现成的 schema 声明），但没告诉它考点。评分标准在跑之前写定。
+
+两轮（先交草稿与问题，用户作答后再写配置），**十条考点全部通过**：没照抄 `engine`；看出
+`model` 列是业务数据、写了 `item_overrides: {}`，并且知道 `columns` 只是加别名；对每个
+预期输出路径逐一核对忽略规则；必问的三项都交给用户；最后打开实际发给后端的 batch JSON
+核对了生效参数。**指引对非 Claude 的宿主可读、可执行。**
+
+但它也撞上了插件本身的五处问题。
+
+### A. TODO 标在哪儿都不对
+
+指引说「创作性未定稿就标 `TODO`，check 只提示」，没说标在哪：
+
+- 标在 prompt 字符串里 → **原样发给生图模型**。实测送出去的是
+  `Cute style. TODO: settle palette. Icon of x. TODO try side view`
+- 标在注释里（codex 选的，更合理）→ check 只扫字符串，看不见，「未定稿」提示形同虚设
+
+现在两处都认：prompt 字段上方注释里的 `TODO` 算未定稿提示（位置按 YAML 节点定，和来源
+检查共用一套扫描）；字符串里的 `TODO` 由计划层告警「会原样发给模型」，check 和生成器
+都看得到。`skip_global_style` 的 category 不会因全局前缀里的 TODO 被误报 —— 它根本不带。
+指引写明放注释里。
+
+### B. 「在」不等于「是一张图」
+
+check 只查参考图 / 底图存不存在。codex 第一轮就发现我夹具里那几个 `.png` 其实是一段文本，
+并指出校验器证明不了这一点。现在看文件头，认得 PNG / JPEG / WebP / GIF。
+
+顺带修了个兄弟 bug：**laozhang 后端按扩展名定 mime** —— `.png` 标 `image/png`，其余一律
+`image/jpeg`。一张 `.webp` 风格锚会被当成 JPEG 发出去；改过扩展名的 JPEG 会被标成 PNG。
+现在按文件头定，认不出才退回扩展名。
+
+新检查上线立刻抓到本仓库自己测试里的 8 处假图（`b"png"`、`b"x"`），换成了带真文件头的
+最小字节。
+
+### C. dry-run 会让人以为已存在的图也会重画
+
+laozhang 在 dry-run 时先打 `[plan]` 再判断跳过，于是 dry-run 永远 `skipped=0`。codex 在
+报告里专门指出了这点。现在后端 dry-run 照样按跳过规则计数；编排层的 `[prompt]` 行也标出
+每张图正式跑时会怎样（`已存在·过期 / 未追踪 / 最新，正式跑会跳过`，或 `--force 会重画`），
+换哪个后端都看得到。协议里补了一句：dry-run 的跳过规则照样生效。
+
+### D. config 在工程根时要不要写 project_root，指引没说
+
+codex 写了 `project_root: .`，依据是「沿用 game-toolkit.yaml」—— 一份和项目环境声明重复的
+声明。不算错，但多一份就多一处可能对不上，config 挪位置时 `.` 也会指错，而不写的话探测会
+一直找对。现在指引写明：config 在工程根就不写。check 在「写了但和探测结果一样」时提示；
+config 在子目录、或探测不到工程时，那份声明是有用的，不提示。
+
+### E. 透明底没有保障
+
+验收维度里「要透明」是个正常选项，但两个内置后端都没有透明背景参数（代码里零处），生成器
+也不检查 alpha。模型会不会给 alpha 通道没验证过 —— 不能联网，只写进指引：要透明底得在
+首张小样时就核实，多半要后处理。
+
+### 验证
+
+544 passed（原 518）。13 条变异全部报红 —— 其中「OpenAI 编辑路径仍按扩展名定 mime」第一轮
+全绿：现有测试截获了那条路径的 `files`，却从没看过底图的 mime。补了一条之后报红。
+codex 写的那份配置复验：两处注释 TODO 被认出、重复的 `project_root` 有提示、dry-run 把已存在
+的木椅标成「未追踪，正式跑会跳过」、汇总 `skipped=1`（原来是 0）。Catfishing 照常通过。
+
 ## 4.3.0 (2026-09-21)
 
 生成记录：改了配置之后，分得清哪些图过期了。
