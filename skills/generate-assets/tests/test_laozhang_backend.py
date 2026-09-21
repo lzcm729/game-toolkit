@@ -1140,3 +1140,23 @@ def test_gpt_image_edit_labels_base_image_by_content(tmp_path, monkeypatch):
         reference_paths=[], image_path=str(base), timeout_s=30.0,
     )
     assert seen["files"]["image"][2] == "image/jpeg"
+
+
+def test_dry_run_plan_line_shows_the_effective_ratio(tmp_path, capsys):
+    """只打模型的话，要核对比例还得自己去翻临时的 batch JSON —— 冷启动评测里
+    codex 就是这么干的。
+    """
+    import laozhang_backend as lb
+    out = tmp_path / "out"
+    out.mkdir()
+    batch = tmp_path / "b.json"
+    batch.write_text(json.dumps({
+        "$schema_version": 2,
+        "defaults": {"aspect_ratio": "4:3", "model": "gemini-3-pro-image"},
+        "assets": [{"name": "a", "filename": "a.png", "prompt": "x"},
+                   {"name": "b", "filename": "b.png", "prompt": "y", "aspect_ratio": "16:9"}],
+    }), encoding="utf-8")
+    lb.main([str(batch), "--output-dir", str(out), "--dry-run"])
+    lines = [l for l in capsys.readouterr().out.splitlines() if "[plan]" in l]
+    assert "aspect_ratio=4:3" in lines[0]
+    assert "aspect_ratio=16:9" in lines[1]      # 条目级覆盖也要如实显示

@@ -106,6 +106,9 @@ def test_filesystem_rejects_game_prefix_as_post_import_path(tmp_path):
     msg = str(ei.value)
     assert "导入" in msg and "Content" in msg
     assert "没有任何适配器认它" in msg
+    assert "普通相对路径" in msg                 # 给出真正的出路
+    # 曾经这条报错建议「把 engine 设成 unreal」，照做会撞进「未知的 engine」，
+    # 把人指进死循环。别把人指过去。
     assert "adapter 改成 unreal" not in msg
     assert "没有 unreal" not in msg
 

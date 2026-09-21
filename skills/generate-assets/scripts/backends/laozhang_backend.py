@@ -540,11 +540,15 @@ def main(argv: "list[str] | None" = None) -> int:
         if args.dry_run:
             # 跳过规则要在 dry-run 里照样生效。以前先打 [plan] 再判断跳过，于是
             # dry-run 永远 skipped=0 —— 看它会以为已存在的图正式跑时也会重画。
+            # 参数也打出来：只打模型的话，要核对比例还得自己去翻临时的 batch JSON
+            plan_params = (f"model={asset.get('model') or default_model}"
+                           f" aspect_ratio={asset.get('aspect_ratio') or defaults.get('aspect_ratio') or '1:1'}")
             if target.exists() and not args.force:
-                print(f"  [plan] {name} -> {target}  （已存在，正式跑会跳过；--force 可覆盖）")
+                print(f"  [plan] {name} -> {target}  ({plan_params})"
+                      "  （已存在，正式跑会跳过；--force 可覆盖）")
                 skipped += 1
             else:
-                print(f"  [plan] {name} -> {target}  (model={asset.get('model') or default_model})")
+                print(f"  [plan] {name} -> {target}  ({plan_params})")
             continue
 
         if target.exists() and not args.force:

@@ -159,14 +159,19 @@ def test_game_prefix_with_filesystem_adapter(tmp_path):
 
 
 def test_model_with_image_gen_backend(tmp_path):
-    """image-gen 用 chain 表达模型选择，不认 model。"""
+    """image-gen 用 chain 表达模型选择，不认 model —— 4.0.0 起这是**错**，不是提示。
+
+    第一版在「错误 + 治理 + 提示」拼起来的字符串里找子串，任何严重度都能过：
+    真降级成提示了它照样绿。外部评审点出来的。
+    """
     conf = _minimal(tmp_path)
     conf["backend"] = "image-gen"
     conf["model"] = "gemini-3-pro-image"
     cfg = _write(tmp_path, conf)
     report = check_config(cfg, tmp_path)
-    msg = _messages(report)
-    assert "model" in msg and "chain" in msg
+    assert not report.ok
+    hits = [e for e in report.errors if "不支持 model" in e and "chain" in e]
+    assert len(hits) == 1, report.errors
 
 
 def test_model_with_laozhang_backend_is_fine(tmp_path):
