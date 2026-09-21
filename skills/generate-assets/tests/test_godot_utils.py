@@ -7,39 +7,11 @@ import pytest
 
 from godot_utils import (
     ensure_parent_dirs,
-    find_project_root,
     is_godot_project,
     resolve_res_path,
     scan_imports,
     strip_res_prefix,
 )
-
-
-# -------------------- find_project_root --------------------
-
-def test_find_project_root_at_self(tmp_project):
-    found = find_project_root(tmp_project)
-    assert found == tmp_project.resolve()
-
-
-def test_find_project_root_walks_up(tmp_project):
-    sub = tmp_project / "scripts" / "view"
-    sub.mkdir(parents=True)
-    found = find_project_root(sub)
-    assert found == tmp_project.resolve()
-
-
-def test_find_project_root_from_file(tmp_project):
-    f = tmp_project / "scripts" / "main.gd"
-    f.parent.mkdir(parents=True)
-    f.write_text("extends Node", encoding="utf-8")
-    found = find_project_root(f)
-    assert found == tmp_project.resolve()
-
-
-def test_find_project_root_none(tmp_path):
-    found = find_project_root(tmp_path)
-    assert found is None
 
 
 def test_is_godot_project_true(tmp_project):

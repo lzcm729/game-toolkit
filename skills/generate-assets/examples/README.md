@@ -18,7 +18,7 @@ category（顾客、配料、配方、建筑、背景……）。底层调用生
 $schema_version: 1   # 当前版本
 style: { ... }       # 全局风格（被所有 category 继承，可单独跳过）
 output_root: "..."   # 输出根目录（接受 res:// 前缀）
-adapter: godot       # 引擎适配（可选，缺省自动探测；godot / generic）
+adapter: godot       # 路径写法（可选，缺省按探测到的工程定；godot / generic）
 backend: image-gen   # 生图后端（可选，缺省 image-gen）
 model: gemini-3-pro-image   # 生图模型（可选，category 可覆盖）
 categories:
@@ -51,18 +51,32 @@ prefix/suffix（背景图等独立 prompt 场景适用）。
 ## `adapter` 与 `project_root`
 
 ```yaml
-adapter: godot        # 可选。godot / generic；不写就探测（有 project.godot → godot）
+adapter: godot        # 可选。godot / generic；不写就按探测到的工程定
 project_root: ".."    # 可选。相对本文件；也可用 CLI 的 --project-root 覆盖
 ```
 
-`adapter` 选的是**本生成器的能力**，不是项目用的引擎 —— UE 项目声明「引擎：unreal」
-而这里写 `adapter: generic`，两者不矛盾。`generic` 不认 `res://` / `/Game/` 这类前缀
-（写了会报错），生成后也不做导入检查。
+`adapter` 选的**只是路径写法**，不是项目用的引擎。可选值两个：
+
+| `adapter` | 路径写法 |
+|---|---|
+| `godot` | 认 `res://`（等价于工程根） |
+| `generic` | 普通文件路径，不认任何虚拟前缀 |
+
+多对一是正常的：UE / Unity / 自研 / 没探到，全都用 `generic`。**`generic` 表达的是
+「用普通文件路径」，不是「这个项目没有引擎」** —— UE 项目声明「引擎：unreal」而这里
+写 `adapter: generic`，两者不矛盾。
+
+`adapter: unreal` 是**兼容值**，等价于 `generic`（3.17.0 起）。它当年多做的工程根
+探测已经归入通用的工程探测，对所有适配器一视同仁；导入提示也改成按探测到的工程给。
+写着它的配置照样能跑，只会多一条提示。
 
 旧字段 `engine:` 仍可用（按 `adapter:` 处理），但两者同时出现且不一致会报错。
 
-`project_root` 不给时按「适配器探测 → yaml 位置推断」兜底 —— 后者会随 config 移动
-而改变相对路径基准，非 Godot 项目建议显式指定。
+`project_root` 不给时按「工程标志探测（`project.godot` / `*.uproject`）→ yaml 位置
+推断」兜底。**探测不问适配器** —— 换 `adapter` 不会换掉工程根。最后那条兜底会随
+config 移动而改变相对路径基准，config 不在工程根时建议显式写 `project_root`。
+
+工程根按哪一条定下来的，`check` 和生成时都会打出来。
 
 ## `model`（生图模型）
 
@@ -76,8 +90,9 @@ project_root: ".."    # 可选。相对本文件；也可用 CLI 的 --project-r
 
 ## Unreal 项目
 
-`adapter: unreal` 做三件事：向上找 `*.uproject` 定位工程根、拒绝 `/Game/` 前缀、
-生成后提示需要走导入。
+**不需要写 `adapter`。** 向上找 `*.uproject` 是通用的工程探测在做，`/Game/` 由
+通用路径校验拒绝，导入提示按探测到的工程给 —— 三件事都不依赖一个叫 `unreal`
+的适配器。留空或写 `generic` 都行。
 
 **`/Game/` 不能用**，这不是「暂未支持」而是它本来就不该用在这里：
 
@@ -90,9 +105,9 @@ Content/Fish/F_River.uasset         ← /Game/Fish/F_River 指的是这个
 `output_root` 要写相对工程根的普通路径（如 `ArtSource/Fish`）。把源图片写进
 `Content/`，引擎既不认识裸 PNG，那个目录也会被搞乱。
 
-生成完会提示一句需要走 UE 导入 —— 它是**固定文案，不做检查**。`.uasset` 是二进制，
-而且源图片到资产的对应关系写在项目各自的导入脚本里，没法反查「这张图导没导过」。
-Godot 那边能扫 `.import` 文件，Unreal 这边扫不了。
+探测到 `*.uproject` 就会提示一句需要走 UE 导入 —— 它**陈述的是生成与导入的边界，
+不是检查结果**。`.uasset` 是二进制，而且源图片到资产的对应关系写在项目各自的导入
+脚本里，没法反查「这张图导没导过」。Godot 那边能扫 `.import` 文件，Unreal 这边扫不了。
 
 ## `backend`（生图后端）
 

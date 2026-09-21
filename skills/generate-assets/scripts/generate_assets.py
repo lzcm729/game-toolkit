@@ -129,18 +129,11 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 1
 
-    declared_adapter = str(config.get("adapter") or config.get("engine") or "").strip()
-    if ctx.adapter.name == "generic" and not declared_adapter:
-        print(
-            f"[info] adapter=generic（{ctx.project_root} 下没有识别到已支持的引擎工程）："
-            "路径按普通相对路径解析，不做引擎导入检查。"
-            " 在 config 里显式写 adapter: generic 可以关掉这条探测（engine: 是旧名，别再用）。",
-            file=sys.stderr,
-        )
-
     # 工程根决定了所有相对路径的基准，写进哪、读哪张参考图全看它。
     # 它有四种定法，光看结果分不出是哪种 —— 所以把来源一起说出来。
     print(f"[info] project_root={ctx.project_root}（{ctx.project_root_source}）", file=sys.stderr)
+    for note in ctx.notes:
+        print(f"[info] {note}", file=sys.stderr)
 
     if args.limit is not None and args.limit < 1:
         print(f"[fatal] --limit 要 ≥ 1，收到 {args.limit}", file=sys.stderr)
@@ -177,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
         for r in results
     )
     if not args.dry_run and any_output:
-        hint = ctx.adapter.post_generate_hint(ctx.output_root)
+        hint = ctx.import_hint(ctx.output_root)
         if hint:
             print(hint)
 

@@ -77,7 +77,7 @@ def test_root_explicit_wins(tmp_path):
     other = tmp_path / "elsewhere"
     other.mkdir()
     root, source = asset_context.resolve_project_root(
-        cfg, {"project_root": "sub"}, engine_adapter.GENERIC, explicit=other)
+        cfg, {"project_root": "sub"}, explicit=other)
     assert root == other.resolve()
     assert "--project-root" in source
 
@@ -86,33 +86,55 @@ def test_root_declared_is_relative_to_config_dir(tmp_path):
     """config 里的 project_root 相对 config 所在目录 —— 不是相对 CWD。"""
     cfg = _write(tmp_path / "tools" / "asset-config.yaml", {"project_root": ".."})
     root, source = asset_context.resolve_project_root(
-        cfg, {"project_root": ".."}, engine_adapter.GENERIC)
+        cfg, {"project_root": ".."})
     assert root == tmp_path.resolve()
     assert "project_root" in source
 
 
-def test_root_falls_back_to_adapter_detection(tmp_path):
-    (tmp_path / "project.godot").write_text("[application]\n", encoding="utf-8")
+def test_root_falls_back_to_project_detection(tmp_path):
+    (tmp_path / "project.godot").write_text("[application]", encoding="utf-8")
     cfg = _write(tmp_path / "assets" / "asset-config.yaml", {"adapter": "godot"})
-    root, source = asset_context.resolve_project_root(cfg, {"adapter": "godot"},
-                                                      engine_adapter.GODOT)
+    detected = engine_adapter.detect_project(cfg.parent)
+    root, source = asset_context.resolve_project_root(cfg, {"adapter": "godot"}, detected)
     assert root == tmp_path.resolve()
-    assert "探测" in source
+    assert source == "探测到 godot 工程"
+
+
+def test_root_detection_does_not_depend_on_adapter(tmp_path):
+    """**拆分的全部理由**：换路径适配器不该换掉工程根。
+
+    UE 工程里把 adapter 从 unreal 改成 generic（完全正常的选择），以前会让
+    工程根从「*.uproject 所在目录」退化成「config 所在目录」，所有相对路径
+    跟着换基准。现在工程探测与适配器选择完全无关。
+    """
+    (tmp_path / "Game.uproject").write_text("{}", encoding="utf-8")
+    sub = tmp_path / "tools"
+    sub.mkdir()
+    for adapter_name in ("unreal", "generic", "godot"):
+        cfg = _write(sub / "asset-config.yaml", {"adapter": adapter_name})
+        ctx = asset_context.load_context(cfg)
+        assert ctx.project_root == tmp_path.resolve(), adapter_name
+        assert ctx.project_kind == "unreal", adapter_name
 
 
 def test_root_assets_dir_implies_parent(tmp_path):
     cfg = _write(tmp_path / "assets" / "asset-config.yaml", {"adapter": "generic"})
-    root, source = asset_context.resolve_project_root(cfg, {"adapter": "generic"},
-                                                      engine_adapter.GENERIC)
+    root, source = asset_context.resolve_project_root(cfg, {"adapter": "generic"})
     assert root == tmp_path.resolve()
     assert "assets/" in source
 
 
 def test_root_plain_dir_is_config_dir(tmp_path):
     cfg = _write(tmp_path / "asset-config.yaml", {"adapter": "generic"})
-    root, _ = asset_context.resolve_project_root(cfg, {"adapter": "generic"},
-                                                 engine_adapter.GENERIC)
+    root, _ = asset_context.resolve_project_root(cfg, {"adapter": "generic"})
     assert root == tmp_path.resolve()
+
+
+def test_legacy_adapter_note_reaches_the_context(tmp_path):
+    cfg = _write(tmp_path / "asset-config.yaml", {"adapter": "unreal"})
+    ctx = asset_context.load_context(cfg)
+    assert ctx.adapter.name == "generic"
+    assert any("兼容值" in n for n in ctx.notes)
 
 
 # -------------------- load_context 整体 --------------------
@@ -177,3 +199,20 @@ def test_context_reuses_preloaded_config(tmp_path):
     cfg.write_text("!!! not yaml at all: [", encoding="utf-8")
     ctx = asset_context.load_context(cfg, config={"adapter": "generic"})
     assert ctx.adapter.name == "generic"
+
+
+def test_project_kind_follows_the_final_root_not_the_config_location(tmp_path):
+    """工程类型按**最终定下来的根**算，不是按 config 所在位置探到的那个。
+
+    `--project-root` 把根指到别处时，导入提示该跟着新的根走 —— 否则会对着
+    一个不是 UE 工程的目录说「记得走 UE 导入」。
+    """
+    (tmp_path / "Game.uproject").write_text("{}", encoding="utf-8")
+    cfg = _write(tmp_path / "asset-config.yaml", {"adapter": "generic"})
+    plain = tmp_path / "elsewhere"
+    plain.mkdir()
+
+    assert asset_context.load_context(cfg).project_kind == "unreal"
+    ctx = asset_context.load_context(cfg, explicit_project_root=plain)
+    assert ctx.project_kind is None
+    assert ctx.import_hint(plain) is None

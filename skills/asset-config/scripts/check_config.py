@@ -110,6 +110,8 @@ def check_config(config_path: Path, project_root: "Path | None" = None) -> Repor
     # 工程根是所有相对路径的基准，四种定法结果可能差很远 —— 报出来，
     # 让人能一眼看出这次校验是按哪个位置算的。
     r.note(f"project_root={ctx.project_root}（{ctx.project_root_source}）")
+    for note in ctx.notes:
+        r.note(note)
 
     # 后端脚本不存在只提示不报错：校验配置不该要求生图环境就绪
     if ctx.backend.resolve_script() is None:

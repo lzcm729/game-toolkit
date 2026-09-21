@@ -59,10 +59,18 @@ class AssetContext:
     project_root_source: str     # 这个根是怎么定下来的，用于报告
     output_root: Path
     backend: object              # image_backend.ImageBackend
+    # 工程根**本身**是哪种引擎工程（探测所得，不是用户声明）。
+    # 导入提示按它给 —— UE 项目用 generic 适配器照样该拿到那句提示。
+    project_kind: "str | None" = None
+    # 解析过程中值得说一句、但不影响成败的事。调用方自己决定怎么打。
+    notes: tuple = ()
 
     @property
     def categories(self) -> dict:
         return self.config.get("categories") or {}
+
+    def import_hint(self, output_dir: Path) -> "str | None":
+        return engine_adapter.import_hint(self.project_kind, output_dir)
 
 
 def locate_config(explicit: "Path | None", *, cwd: "Path | None" = None) -> "Path | None":
@@ -111,7 +119,7 @@ def load_config(config_path: Path) -> dict:
 def resolve_project_root(
     config_path: Path,
     config: dict,
-    adapter,
+    detected: "tuple[str | None, Path | None]" = (None, None),
     explicit: "Path | None" = None,
 ) -> "tuple[Path, str]":
     """定工程根，返回 (根, 来源说明)。
@@ -119,11 +127,15 @@ def resolve_project_root(
     四级，先到先得：
       1. 显式参数（`--project-root`）—— 只覆盖本次运行
       2. config 里的 `project_root`，相对 config 所在目录解析
-      3. 适配器探测（Godot 找 project.godot，Unreal 找 *.uproject）
+      3. 工程标志探测（`project.godot` / `*.uproject`）
       4. 按 yaml 位置推断 —— 兜底。把 config 挪个子目录，根就变了
 
     第 4 条带一条约定：yaml 放在 `assets/` 下时，根是再上一级。这是
     `assets/asset-config.yaml` 这个默认位置的直接推论。
+
+    **第 3 条不问适配器。** 工程根在选路径处理方式之前就该定下来 ——
+    否则「把 adapter 从 unreal 换成 generic」会顺带换掉工程根，
+    而那两件事在概念上毫无关系。
     """
     if explicit is not None:
         return Path(explicit).resolve(), "显式参数 --project-root"
@@ -135,9 +147,9 @@ def resolve_project_root(
             f"config 的 project_root: {declared!r}",
         )
 
-    found = adapter.detect_root(config_path.parent)
+    kind, found = detected
     if found is not None:
-        return Path(found), f"adapter={getattr(adapter, 'name', '?')} 探测"
+        return Path(found), f"探测到 {kind} 工程"
 
     parent = config_path.parent.resolve()
     if parent.name == "assets":
@@ -172,14 +184,38 @@ def load_context(
     if config is None:
         config = load_config(config_path)
 
+    # 单向流，没有环：根 → 工程类型 → 适配器 → 输出根。
+    # 以前是「先选适配器、再用适配器找根」，于是换适配器会换掉根。
+    detected = engine_adapter.detect_project(config_path.parent)
+    project_root, source = resolve_project_root(
+        config_path, config, detected, explicit_project_root
+    )
+    kind = engine_adapter.project_kind(project_root)
+
+    notes: list = []
     try:
-        adapter = engine_adapter.select(config, config_path.parent)
+        adapter = engine_adapter.select(config, kind)
+        note = engine_adapter.legacy_note(config)
     except ValueError as e:
         raise ContextError(str(e)) from e
+    if note:
+        notes.append(note)
 
-    project_root, source = resolve_project_root(
-        config_path, config, adapter, explicit_project_root
-    )
+    # 没声明适配器时，说清这次按什么解析路径 —— 默认值不该是个哑谜。
+    # 声明了就不说：那是人自己选的，重复一遍没有信息量。
+    if not engine_adapter.declared_adapter(config) and adapter.name != "godot":
+        if kind is None:
+            notes.append(
+                f"adapter={adapter.name}（{project_root} 下没有识别到 Godot / Unreal 工程）："
+                "路径按普通相对路径解析。在 config 里显式写 adapter: generic "
+                "可以关掉这条探测（engine: 是旧名，别再用）。"
+            )
+        else:
+            notes.append(
+                f"探测到 {kind} 工程，adapter={adapter.name}：路径按普通相对路径解析。"
+                "这是正常默认 —— 只有 Godot 需要一套自己的路径写法。"
+            )
+
     output_root = resolve_output_root(config, project_root, adapter)
 
     try:
@@ -195,4 +231,6 @@ def load_context(
         project_root_source=source,
         output_root=output_root,
         backend=backend,
+        project_kind=kind,
+        notes=tuple(notes),
     )

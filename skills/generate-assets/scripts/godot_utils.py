@@ -13,25 +13,6 @@ from pathlib import Path
 
 # -------------------- 项目根定位 --------------------
 
-def find_project_root(start: Path) -> Path | None:
-    """从 start 向上找 project.godot；找到返回所在目录，否则 None。
-
-    start 可以是文件或目录。
-    """
-    start = Path(start).resolve()
-    if start.is_file():
-        start = start.parent
-    cur: Path | None = start
-    while cur is not None:
-        if (cur / "project.godot").exists():
-            return cur
-        parent = cur.parent
-        if parent == cur:
-            return None
-        cur = parent
-    return None
-
-
 def is_godot_project(path: Path) -> bool:
     """目录里有 project.godot 即认为是 Godot 项目。"""
     return (Path(path) / "project.godot").exists()

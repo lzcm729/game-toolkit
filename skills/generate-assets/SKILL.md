@@ -177,32 +177,48 @@ categories:
 
 `skip_global_style: true` 跳过全局 prefix/suffix（背景图独立 prompt 场景）。
 
-## 引擎适配
+## 引擎相关的三件事
 
-config 里的 `adapter` 字段选适配，未声明则探测（找到 `project.godot` → `godot`，否则 `generic`）。
+它们**互相独立**，分开处理（3.17.0 起）：
+
+| 做什么 | 由什么决定 | 说明 |
+|---|---|---|
+| 工程根在哪 | **探测到的工程标志** | 向上找 `project.godot` / `*.uproject`。不问适配器 |
+| 路径怎么写 | `adapter`（可声明） | `godot` 认 `res://`；`generic` 只认普通文件路径 |
+| 生成后提示什么 | **探测到的工程** | Godot 扫 `.import`；Unreal 提示走一次导入 |
+
+**换 `adapter` 不会换掉工程根**，也不会让导入提示消失 —— 那两件事跟着工程事实走。
+UE 项目写 `adapter: generic`（正常默认）照样拿得到那句导入提示。
 
 > **`adapter` 不是「项目用什么引擎」。** 引擎身份属于项目环境声明（人工填，见
-> `game-toolkit:layer-contracts` 的「项目环境声明」）；这里选的是**本生成器能提供哪套
-> 路径与导入规则**。UE 项目声明 `引擎：unreal`、而 config 里 `adapter: generic`，
-> 两者并不矛盾 —— 前者是事实，后者是本 skill 当前的能力边界。
+> `game-toolkit:layer-contracts` 的「项目环境声明」）；这里选的只是**路径写法**。
+> `generic` 表达「用普通文件路径」，不表达「这个项目没有引擎」。
 >
 > 旧配置的 `engine:` 按 `adapter:` 处理；两者同时存在且不同会报错。
 
+可选的 `adapter` 只有两个：
 
-| engine | 路径前缀 | 工程根探测 | 生成后 |
-|---|---|---|---|
-| `godot` | 认 `res://`（＝工程根） | 找 `project.godot` | 扫 `.import`，提示未导入的图片 |
-| `generic` | 不认任何引擎前缀，写了 `res://` / `/Game/` 会**报错** | 无，用 yaml 位置推断 | 不检查 |
+| `adapter` | 路径前缀 |
+|---|---|
+| `godot` | 认 `res://`（＝工程根） |
+| `generic` | 不认任何虚拟前缀；写了 `res://` / `/Game/` 会**报错** |
 
-UE / Unity 项目现在用 `generic` 就能跑通生成流程 —— 只是没有虚拟路径解析和导入检查。
-要加这两样，在 `engine_adapter.py` 里加一个 `EngineAdapter` 实例并注册即可，主流程不用动。
+未声明时按探测到的工程给默认：Godot 工程 → `godot`，其余一律 `generic`。
+多对一是正常的 —— 只有 Godot 需要一套自己的路径写法。
+
+`adapter: unreal` 是**兼容值**，等价于 `generic`。它当年的三个职责在上表里都各有
+归属，而「认得一种不合法输入」（`/Game/`）不足以支撑一个用户可选的适配器。
+写着它的配置照样跑，只多一条提示。
+
+要给某个引擎加虚拟路径解析，在 `engine_adapter.py` 里加一个 `EngineAdapter`
+实例并注册；要加工程探测或导入提示，改 `project_kind()` / `import_hint()`。
+三件事分开加，主流程不用动。
 
 ### Godot 适配的细节
 
 - **`res://` 路径**：`output_root: "res://art"` ↔ `<project_root>/art`
 - **自动 mkdir -p** 子目录（image-gen 不建多层目录）
-- **`.import` 扫描**：跑完后统计哪些图缺 `.import`，提示"用 Godot 编辑器自动 import"
-- **`project.godot` 检测**：缺则退到 generic（工程根按 `--project-root` > config 的 `project_root` > yaml 位置推断）
+- **`.import` 扫描**：跑完后统计哪些图缺 `.import`，提示「用 Godot 编辑器自动 import」
 
 ## 退码 + summary
 
