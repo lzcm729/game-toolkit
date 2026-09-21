@@ -46,6 +46,12 @@ UNSUPPORTED_HINTS = {
 # 这几个键是 batch 协议的必备字段，不参与「后端认不认」的判断。
 _PROTOCOL_KEYS = ("name", "filename", "prompt", "image")
 
+# 可以按条目覆盖的生成参数。数据里出现同名字段就会顶掉 category 级的设置 ——
+# 对专门做的生成清单这很方便，对复用的策划表就是**隐式控制通道**：
+# 表里加一列 `model` 表示游戏里的模型类型，不该顺手改掉生图模型。
+# 所以 category 可以用 `item_overrides` 显式声明哪一列覆盖哪个参数。
+ITEM_CONTROL_PARAMS = ("model", "aspect_ratio", "seed", "image")
+
 
 @dataclass(frozen=True)
 class PlannedAsset:
@@ -73,6 +79,9 @@ class CategoryPlan:
     errors: list = field(default_factory=list)          # list[str]
     warnings: list = field(default_factory=list)        # list[str]
     notes: list = field(default_factory=list)           # list[str]
+    # 能跑，但配置的意图没被声明过。校验器按治理问题报（退码 3），
+    # 生成器按告警打 —— 它不该拦住人，但也不该悄无声息。
+    governance: list = field(default_factory=list)      # list[str]
     # (标签, 绝对路径)，供校验器查存在性。生成器不查 —— 后端会报。
     input_paths: list = field(default_factory=list)     # list[tuple[str, Path]]
     total_items: int = 0                                # 过滤/截断之前的条目数
@@ -124,6 +133,62 @@ def resolve_reference(ref: str, *, project_root: Path, output_root: Path, adapte
     is_engine_path = any(ref.startswith(px) for px in engine_adapter.KNOWN_ENGINE_PREFIXES)
     root = project_root if is_engine_path else output_root
     return Path(adapter.resolve_path(ref, root))
+
+
+def resolve_item_overrides(cat_name: str, cat_spec: dict, plan: "CategoryPlan"):
+    """读 `item_overrides`。返回 {生成参数: 数据字段名}，未声明时返回 None。
+
+    显式声明的语义是**封闭的**：只有写出来的映射生效，数据里别的同名字段
+    一律当普通数据。`item_overrides: {}` 就是「本 category 不接受逐项覆盖」。
+    """
+    if "item_overrides" not in cat_spec:
+        return None
+
+    raw = cat_spec.get("item_overrides")
+    if raw is None:
+        raw = {}
+    if not isinstance(raw, dict):
+        plan.errors.append(
+            f"category {cat_name}: item_overrides 应为映射（生成参数 → 数据字段名），"
+            f"实际是 {type(raw).__name__}"
+        )
+        return {}
+
+    out: dict = {}
+    for param, source in raw.items():
+        if param not in ITEM_CONTROL_PARAMS:
+            plan.errors.append(
+                f"category {cat_name}: item_overrides 里的 {param!r} 不是可逐项覆盖的"
+                f"生成参数（可选：{' / '.join(ITEM_CONTROL_PARAMS)}）"
+            )
+            continue
+        if not isinstance(source, str) or not source.strip():
+            plan.errors.append(
+                f"category {cat_name}: item_overrides[{param!r}] 应为数据字段名"
+                f"（非空字符串），实际是 {source!r}"
+            )
+            continue
+        out[param] = source.strip()
+    return out
+
+
+def implicit_override_governance(cat_name: str, items: list) -> list:
+    """未声明 `item_overrides` 时，数据里撞名的字段正在当控制通道用。
+
+    不改变行为（那会让现有配置静默失效），但要说出来 —— 它是「能跑，
+    但这份配置的行为依赖一个列名巧合，没有被任何人声明过」。
+    """
+    hit = sorted({k for item in items for k in ITEM_CONTROL_PARAMS if k in item})
+    if not hit:
+        return []
+    names = " / ".join(repr(k) for k in hit)
+    return [
+        f"category {cat_name}: 数据里的 {names} 正在当生图参数用（条目级优先级最高，"
+        "压得过 category 和顶层的同名设置），但配置没声明过这件事。"
+        f"有意的话写 item_overrides: {{{hit[0]}: {hit[0]}}}；"
+        "是业务数据的话用 data_source.columns 改个名，"
+        "或写 item_overrides: {} 关掉逐项覆盖。"
+    ]
 
 
 def apply_extra_fields(item: dict, extra_fields: dict) -> dict:
@@ -195,6 +260,23 @@ def capability_errors(cat_name: str, backend, defaults: dict, assets: list) -> l
         for msg in hook(defaults, payload):
             out.append(f"category {cat_name} item={payload.get('name')}: {msg}")
     return out
+
+
+def _item_override(item: dict, overrides: "dict | None", param: str):
+    """取这一条目对 `param` 的覆盖值。没有就返回 None。
+
+    `overrides` 是 None 表示 category 没声明 `item_overrides` —— 退回旧的
+    「同名即覆盖」。声明过就**只认声明的映射**，别的同名字段是普通数据。
+    """
+    source = param if overrides is None else overrides.get(param)
+    if source is None:
+        return None
+    value = item.get(source)
+    # 空值不算覆盖。CSV 的短行会把缺的字段补成空字符串 —— 一列 model 里
+    # 有几行没填，不该给后端送个空模型名过去。
+    if value is None or (isinstance(value, str) and not value.strip()):
+        return None
+    return value
 
 
 def _build_defaults(
@@ -336,6 +418,18 @@ def build_category_plan(
         adapter=adapter, plan=plan,
     )
 
+    # --- 逐项覆盖：哪一列能当生成参数 ---
+    overrides = resolve_item_overrides(cat_name, cat_spec, plan)
+    if overrides is None:
+        plan.governance.extend(implicit_override_governance(cat_name, items))
+    else:
+        for param, source in overrides.items():
+            if items and not any(source in it for it in items):
+                plan.notes.append(
+                    f"category {cat_name}: item_overrides 声明了 {param} ← {source!r}，"
+                    "但没有一个条目带这个字段 —— 检查是不是写错了列名"
+                )
+
     # --- 模板 ---
     template = cat_spec.get("prompt_template")
     if not template:
@@ -405,10 +499,11 @@ def build_category_plan(
 
         # 编辑底图：item 级覆盖 category 级。只放 asset 不放 defaults ——
         # 上游 image-gen 的 Defaults 不解析 image，放 defaults 会被静默丢掉。
-        raw_image = item.get("image") or cat_spec.get("image")
+        item_image = _item_override(item, overrides, "image")
+        raw_image = item_image or cat_spec.get("image")
         if raw_image:
             label = (f"category {cat_name} item={item_id!r} 的 image"
-                     if item.get("image") else f"category {cat_name} 的 image")
+                     if item_image else f"category {cat_name} 的 image")
             try:
                 full = resolve_reference(
                     str(raw_image), project_root=project_root,
@@ -420,10 +515,12 @@ def build_category_plan(
             payload["image"] = str(full)
             plan.input_paths.append((label, full))
 
-        # item 级覆盖（优先级最高）
+        # item 级覆盖（优先级最高）。声明过 item_overrides 就只认声明的那几列，
+        # 没声明才退回「同名即覆盖」—— 后者已经在上面记了治理问题。
         for key in ("model", "aspect_ratio", "seed"):
-            if key in item:
-                payload[key] = item[key]
+            value = _item_override(item, overrides, key)
+            if value is not None:
+                payload[key] = value
 
         plan.assets.append(
             PlannedAsset(

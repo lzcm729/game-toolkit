@@ -225,6 +225,8 @@ def _check_category(ctx, name: str, spec: dict, inputs: dict, r: Report) -> None
     # 只是结果和配置写的不一样。
     for warning in plan.warnings:
         r.note(warning)
+    for issue in plan.governance:
+        r.governance_issue(issue)
 
     template = spec.get("prompt_template")
     if isinstance(template, str) and TODO_MARKER in template:

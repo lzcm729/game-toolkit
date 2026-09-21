@@ -321,3 +321,99 @@ def test_bad_data_source_is_error_not_crash(tmp_path):
     ctx = _ctx(tmp_path, {"categories": {"ing": spec}})
     plan = build_category_plan(ctx, "ing")
     assert any("数据源加载失败" in e for e in plan.errors)
+
+
+# -------------------- 数据列 vs 生成参数 --------------------
+
+def test_undeclared_control_column_still_works_but_is_reported(tmp_path):
+    """行为不变 —— 改了会让现有配置静默失效。但要说出来。"""
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "model": "m-from-data"}})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.ok
+    assert plan.assets[0].payload["model"] == "m-from-data"
+    assert any("'model'" in g and "item_overrides" in g for g in plan.governance)
+
+
+def test_plain_data_produces_no_governance_issue(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "rarity": "common"}})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.governance == []
+
+
+def test_declared_override_maps_a_named_column(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "gen_model": "m-declared"}},
+                  item_overrides={"model": "gen_model"})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.assets[0].payload["model"] == "m-declared"
+    assert plan.governance == []
+
+
+def test_declaring_overrides_closes_the_implicit_channel(tmp_path):
+    """**这是显式声明的全部意义**：声明是封闭的，别的同名字段是普通数据。
+
+    策划表里加一列 model 表示游戏里的模型类型，不该顺手改掉生图模型。
+    """
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "model": "业务数据",
+                                   "gen_model": "m-declared"}},
+                  item_overrides={"model": "gen_model"})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.assets[0].payload["model"] == "m-declared"
+
+
+def test_empty_item_overrides_turns_the_channel_off(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "model": "业务数据"}},
+                  item_overrides={})
+    plan = build_category_plan(ctx, "ing")
+    assert "model" not in plan.assets[0].payload
+    assert plan.governance == []
+
+
+def test_declared_source_column_missing_is_a_note(tmp_path):
+    """声明了却没有一个条目带那个字段，多半是列名写错了。"""
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}},
+                  item_overrides={"model": "gen_modle"})
+    plan = build_category_plan(ctx, "ing")
+    assert plan.ok
+    assert any("gen_modle" in n and "写错" in n for n in plan.notes)
+
+
+def test_blank_cell_is_not_an_override(tmp_path):
+    """CSV 短行会把缺的字段补成空字符串 —— 不该给后端送个空模型名。"""
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "gen_model": "  "}},
+                  item_overrides={"model": "gen_model"})
+    plan = build_category_plan(ctx, "ing")
+    assert "model" not in plan.assets[0].payload
+
+
+def test_declared_image_column(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "base_art": "mine.png"}},
+                  item_overrides={"image": "base_art"})
+    plan = build_category_plan(ctx, "ing")
+    assert Path(plan.assets[0].payload["image"]).name == "mine.png"
+
+
+def test_declared_overrides_ignore_undeclared_image_column(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "image": "业务数据.png"}},
+                  item_overrides={"model": "gen_model"}, image="cat.png")
+    plan = build_category_plan(ctx, "ing")
+    assert Path(plan.assets[0].payload["image"]).name == "cat.png"
+
+
+def test_unknown_override_param_is_an_error(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}},
+                  item_overrides={"prompt": "col"})
+    plan = build_category_plan(ctx, "ing")
+    assert any("不是可逐项覆盖的" in e for e in plan.errors)
+
+
+def test_override_source_must_be_a_string(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}},
+                  item_overrides={"model": 7})
+    plan = build_category_plan(ctx, "ing")
+    assert any("应为数据字段名" in e for e in plan.errors)
+
+
+def test_item_overrides_must_be_a_mapping(tmp_path):
+    ctx = _simple(tmp_path, {"a": {"visual": "x"}}, item_overrides=["model"])
+    plan = build_category_plan(ctx, "ing")
+    assert any("item_overrides 应为映射" in e for e in plan.errors)

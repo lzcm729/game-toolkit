@@ -660,3 +660,29 @@ def test_unknown_check_mode_is_rejected(tmp_path):
     cfg = _write_raw(tmp_path, _BASE)
     with pytest.raises(ValueError, match="checks 只能是"):
         check_config(cfg, tmp_path, checks="nope")
+
+
+def test_implicit_control_column_is_a_governance_issue(tmp_path, capsys):
+    """表里有 model 列却没声明过 —— 能跑，但行为依赖一个列名巧合。"""
+    import check_config as cc
+    cfg = _write(tmp_path, _minimal(tmp_path))
+    (tmp_path / "items.json").write_text(
+        json.dumps({"pearl": {"visual": "x", "model": "业务数据"}}), encoding="utf-8")
+    report = check_config(cfg, tmp_path)
+    assert report.ok
+    assert not report.governance_ok
+    assert "item_overrides" in _messages(report)
+    assert cc.main(["--config", str(cfg), "--project-root", str(tmp_path)]) == 3
+
+
+def test_declaring_item_overrides_clears_it(tmp_path):
+    cfg = _write(tmp_path, _minimal(tmp_path, categories={
+        "ing": {
+            "data_source": {"type": "json_dict", "path": "items.json"},
+            "prompt_template": "Icon of {visual}.",
+            "item_overrides": {},
+        }
+    }))
+    (tmp_path / "items.json").write_text(
+        json.dumps({"pearl": {"visual": "x", "model": "业务数据"}}), encoding="utf-8")
+    assert check_config(cfg, tmp_path).clean

@@ -144,9 +144,27 @@ output_root: "assets/art"  # = <project_root>/assets/art
 | `reference_paths` | list | 覆盖 global style 的内容层 ref（可选） |
 | `model` | string | 覆盖顶层 `model`（可选） |
 | `image` | string | **编辑底图**，与 `reference_paths` 互斥（可选） |
+| `item_overrides` | dict | `{生成参数: 数据字段名}` —— 声明哪一列能逐项覆盖（可选，见下） |
 
-`model` 与 `image` 也可以写在单个 item 上（data_source 的 item 字段），item 级优先于
-category 级。一个 category 共用一张底图、个别 item 换自己的，就这么写。
+### `item_overrides`（逐项覆盖哪个参数）
+
+`model` / `aspect_ratio` / `seed` / `image` 可以按条目覆盖 —— 一个 category 共用一张
+底图、个别 item 换自己的，就靠这个。但**哪一列算控制字段，得声明**：
+
+```yaml
+item_overrides:
+  model: gen_model      # 数据里的 gen_model 列 → 生图 model
+  image: base_art
+```
+
+声明是**封闭的**：只有写出来的映射生效，数据里别的同名字段一律当普通数据。
+`item_overrides: {}` 表示本 category 不接受逐项覆盖。空单元格不算覆盖
+（CSV 短行会把缺的字段补成空串，不该给后端送个空模型名）。
+
+**没声明时，行为退回「同名即覆盖」** —— 数据里叫 `model` 的字段会成为生图模型。
+这对专门做的生成清单很方便，对复用的策划表就是隐式控制通道：表里加一列 `model`
+表示游戏里的模型类型，会顺手改掉生图模型。所以没声明时 `check` 报**治理问题**
+（退码 3），生成时打告警。行为不变 —— 改了会让现有配置静默失效 —— 但不再悄无声息。
 
 ### `image` 与 `reference_paths` 的区别
 
@@ -252,11 +270,17 @@ data_source:
 
 #### 和生成控制字段的关系
 
-CSV 的列会原样进入 item，所以如果表里恰好有 `seed` / `model` / `aspect_ratio` / `image`
-这些列名，它们会被当成 **item 级**的生成参数 —— 而 CSV 里取出来的是**字符串**。
+CSV 的列会原样进入 item。表里恰好有 `seed` / `model` / `aspect_ratio` / `image`
+这些列名时，默认会被当成 **item 级**生成参数 —— 而 CSV 取出来的是**字符串**。
+item 级优先于 category 级，所以在 yaml 里写同名字段**压不过**表里的列。
 
-**item 级优先于 category 级**，所以在 yaml 的 category 层写同名字段**压不过**表里的列。
-要避免这种意外，只能在源头处理：用 `columns` 把那几列改名，或者从表里删掉。
+复用的策划表最容易撞上这个。三条出路，按推荐顺序：
+
+1. `item_overrides: {}` —— 本 category 不接受逐项覆盖，那几列当普通数据
+2. `item_overrides: {model: <真正想用的列>}` —— 确实要逐项覆盖时，显式指名
+3. `data_source.columns` 把那几列改名
+
+不处理也能跑，但 `check` 会报治理问题（退码 3），生成时也会告警。
 
 ## `data_source.filter`（v1 简单条件）
 

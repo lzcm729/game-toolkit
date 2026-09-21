@@ -286,6 +286,8 @@ def _run_category(
         print(f"  [note] {note}")
     for warning in plan.warnings:
         print(f"[warn] {warning}", file=sys.stderr)
+    for issue in plan.governance:
+        print(f"[warn] {issue}", file=sys.stderr)
 
     if not plan.ok:
         for err in plan.errors:
