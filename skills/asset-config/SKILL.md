@@ -139,7 +139,8 @@ backend: laozhang
 
 | 字段 | 权限 | 怎么定 |
 |---|---|---|
-| `adapter` | 可推断 | 读 `game-toolkit.yaml` 的 `engine`；没有就看有没有 `project.godot` / `*.uproject` |
+| `adapter` | 可推断 | Godot 工程写 `godot`，其余一律 `filesystem`。**别照抄 `engine`** —— 见下 |
+| `item_overrides` | 可推断 → 确认 | 数据源里有没有 `model` / `aspect_ratio` / `seed` / `image` 列？有就**必须**写，不写会被阻止。见下方「数据源的列可能意外控制生成」 |
 | `output_root` | 可推断 → 确认 | 见下方「输出目录不只是挑个文件夹」 |
 | `data_source` | 可推断 → 确认 | 扫到的 CSV/JSON。**哪份代表待生成资源必须人确认** —— 项目里的表可能有十几张 |
 | 数据源的 id 列 | **必须询问** | 你能报「哪些列唯一且无空值」，选哪列是人的决定 |
@@ -148,6 +149,26 @@ backend: laozhang
 | `aspect_ratio` | **必须询问** | 依赖用途（图标 / 立绘 / 背景），而且会随构图迭代 |
 | `prompt_template` | 可暂留 | 你写第一版草稿，人在小样里迭代 |
 | `style.prompt_prefix` | 可暂留 | **不强制非空** —— 风格可以写在 category 里，或用 `skip_global_style` 关掉 |
+
+### `adapter` 选的是路径系统，不是引擎
+
+项目声明里的 `engine: unreal` 是**引擎身份**；`adapter` 选的是这份配置里的路径怎么写。
+只有 Godot 有自己的路径写法（`res://` 等价于工程根），其余引擎全都是普通文件系统路径：
+
+| 探测到的工程 | 写 |
+|---|---|
+| `project.godot` | `adapter: godot` |
+| `*.uproject`、别的引擎、什么都没探到 | `adapter: filesystem` |
+
+照抄 `engine` 会写出 `adapter: unreal` —— 那是 3.17.0 之前的写法，现在是兼容值，
+5.0.0 起不再接受。工程根的探测和 UE 的导入提示都不依赖 `adapter`，写 `filesystem`
+什么都不会丢。依据照样写进注释：
+
+```yaml
+# 路径系统。依据：game-toolkit.yaml 的 engine: unreal，探到 *.uproject
+# —— UE 用普通文件路径（/Game/ 指导入后的 .uasset，不能出现在这里）
+adapter: filesystem
+```
 
 ## 输出目录不只是挑个文件夹
 
@@ -205,10 +226,18 @@ backend: laozhang
 ## 数据源的列可能意外控制生成
 
 真实的数据表不只有内容，它的列名可能撞上生成参数。如果表里恰好有 `model`、`image`、
-`aspect_ratio`、`seed` 这些列，它们会成为 **item 级**参数，**优先级高于 category 配置** ——
-在 category 层写同名字段压不过它们。
+`aspect_ratio`、`seed` 这些列，它们会成为**条目级**生成参数，优先级压过 category 和顶层。
 
-所以出小样时要核对**最终实际生效的参数和完整 prompt**，而不是只看 yaml 里写了什么。
+**4.0.0 起，这种列没在 `item_overrides` 里声明过就阻止执行** —— 配置的行为不该依赖
+没人声明过的巧合。所以建配置时要**主动扫一遍数据源的列名**，撞上了就当场定：
+
+- 值像生成参数（模型 id、`16:9` 这种比例、种子数）→ 写 `item_overrides: {model: model}`
+- 值是业务数据（「低模」「普通」「Boss」）→ 写 `item_overrides: {}`，那几列当普通数据
+- 看不出来 → 问。给出这一列的几个真实取值当依据，别只报列名
+
+`data_source.columns` **不是**出路 —— 它是加别名，原列名照样留在条目里。
+
+出小样时仍要核对**最终实际生效的参数和完整 prompt**，而不是只看 yaml 里写了什么。
 画面不对的时候，先确认送出去的输入符合预期，再判断是措辞不够还是模型没听。
 
 具体哪些字段有这个性质，看 generate-assets 的 `examples/README.md`，别在这里另记一份。
@@ -233,7 +262,7 @@ python <本 skill 目录>/scripts/check_config.py --config <配置路径> --chec
 ```
 
 `--project-root` 只在要**覆盖**本次校验的工程根时才给。不给的话它按和生成器
-完全相同的规则去定（config 的 `project_root` → 适配器探测 → 按 config 位置推断），
+完全相同的规则去定（config 的 `project_root` → 工程标志探测 → 按 config 位置推断），
 并把用了哪一条打在提示里。**这个根定在哪，所有相对路径就以哪为基准** ——
 输出目录、参考图、数据源全挂在它上面，所以它值得被看一眼。
 
@@ -248,7 +277,7 @@ python <本 skill 目录>/scripts/check_config.py --config <配置路径> --chec
   生成器有同名开关，两边判断一致
 - 还剩哪些 `TODO` 标记
 
-两条边界值得知道：
+三条边界值得知道：
 
 - **输入图片必须存在**（风格锚、编辑底图），但**输出目录不存在不算错** —— 生成时会自己建
 - 退码 0 表示**这份配置的静态部分自洽**，不等于「整批都能跑通」，更不等于「画面对」。
