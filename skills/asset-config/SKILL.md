@@ -304,6 +304,10 @@ python <generate-assets>/scripts/generate_assets.py --config <cfg> <category> --
 
 `--limit N` 取前 N 条，不用先去数据源里查 id；要挑特定的几条用 `--names`。
 
+**改完模板再出，要加 `--force`** —— 已存在的图默认跳过。生成器会报出哪些图已经
+过期、是哪一项变了（prompt / model / 风格参考图……），但不会自动重出：
+`--force --names <那一条>` 只重出你正在调的那张。
+
 **首张定方向，再换一个差异较大的条目验模板能不能泛化。** 比如角色 category 里，先出一个
 体型正常的，再出一个体型极端的 —— 模板里写死的构图假设会在第二张上露馅。
 

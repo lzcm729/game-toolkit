@@ -123,6 +123,7 @@ generate-assets/
 │   ├── generate_assets.py              # 主入口：拿到计划之后落盘、调后端、汇总
 │   ├── asset_context.py                # 上下文解析：定位配置 / 工程根 / 输出根 / 适配器 / 后端
 │   ├── asset_plan.py                   # 生成计划：数据源 → prompt → 文件名 → 落盘位置
+│   ├── asset_manifest.py               # 生成记录：每张图用什么请求生成的，配置改了哪些过期
 │   ├── data_source.py                  # 数据源加载（json_dict / json_list / inline / csv）+ filter
 │   ├── prompt_render.py                # 模板 format + derived_fields mini DSL
 │   ├── engine_adapter.py               # 工程探测 / 路径前缀解析 / 导入提示（三者独立）
@@ -239,7 +240,7 @@ UE 项目写 `adapter: filesystem`（正常默认）照样拿得到那句导入�
 ## 退码 + summary
 
 沿用 image-gen 的 `0/1/2`：
-- `0` — 全成功（含 skipped）
+- `0` — 全成功（含 skipped。**过期的图也不算失败**，但总表会显示 `stale=N`）
 - `1` — 全失败
 - `2` — 部分失败
 
@@ -269,7 +270,10 @@ pip install pyyaml
 
 ## 不做的事
 
-- ❌ 重新实现 image-gen 的能力（chain / fallback / manifest / skip-existing 都已就绪）
+- ❌ 重新实现 image-gen 的能力（chain / fallback 都已就绪）。输出目录里的
+  `.generate-assets.json` 不是 image-gen 那份 `manifest.jsonl` 的翻版：后者是逐次
+  运行的日志，而且它的跳过判断同样只看文件在不在；前者回答的是「盘上这张图还对不
+  对得上当前配置」，与用哪个后端无关。见 examples/README.md「生成记录」
 - ❌ 项目特化的旧版 schema 解析（CSV / 三状态 / emotions） → 由该项目自己的 legacy 脚本负责
 - ❌ 任意 Python 表达式 / jinja2（str.format + hardcoded helper 够用）
 - ❌ 自动写 .tres atlas / SpriteSheet（thick-layer，未来 TODO）

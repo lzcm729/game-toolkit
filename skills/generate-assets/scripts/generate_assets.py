@@ -40,6 +40,7 @@ if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
 import asset_context  # noqa: E402
+import asset_manifest  # noqa: E402
 import image_backend  # noqa: E402
 from asset_plan import build_category_plan  # noqa: E402
 from godot_utils import ensure_parent_dirs  # noqa: E402
@@ -57,6 +58,9 @@ class CategoryRunResult:
     exit_code: int
     summary: dict | None  # image-gen 末行 JSON
     error: str | None = None
+    # 已存在、但生成它们的请求和当前配置对不上的图（没重出）。
+    # 不算失败 —— 什么都没坏 —— 但也不能让人以为「资源已就绪」。
+    stale: int = 0
 
 
 # -------------------- 主流程 --------------------
@@ -323,6 +327,23 @@ def _run_category(
         print(f"[error] {msg}", file=sys.stderr)
         return CategoryRunResult(name=cat_name, exit_code=1, summary=None, error=msg)
 
+    # 生成记录：每张图是用什么请求生成的。后端只看文件在不在，分不清
+    # 「就是按当前配置生成的」和「是旧 prompt 留下的」—— 这里来分。
+    hasher = asset_manifest.new_hasher()
+    records, manifest_problem = asset_manifest.load(output_dir)
+    if manifest_problem:
+        print(f"  [note] {manifest_problem}")
+    signatures: dict = {}
+    statuses: dict = {}
+    for asset in plan.assets:
+        sig = asset_manifest.signature(
+            asset, plan.defaults, ctx.backend.name, ctx.project_root, hasher)
+        signatures[asset.filename] = sig
+        statuses[asset.filename] = asset_manifest.classify(
+            asset.filename, output_dir, sig, records)
+    existed_before = {fn for fn, st in statuses.items() if st.kind != asset_manifest.NEW}
+    stale = _report_staleness(cat_name, statuses, force=force)
+
     batch = plan.to_batch()
     with tempfile.NamedTemporaryFile(
         mode="w",
@@ -360,7 +381,87 @@ def _run_category(
         err = f"后端没有返回 summary，无法确认生成结果（它的退出码 {exit_code}）"
         print(f"[error] {err}", file=sys.stderr)
         exit_code = 1
-    return CategoryRunResult(name=cat_name, exit_code=exit_code, summary=summary, error=err)
+
+    if summary is not None and not dry_run:
+        _update_records(output_dir, records, plan.assets, signatures,
+                        existed_before=existed_before, force=force, summary=summary)
+
+    return CategoryRunResult(name=cat_name, exit_code=exit_code, summary=summary,
+                             error=err, stale=0 if force else stale)
+
+
+_MAX_LISTED = 5
+
+
+def _report_staleness(cat_name: str, statuses: dict, *, force: bool) -> int:
+    """说出哪些已存在的图对不上当前配置。返回过期张数。
+
+    `--force` 时不报：这些图反正要被重出。
+    """
+    stale = [(fn, st) for fn, st in statuses.items() if st.kind == asset_manifest.STALE]
+    untracked = [fn for fn, st in statuses.items() if st.kind == asset_manifest.UNTRACKED]
+    if force:
+        return len(stale)
+
+    if stale:
+        print(
+            f"[warn] category={cat_name}: {len(stale)} 张图已存在，但生成它们的请求和"
+            "当前配置不一样 —— 这次**不会**重新生成：",
+            file=sys.stderr,
+        )
+        for fn, st in stale[:_MAX_LISTED]:
+            print(f"         - {fn}：{st.describe()}变了", file=sys.stderr)
+        if len(stale) > _MAX_LISTED:
+            print(f"         - 另有 {len(stale) - _MAX_LISTED} 张", file=sys.stderr)
+        print(
+            "       要按当前配置重出就加 --force（配 --names / --limit 只重出这几张）。",
+            file=sys.stderr,
+        )
+    if untracked:
+        print(
+            f"  [note] {len(untracked)} 张图已存在但没有生成记录（本功能之前生成的，"
+            "或手动放进来的），判断不了是否对应当前配置。用 --force 重出一次就有记录了。"
+        )
+    return len(stale)
+
+
+def _failed_names(summary: dict) -> set:
+    """`failed_assets` 在 laozhang 是 {name, error} 字典，别的后端可能直接给名字。"""
+    out: set = set()
+    for entry in summary.get("failed_assets") or []:
+        if isinstance(entry, dict):
+            if entry.get("name") is not None:
+                out.add(str(entry["name"]))
+            if entry.get("filename") is not None:
+                out.add(str(entry["filename"]))
+        elif entry is not None:
+            out.add(str(entry))
+    return out
+
+
+def _update_records(output_dir, records: dict, assets: list, signatures: dict,
+                    *, existed_before: set, force: bool, summary: dict) -> None:
+    """只记**这次真生成了的**图。
+
+    被后端跳过的（已存在、没给 --force）必须保持原记录 —— 把它更新成新签名，
+    等于把一张过期图标成「最新」，比没有这个功能还糟。失败的也不动。
+    """
+    failed = _failed_names(summary)
+    updates: dict = {}
+    for asset in assets:
+        fn = asset.filename
+        if asset.item_id in failed or fn in failed:
+            continue
+        if fn in existed_before and not force:
+            continue
+        if (Path(output_dir) / fn).exists():
+            updates[fn] = signatures[fn]
+    try:
+        asset_manifest.record(output_dir, records, updates)
+    except OSError as e:
+        # 记录写不进去不该让一次成功的生成变成失败 —— 图已经在盘上了
+        print(f"[warn] 生成记录写不进去（{e}）：下次跑时这批图会显示为「未追踪」",
+              file=sys.stderr)
 
 
 # -------------------- image-gen subprocess --------------------
@@ -429,6 +530,7 @@ def _print_summary(results: list[CategoryRunResult]) -> None:
                 f"success={s.get('success', '?')} "
                 f"failed={s.get('failed', '?')} "
                 f"skipped={s.get('skipped', '?')}"
+                + (f" stale={r.stale}" if r.stale else "")
             )
         elif r.error:
             print(f"  {r.name:<14} exit={r.exit_code} ERROR: {r.error}")

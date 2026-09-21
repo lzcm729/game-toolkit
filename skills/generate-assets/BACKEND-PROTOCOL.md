@@ -12,6 +12,8 @@ python <backend.py> <batch.json> --output-dir <dir> [--dry-run] [--force]
 
 - `--dry-run`：只打印计划，不发请求、不写文件
 - `--force`：目标文件已存在时仍重新生成（缺省则计入 skipped）
+- 输出目录里的 `.generate-assets.json` 归编排层（生成记录），**后端别读也别写**。
+  后端只管「文件在就跳过」；那张图还对不对得上当前配置，由编排层判断
 
 当前实现用 `sys.executable` 拼命令行，因此后端**必须是 Python 脚本**。
 
