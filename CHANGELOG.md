@@ -3,6 +3,44 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 4.2.0 (2026-09-21)
+
+`adapter: generic` 改名为 `adapter: filesystem`。旧名是兼容值，5.0.0 移除。
+
+### 起因：名字在误导人
+
+`adapter` 选的从来是**路径系统**，不是引擎：`godot` 是 Godot 的 `res://` 路径，
+另一个是普通文件系统路径。UE / Unity / 自研 / 没探到，全都用后者 —— 只有 Godot
+有自己的路径写法（UE 的 `/Game/` 看着像，其实指导入后的 `.uasset`，不该出现在这里）。
+
+但后者叫 `generic`，读起来像「通用的、没认出引擎」。于是写着 `adapter: generic`
+的 UE 项目看上去像配错了，而 3.17.0 起它恰恰是 UE 项目的正常默认。用户看到
+「把 unreal 改成 generic」这条建议，第一反应是问「为什么我的 UE 项目要变成 generic」。
+
+改成 `filesystem` 之后两个取值说的是同一类东西：`godot` 路径 vs 文件系统路径。
+
+### 做法
+
+行为一点没变。`adapter: generic` 仍然接受，等价于 `filesystem`，校验和生成时各打
+一条提示说明「只改了名」。`unreal` 那条提示也改成指向 `filesystem`。两个兼容值的
+来由不同，提示也分开写 —— 套用 unreal 那句「工程根探测已经归入通用探测」对 generic
+是驴唇不对马嘴。
+
+`generate-assets` 的 description 顺带修了：原来写着「其他引擎走 generic（……不做
+导入检查）」，3.17.0 起 UE 工程已经会拿到导入提示了，这句一直没跟上。description
+是 Claude 决定是否触发这个 skill 的唯一依据，过期的话会对用户说错话。
+
+### 顺带：迁移期不再误报「不一致」
+
+旧字段 `engine:` 和 `adapter:` 同时存在时会比较两者，以前按字符串比。迁移到一半的
+配置（`adapter: filesystem` + `engine: generic`）意思完全一样，却会被报「不一致」。
+现在按归一化之后的值比。`godot` 对 `generic` 这种真不一样的，照旧报错。
+
+### 5.0.0 要一起破坏的现在是三件
+
+`unreal` 移除、`generic` 移除、filesystem 下数据源 `res://` 改报错。见 PLANNED.md。
+前两件删完之后 `LEGACY_ADAPTERS` 就空了，连同归一化和提示那套可以整个拿掉。
+
 ## 4.1.0 (2026-09-21)
 
 收掉两处存量双口径。一处是**我定错级的**。

@@ -1,6 +1,6 @@
 # game-toolkit
 
-Claude Code 插件源码仓库。当前版本 v4.1.0，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、可插拔引擎适配的资源管线。
+Claude Code 插件源码仓库。当前版本 v4.2.0，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、可插拔引擎适配的资源管线。
 
 > 本文是**维护者文档**（怎么改这个插件）。只想用它的话看 [README.md](README.md)。
 
@@ -77,7 +77,7 @@ scripts/verify_release.py       # 发布自检（校验 commit 而非工作区�
 - **可选技术适配**：`react-game-ui/`（Web 栈的游戏 UI 实现模式，只在项目确实用 React 时才用）
 - **代码/文档同步**：`sync-code-ahead/`（代码→文档）、`sync-docs-ahead/`（文档→代码 gap 分析）
 - **实现执行**：`parallel-implement/`（git worktree 并行实现）、`generate-assets/`（schema-driven 批量资源生成，
-  路径适配 Godot / generic）、`asset-config/`（建立与维护 asset-config.yaml；
+  路径系统 Godot / filesystem）、`asset-config/`（建立与维护 asset-config.yaml；
   那份配置不属于 generate-assets，后者只是目前唯一的消费者）
 
 ### 3.0.0 砍掉了什么
