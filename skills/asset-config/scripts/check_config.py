@@ -169,19 +169,21 @@ def check_config(
     if ctx.backend.resolve_script() is None:
         r.note(f"backend={ctx.backend.name} 的脚本还不在位。{ctx.backend.install_hint}")
 
-    style = config.get("style") or {}
-    if not isinstance(style, dict):
-        r.error(f"style 应为映射，实际是 {type(style).__name__}")
+    # 形状规则和生成器同一份（asset_context）。style 和 categories 都坏时两样
+    # 一起报 —— 以前 check 只报 style、生成器只报 category，退码一样但让人
+    # 修两轮才修得完。
+    style_issue = asset_context.style_problem(config.get("style"))
+    if style_issue:
+        r.error(style_issue)
+    shape = asset_context.category_problems(ctx.categories)
+    for problem in shape:
+        r.error(problem)
+    if style_issue or not isinstance(ctx.categories, dict) or not ctx.categories:
         return r
-    _check_style_markers(style, r)
 
+    style = config.get("style") or {}
+    _check_style_markers(style, r)
     categories = ctx.categories
-    if not isinstance(categories, dict) or not categories:
-        r.error(
-            "config 里没有 categories（或它不是映射）—— 至少要有一个 category "
-            "才知道生成什么"
-        )
-        return r
 
     # 输入图的存在性攒到最后一起查。全局 reference_paths 会进每个 category
     # 的计划，逐个 category 查的话，有几个 category 就把同一条「文件不存在」
@@ -189,9 +191,8 @@ def check_config(
     inputs: dict = {}
 
     for name, spec in categories.items():
-        if not isinstance(spec, dict):
-            r.error(f"category {name!r} 的配置应为映射，实际是 {type(spec).__name__}")
-            continue
+        if asset_context.category_problems({name: spec}):
+            continue    # 上面已经报过
         _check_category(ctx, name, spec, inputs, r, allow_degrade=allow_degrade,
                         allow_implicit_overrides=allow_implicit_overrides)
 

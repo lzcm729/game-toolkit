@@ -216,3 +216,66 @@ def test_project_kind_follows_the_final_root_not_the_config_location(tmp_path):
     ctx = asset_context.load_context(cfg, explicit_project_root=plain)
     assert ctx.project_kind is None
     assert ctx.import_hint(plain) is None
+
+
+# -------------------- 配置形状：三个入口共用这一份 --------------------
+
+@pytest.mark.parametrize("name, fragment", [
+    (True, "布尔值"),        # YAML 1.1 的 on / yes / true
+    (False, "布尔值"),       # off / no / false
+    (None, "空值"),          # ~ / null
+    (1, "数字"),
+    (1.5, "数字"),
+])
+def test_non_string_category_name_is_a_problem(name, fragment):
+    """**回归**：三份形状校验以前互相一致，因为盲区相同 —— 都不查名字类型。
+
+    而校验之后的代码默认名字是字符串：`on:` 走 all 写进 art/True/，
+    按名指定则在 `', '.join` 上崩；`~:` 连 list 都崩。
+    """
+    problems = asset_context.category_problems({name: {"prompt_template": "x"}})
+    assert len(problems) == 1
+    assert fragment in problems[0] and "加引号" in problems[0]
+
+
+def test_date_category_name_is_a_problem():
+    import datetime
+    problems = asset_context.category_problems(
+        {datetime.date(2024, 1, 1): {"prompt_template": "x"}})
+    assert problems and "date" in problems[0]
+
+
+def test_empty_string_category_name_is_a_problem():
+    """没有 output_subdir 时，空名会直接写进 output_root 根目录。"""
+    problems = asset_context.category_problems({"": {"prompt_template": "x"}})
+    assert problems and "空字符串" in problems[0]
+
+
+def test_quoted_names_are_fine():
+    assert asset_context.category_problems(
+        {"on": {"x": 1}, "1": {"x": 1}, "yes": {"x": 1}}) == []
+
+
+def test_all_problems_are_listed_not_just_the_first():
+    problems = asset_context.category_problems(
+        {True: {}, "ok": {}, None: {}, "bad": "not-a-mapping"})
+    assert len(problems) == 3
+
+
+@pytest.mark.parametrize("cats", [None, {}, [], 0, ""])
+def test_empty_categories(cats):
+    assert asset_context.category_problems(cats)
+    assert asset_context.category_problems(cats, allow_empty=True) == []
+
+
+@pytest.mark.parametrize("cats", [["a"], "abc", True, 7])
+def test_non_mapping_categories(cats):
+    assert "应为映射" in asset_context.category_problems(cats)[0]
+
+
+@pytest.mark.parametrize("style, bad", [
+    (None, False), ({}, False), ([], False), ({"prompt_prefix": "x"}, False),
+    ("x", True), (["a"], True), (True, True), (1, True),
+])
+def test_style_problem(style, bad):
+    assert (asset_context.style_problem(style) is not None) is bad

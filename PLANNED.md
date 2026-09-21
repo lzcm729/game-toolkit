@@ -8,6 +8,22 @@
 
 ---
 
+## 留到下一个大版本一起破坏的（5.0.0）
+
+两件都已经在 4.x 里**先告警**，给用户留了迁移窗口。5.0.0 把告警翻成报错 /
+移除。列在一处，免得到时候发成两个大版本。
+
+1. **`adapter: unreal` 移除。** 4.0.0 起它是兼容值、等价于 `generic`，每次都打一条
+   提示说明等价关系。提示本身是成本，不该永远背着。
+   代码位置：`engine_adapter.py` 的 `LEGACY_ADAPTERS`。
+
+2. **`adapter: generic` 下 `data_source.path` 写 `res://` 改成报错。** 4.1.0 起告警。
+   以前 `data_source.py` 无条件剥 `res://`、不问适配器，而 `output_root` /
+   `reference_paths` / `image` 都走适配器 —— 同一份配置里同一个前缀两套解释。
+   它曾是文档写明「接受」的行为，所以没直接报错。
+   代码位置：`asset_plan._route_data_source_path` 里 `raw.startswith("res://")`
+   那个分支，改成 `plan.errors` 即可。
+
 ## 还没做的（3.7.0 发版后剩下的）
 
 3.7.0 已落地「必须进」5 条与「建议进」3 条，正文见 `CHANGELOG.md` 的 3.7.0 段。

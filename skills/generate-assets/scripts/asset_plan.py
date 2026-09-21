@@ -27,6 +27,7 @@ _SCRIPT_DIR = Path(__file__).resolve().parent
 if str(_SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR))
 
+import asset_context  # noqa: E402
 import engine_adapter  # noqa: E402
 from data_source import load_data_source  # noqa: E402
 from prompt_render import compose_prompt, evaluate_derived, render_template  # noqa: E402
@@ -298,6 +299,45 @@ def capability_errors(cat_name: str, backend, defaults: dict, assets: list,
     return out, []
 
 
+def _route_data_source_path(cat_name: str, spec, ctx, plan: "CategoryPlan"):
+    """数据源路径也交给适配器解析。返回（可能改写过的）spec，致命问题返回 None。
+
+    以前 `data_source.py` 无条件剥 `res://`、不问适配器，而 output_root /
+    reference_paths / image 都走适配器 —— 同一份 `adapter: generic` 配置里，
+    `output_root: res://art` 报错，`data_source.path: res://items.json` 却通过。
+    同一个概念两个解释器。
+
+    这里先让适配器解析，把结果换成绝对路径再交下去（`data_source` 见到绝对
+    路径原样用，所以它一行不用改）。
+
+    **过渡期**：generic 下的 `res://` 是 `examples/README.md` 明写过「接受」的
+    行为，直接报错会让照文档写的配置一上来就坏。所以现在告警、照旧按工程根
+    解析；5.0.0 起报错（见 PLANNED.md）。和 `adapter: unreal` 同一个节奏。
+    """
+    if not isinstance(spec, dict):
+        return spec             # 形状问题交给 load_data_source 报
+    raw = spec.get("path")
+    if not isinstance(raw, str) or not raw:
+        return spec
+    try:
+        full = ctx.adapter.resolve_path(raw, ctx.project_root)
+    except ValueError as e:
+        if raw.startswith("res://"):
+            plan.warnings.append(
+                f"category {cat_name}: data_source.path 用了 res://（{raw}），"
+                f"但 adapter={ctx.adapter.name} 不认这个前缀 —— 同一份配置里 "
+                "output_root / reference_paths 这么写会报错，这里却一直被放行。"
+                "本次照旧按工程根解析；**5.0.0 起报错**。去掉 res:// 写成普通"
+                "相对路径即可，意思不变。"
+            )
+            return spec         # 交给 data_source 的旧逻辑
+        # 别的前缀（比如 /Game/）从来就不能用：它以前会被拼成一个不存在的
+        # 路径，报「文件不存在」—— 现在直接说清为什么
+        plan.errors.append(f"category {cat_name}: data_source.path 解析失败 —— {e}")
+        return None
+    return {**spec, "path": str(full)}
+
+
 def _item_override(item: dict, overrides: "dict | None", param: str):
     """取这一条目对 `param` 的覆盖值。没有就返回 None。
 
@@ -384,19 +424,21 @@ def build_category_plan(
 
     if cat_spec is None:
         cat_spec = (ctx.categories or {}).get(cat_name)
-    if not isinstance(cat_spec, dict):
-        plan.errors.append(
-            f"category {cat_name!r} 的配置应为映射，实际是 {type(cat_spec).__name__}"
-        )
+    # 形状规则只有一份，在 asset_context —— 三个入口以前各写各的，
+    # 盲区也一模一样（都不查名字的类型）
+    shape = asset_context.category_problems({cat_name: cat_spec})
+    if shape:
+        plan.errors.extend(shape)
         return plan
 
     project_root = ctx.project_root
     output_root = ctx.output_root
     adapter = ctx.adapter
-    global_style = ctx.config.get("style") or {}
-    if not isinstance(global_style, dict):
-        plan.errors.append(f"style 应为映射，实际是 {type(global_style).__name__}")
+    style_issue = asset_context.style_problem(ctx.config.get("style"))
+    if style_issue:
+        plan.errors.append(style_issue)
         return plan
+    global_style = ctx.config.get("style") or {}
 
     # --- 输出目录。要在数据源之前算：目录越界是配置错，和有没有条目无关 ---
     out_subdir = cat_spec.get("output_subdir") or cat_name
@@ -414,8 +456,12 @@ def build_category_plan(
     plan.output_dir = output_dir
 
     # --- 数据源 ---
+    data_spec = _route_data_source_path(cat_name, cat_spec.get("data_source") or {},
+                                        ctx, plan)
+    if data_spec is None:
+        return plan
     try:
-        items = load_data_source(cat_spec.get("data_source") or {}, project_root)
+        items = load_data_source(data_spec, project_root)
     except Exception as e:
         plan.errors.append(f"category {cat_name}: 数据源加载失败 —— {e}")
         return plan

@@ -82,9 +82,11 @@ def main(argv: list[str] | None = None) -> int:
     # list 只看 config，不解析路径 —— 插件自带的示例用 res://，
     # 在没有 Godot 工程的目录下也应该能列出来看看。
     if args.command == "list":
-        bad = _categories_problem(config.get("categories") or {})
-        if bad and "无 categories" not in bad:   # 空配置照旧打 "(empty config)"，不算错
-            print(f"[fatal] {bad}", file=sys.stderr)
+        # 空配置照旧打 "(empty config)"，不算错
+        problems = asset_context.category_problems(config.get("categories"), allow_empty=True)
+        if problems:
+            for problem in problems:
+                print(f"[fatal] {problem}", file=sys.stderr)
             return 1
         _cmd_list(config)
         return 0
@@ -105,9 +107,10 @@ def main(argv: list[str] | None = None) -> int:
 
     # 选择 category
     categories = ctx.categories
-    bad = _categories_problem(categories)
-    if bad:
-        print(f"[fatal] {bad}", file=sys.stderr)
+    problems = asset_context.category_problems(categories)
+    if problems:
+        for problem in problems:
+            print(f"[fatal] {problem}", file=sys.stderr)
         return 1
 
     if args.command == "all":
@@ -241,18 +244,6 @@ def _parse_names(raw: str | None) -> set[str] | None:
 
 
 # -------------------- list --------------------
-
-def _categories_problem(cats) -> str | None:
-    """categories 必须是 {名字: {配置}}。写成 list / 字符串 / 某项 null 都得说清楚，不能 traceback。"""
-    if not cats:
-        return "config 中无 categories"
-    if not isinstance(cats, dict):
-        return f"categories 应为映射（名字 → 配置），实际是 {type(cats).__name__}"
-    for name, spec in cats.items():
-        if not isinstance(spec, dict):
-            return f"category {name!r} 的配置应为映射，实际是 {type(spec).__name__}（{spec!r}）"
-    return None
-
 
 def _shell_join(argv: list[str]) -> str:
     """打印给人复制的命令行。路径带空格就得加引号，否则复制过去 argparse 会拆错。"""

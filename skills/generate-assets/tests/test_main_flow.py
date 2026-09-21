@@ -1496,3 +1496,88 @@ def test_no_import_hint_when_project_is_not_recognised(tmp_path, capsys, mock_su
     _write_yaml(cfg, conf)
     assert ga.main(["ingredients", "--config", str(cfg)]) == 0
     assert "[unreal]" not in capsys.readouterr().out
+
+
+# -------------------- category 名字类型：端到端 --------------------
+
+def _raw_config(tmp_path, cat_line: str) -> Path:
+    """原文写 —— safe_dump 会替你加引号，那就测不到 YAML 1.1 的坑了。"""
+    (tmp_path / "items.json").write_text('{"p1": {"visual": "pearl"}}', encoding="utf-8")
+    p = tmp_path / "asset-config.yaml"
+    p.write_text(
+        "$schema_version: 1\nadapter: generic\noutput_root: art\ncategories:\n"
+        f"  {cat_line}\n"
+        "    data_source:\n      type: json_dict\n      path: items.json\n"
+        '    prompt_template: "Icon of {visual}."\n',
+        encoding="utf-8")
+    return p
+
+
+@pytest.mark.parametrize("cat_line, command", [
+    ("on:", "all"),         # 以前：退 0，图写进 art/True/
+    ("on:", "on"),          # 以前：TypeError ... bool found
+    ("~:", "list"),         # 以前：连 list 都崩
+    ("~:", "all"),
+    ("1:", "1"),            # 以前：TypeError ... int found
+])
+def test_non_string_category_name_fails_cleanly(tmp_path, capsys, mock_subprocess_run,
+                                                cat_line, command):
+    """**回归**：check 退 0、生成器崩 —— 正是今天一直在修的那一类。"""
+    cfg = _raw_config(tmp_path, cat_line)
+    args = [command, "--config", str(cfg)]
+    if command != "list":
+        args.append("--dry-run")
+    assert ga.main(args) == 1          # 干净的退 1，不是 traceback
+    assert "加引号" in capsys.readouterr().err
+    assert not (tmp_path / "art" / "True").exists()
+
+
+def test_quoted_on_works(tmp_path, capsys, mock_subprocess_run):
+    cfg = _raw_config(tmp_path, '"on":')
+    assert ga.main(["on", "--config", str(cfg), "--dry-run"]) == 0
+
+
+# -------------------- data_source.path 的 res:// --------------------
+
+def test_res_prefix_in_data_source_under_generic_warns(tmp_path, capsys, mock_subprocess_run):
+    """同一份 generic 配置里，output_root 写 res:// 报错、数据源写却通过 ——
+    两个解释器。过渡期告警、照旧能跑；5.0.0 起报错。
+    """
+    # _minimal_config 的模板引用了 {visual} 和 {main}，数据要两样都有
+    (tmp_path / "items.json").write_text(
+        '{"p1": {"visual": "pearl", "main": "#000"}}', encoding="utf-8")
+    cfg = tmp_path / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["adapter"] = "generic"
+    conf["categories"]["ingredients"]["data_source"] = {
+        "type": "json_dict", "path": "res://items.json"}
+    _write_yaml(cfg, conf)
+    assert ga.main(["ingredients", "--config", str(cfg), "--dry-run"]) == 0
+    warns = _warn_lines(capsys.readouterr().err)
+    assert any("res://" in w and "5.0.0" in w for w in warns), warns
+
+
+def test_res_prefix_in_data_source_under_godot_is_silent(tmp_project, capsys, mock_subprocess_run):
+    (tmp_project / "items.json").write_text(
+        '{"p1": {"visual": "pearl", "main": "#000"}}', encoding="utf-8")
+    cfg = tmp_project / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["categories"]["ingredients"]["data_source"] = {
+        "type": "json_dict", "path": "res://items.json"}
+    _write_yaml(cfg, conf)
+    assert ga.main(["ingredients", "--config", str(cfg), "--dry-run"]) == 0
+    assert not any("res://" in w for w in _warn_lines(capsys.readouterr().err))
+
+
+def test_game_prefix_in_data_source_is_an_error(tmp_path, capsys, mock_subprocess_run):
+    """/Game/ 在数据源里从来就不能用 —— 以前被拼成一个不存在的路径，
+    报「文件不存在」；现在直接说清为什么。
+    """
+    cfg = tmp_path / "asset-config.yaml"
+    conf = _minimal_config()
+    conf["adapter"] = "generic"
+    conf["categories"]["ingredients"]["data_source"] = {
+        "type": "json_dict", "path": "/Game/Data/items"}
+    _write_yaml(cfg, conf)
+    assert ga.main(["ingredients", "--config", str(cfg), "--dry-run"]) == 1
+    assert "导入后" in capsys.readouterr().err

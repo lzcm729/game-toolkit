@@ -830,3 +830,35 @@ def test_unusable_global_reference_is_caught_when_all_categories_skip(tmp_path):
     report = check_config(cfg, tmp_path)
     assert not report.ok
     assert "style.reference_paths" in _messages(report)
+
+
+# -------------------- 形状：check 和生成器同一份规则 --------------------
+
+@pytest.mark.parametrize("cat_line", ["on:", "~:", "1:", "2024-01-01:"])
+def test_non_string_category_name_fails_check(tmp_path, cat_line):
+    """**回归**：以前 check 对这些全部退 0，而生成器按名指定就崩。"""
+    cfg = _write_raw(tmp_path, _BASE.replace("  ingredients:", f"  {cat_line}"))
+    report = check_config(cfg, tmp_path)
+    assert not report.ok
+    assert "加引号" in _messages(report)
+
+
+def test_broken_style_and_broken_category_are_reported_together(tmp_path):
+    """以前 check 报完 style 就 return，生成器只报 category —— 退码一样，
+    但得修两轮才修得完。
+    """
+    cfg = _write_raw(tmp_path, _BASE.replace("output_root: art",
+                                             "output_root: art\nstyle: oops")
+                     .replace("  ingredients:", "  on:"))
+    report = check_config(cfg, tmp_path)
+    msgs = _messages(report)
+    assert "style 应为映射" in msgs
+    assert "加引号" in msgs
+
+
+def test_res_prefix_in_data_source_is_a_note_in_check(tmp_path):
+    """同一条告警，经共享计划到了 check 这边就是 note —— 两边说的是同一件事。"""
+    cfg = _write_raw(tmp_path, _BASE.replace("path: items.json", 'path: "res://items.json"'))
+    report = check_config(cfg, tmp_path)
+    assert report.ok
+    assert any("res://" in n and "5.0.0" in n for n in report.notes)

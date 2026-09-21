@@ -116,6 +116,71 @@ def load_config(config_path: Path) -> dict:
     return config
 
 
+# -------------------- 配置形状 --------------------
+#
+# 三个入口（生成器的 list / 生成器主流程 / 校验器）以前各有一份，互相之间
+# 结论一致 —— **因为盲区相同**：都只查 spec 是不是映射，从不查 category
+# 名字的类型。而校验之后的代码默认名字是字符串（拼目录、`', '.join`、
+# `f"{name:<14}"`）。YAML 1.1 把不加引号的 `on:` 解析成布尔、`1:` 成整数、
+# `~:` 成空值，于是校验退 0、生成器要么崩要么把图写进 `art/True/`。
+#
+# 三份各补一次也行，但那正是「同一件事有三份实现」的代价。收成这一处。
+
+def category_name_problem(name) -> "str | None":
+    """category 名字能不能用。能用返回 None。"""
+    if isinstance(name, str):
+        if name.strip():
+            return None
+        return (
+            "有个 category 的名字是空字符串 —— 没有 output_subdir 时它会直接"
+            "写进 output_root 根目录，和别的 category 混在一起。给它起个名字。"
+        )
+    if isinstance(name, bool):
+        why = "YAML 1.1 会把不加引号的 on / off / yes / no / true / false 解析成布尔值"
+    elif name is None:
+        why = "YAML 把不加引号的 ~ 或 null 解析成空值"
+    elif isinstance(name, (int, float)):
+        why = "YAML 把不加引号的纯数字解析成数字"
+    else:
+        why = f"YAML 把它解析成了 {type(name).__name__}（日期之类）"
+    return (
+        f"category 名 {name!r} 不是字符串 —— {why}。给名字加引号，"
+        '例如 "on": 而不是 on:。不加的话，按名指定会直接崩，'
+        f"走 all 会把图写进一个叫 {name} 的目录。"
+    )
+
+
+def category_problems(cats, *, allow_empty: bool = False) -> list:
+    """categories 的形状问题，全部列出。空列表 = 没问题。
+
+    `allow_empty` 给 `list` 命令用：空配置它打 "(empty config)"，不算错。
+    """
+    if not cats:
+        if allow_empty:
+            return []
+        return ["config 里没有 categories —— 至少要有一个 category 才知道生成什么"]
+    if not isinstance(cats, dict):
+        return [f"categories 应为映射（名字 → 配置），实际是 {type(cats).__name__}"]
+    out: list = []
+    for name, spec in cats.items():
+        problem = category_name_problem(name)
+        if problem is not None:
+            out.append(problem)
+            continue
+        if not isinstance(spec, dict):
+            out.append(
+                f"category {name!r} 的配置应为映射，实际是 {type(spec).__name__}（{spec!r}）"
+            )
+    return out
+
+
+def style_problem(style) -> "str | None":
+    """style 段的形状。缺省（null / 空）就是没有全局风格，不算错。"""
+    if not style or isinstance(style, dict):
+        return None
+    return f"style 应为映射，实际是 {type(style).__name__}"
+
+
 def resolve_project_root(
     config_path: Path,
     config: dict,

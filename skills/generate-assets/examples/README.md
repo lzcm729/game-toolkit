@@ -140,6 +140,19 @@ output_root: "assets/art"  # = <project_root>/assets/art
 
 ## `categories.<name>` 字段
 
+**名字必须是字符串。** YAML 1.1 会把不加引号的 `on` / `off` / `yes` / `no` /
+`true` / `false` 解析成布尔、纯数字解析成数字、`~` 解析成空值 —— 「开关状态图标」
+「确认按钮」这类很正常的分类名恰好撞上。给名字加引号：
+
+```yaml
+categories:
+  "on":          # 不加引号的话 YAML 读成 True
+    ...
+```
+
+不加的话 `check` 和生成都会报错并提示加引号（4.1.0 起；以前 `check` 放行，
+生成器按名指定就崩，走 `all` 则把图写进一个叫 `True` 的目录）。
+
 | 字段 | 类型 | 说明 |
 |---|---|---|
 | `desc` | string | 仅供 `list` 命令显示 |
@@ -194,6 +207,11 @@ item_overrides:
 
 ## 数据源 type（v1）
 
+所有数据源的 `path` 都相对 **project_root**，走和 `output_root` 同一个适配器解析：
+`adapter: godot` 下认 `res://`；`adapter: generic` 下写 `res://` 目前**告警但照旧
+能用**（以前一直被放行，文档也这么写过），**5.0.0 起报错** —— 去掉 `res://`
+写成普通相对路径即可，意思不变。
+
 ### `json_dict` — 顶层 dict、key 当 id
 
 ```yaml
@@ -238,7 +256,7 @@ key 当 id，与 json_dict 同语义。
 ```yaml
 data_source:
   type: csv
-  path: "Knowledge/Design/鱼表格/第一版.csv"   # 相对 project_root，接受 res://
+  path: "Knowledge/Design/鱼表格/第一版.csv"   # 相对 project_root
   id_column: fish_id                          # 必填：哪一列当 id
   columns:                                    # 可选：列名 → 字段名
     图鉴描述: description
