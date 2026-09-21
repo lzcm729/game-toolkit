@@ -66,33 +66,73 @@ def _effective(defaults: dict, asset: dict, key: str):
     return value if value is not None else defaults.get(key)
 
 
-def _laozhang_incompatibilities(defaults: dict, asset: dict) -> list:
-    """gpt-image-* 走 OpenAI 路径，那条路径没有多图 reference。
+def _laozhang_rules():
+    """拿后端自己的判断规则。拿不到返回 None。
 
-    「哪个模型走哪条 API」的判断问后端自己要，不在这里重写一份 —— 规则
-    重复两份，后端哪天改了标准，校验就开始说谎。拿不到就返回空，
-    这条检查跳过而不是瞎猜。
+    「哪个模型走哪条 API」「哪些比例是原生的」都问后端要，不在这里重写一份 ——
+    规则重复两份，后端哪天改了标准，校验就开始说谎。
     """
-    refs = _effective(defaults, asset, "reference_paths")
-    model = _effective(defaults, asset, "model")
-    if not refs or not model:
-        return []
-
     backends_dir = Path(__file__).resolve().parent / "backends"
     if str(backends_dir) not in sys.path:
         sys.path.insert(0, str(backends_dir))
     try:
-        from laozhang_backend import _is_openai_style  # type: ignore
-    except ImportError:  # pragma: no cover - 脚本缺失时的兜底
+        from laozhang_backend import (  # type: ignore
+            _OPENAI_EXACT_RATIOS, _is_openai_style,
+        )
+    except ImportError:
+        return None
+    return _is_openai_style, _OPENAI_EXACT_RATIOS
+
+
+def _laozhang_incompatibilities(defaults: dict, asset: dict) -> list:
+    """laozhang 自己知道、但字段集合表达不了的那些降级。
+
+    三条，都是「配了但不会按你要的生效」：
+      - gpt-image-* 走 OpenAI 路径，没有多图 reference
+      - gpt-image-* 只原生支持 1:1 / 2:3 / 3:2，别的比例会被就近裁切
+      - edit 模式（给了 image）输出尺寸跟随底图，aspect_ratio 不生效
+
+    后两条后端运行时会 `[warn]`，但那是**图已经在生成**的时候了 ——
+    批量按张烧钱，该在发请求之前说。
+    """
+    refs = _effective(defaults, asset, "reference_paths")
+    model = _effective(defaults, asset, "model")
+    image = asset.get("image")
+    ratio = _effective(defaults, asset, "aspect_ratio")
+
+    if not (refs or ratio):
         return []
 
-    if not _is_openai_style(str(model)):
-        return []
-    return [
-        f"model={model!r} 走 OpenAI 路径、不支持多图 reference_paths，"
-        f"但这里配了 {len(refs)} 张风格参考图。"
-        "改用 gemini-* 模型，或把风格参考换成 image（单张编辑底图）。"
-    ]
+    rules = _laozhang_rules()
+    if rules is None:
+        # 不能静默跳过 —— 「没发现」和「没看」得分开，这是本模块自己立的规矩
+        return [
+            "读不到 laozhang 后端的判断规则（backends/laozhang_backend.py 导入失败，"
+            "多半是缺 requests），所以模型与比例的兼容性**没检查**。"
+            "装上依赖再跑，或换个后端。"
+        ]
+    is_openai, exact_ratios = rules
+    openai = bool(model) and is_openai(str(model))
+
+    out: list = []
+    if openai and refs:
+        out.append(
+            f"model={model!r} 走 OpenAI 路径、不支持多图 reference_paths，"
+            f"但这里配了 {len(refs)} 张风格参考图。"
+            "改用 gemini-* 模型，或把风格参考换成 image（单张编辑底图）。"
+        )
+    if openai and ratio and str(ratio) not in exact_ratios:
+        out.append(
+            f"model={model!r} 只原生支持 {' / '.join(sorted(exact_ratios))}，"
+            f"aspect_ratio={ratio!r} 会被就近裁切，画面边缘丢掉一圈。"
+            "改成原生比例，或换 gemini-* 模型。"
+        )
+    if image and ratio:
+        out.append(
+            f"给了 image（编辑底图）时输出尺寸跟随底图，aspect_ratio={ratio!r} 不生效。"
+            "要指定比例就别给 image，改用 reference_paths。"
+        )
+    return out
 
 
 def _image_gen_script() -> "Path | None":

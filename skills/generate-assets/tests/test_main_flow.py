@@ -1113,6 +1113,7 @@ def test_item_image_overrides_category_image(tmp_project, mock_subprocess_run):
     conf = _minimal_config()
     cat = conf["categories"]["ingredients"]
     cat["image"] = "base.png"
+    cat["item_overrides"] = {"image": "image"}   # 4.0.0 起逐项覆盖要声明
     cat["data_source"]["items"]["pearl"]["image"] = "pearl_base.png"
     _write_yaml(cfg, conf)
 
@@ -1179,6 +1180,7 @@ def test_item_model_lands_on_asset(tmp_project, mock_subprocess_run):
     cfg = tmp_project / "asset-config.yaml"
     conf = _minimal_config()
     conf["model"] = "gemini-3.1-flash-image"
+    conf["categories"]["ingredients"]["item_overrides"] = {"model": "model"}
     conf["categories"]["ingredients"]["data_source"]["items"]["pearl"]["model"] = "gpt-image-2.5-flare"
     _write_yaml(cfg, conf)
 
@@ -1433,8 +1435,8 @@ def _warn_lines(err: str) -> list:
 
 
 
-def test_implicit_control_column_warns_on_stderr(tmp_project, capsys, mock_subprocess_run):
-    """数据里撞名的列会当生图参数用。行为不变，但生成时也得说一句。
+def test_implicit_control_column_blocks(tmp_project, capsys, mock_subprocess_run):
+    """4.0.0：数据里撞名的列没声明过就阻止，不是告警。
 
     只让 check 报不够 —— 直接跑 generate_assets 的人看不到 check 的输出。
     """
@@ -1442,11 +1444,17 @@ def test_implicit_control_column_warns_on_stderr(tmp_project, capsys, mock_subpr
     cfg["categories"]["ingredients"]["data_source"]["items"]["pearl"]["model"] = "业务数据"
     p = tmp_project / "asset-config.yaml"
     _write_yaml(p, cfg)
-    assert ga.main(["ingredients", "--config", str(p), "--dry-run"]) == 0
+    assert ga.main(["ingredients", "--config", str(p), "--dry-run"]) == 1
+    err = capsys.readouterr().err
+    assert "item_overrides" in err and "'model'" in err
+
+    # 明确接受就能跑
+    assert ga.main(["ingredients", "--config", str(p), "--dry-run",
+                    "--allow-implicit-overrides"]) == 0
     # 只看告警行。pytest 的 tmp 目录名里带测试函数名，整段 stderr 比对会被
     # 路径里的子串命中 —— 这类假绿这个仓库已经踩过。
     warns = _warn_lines(capsys.readouterr().err)
-    assert any("item_overrides" in w and "'model'" in w for w in warns), warns
+    assert any("--allow-implicit-overrides" in w for w in warns), warns
 
 
 def test_declared_item_overrides_silences_the_warning(tmp_project, capsys, mock_subprocess_run):

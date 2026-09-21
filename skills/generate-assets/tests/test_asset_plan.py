@@ -180,7 +180,7 @@ def test_image_and_reference_paths_are_mutually_exclusive(tmp_path):
 
 def test_item_image_overrides_category_image(tmp_path):
     ctx = _simple(tmp_path, {"a": {"visual": "x", "image": "mine.png"}},
-                  image="cat.png")
+                  image="cat.png", item_overrides={"image": "image"})
     plan = build_category_plan(ctx, "ing")
     assert Path(plan.assets[0].payload["image"]).name == "mine.png"
 
@@ -188,7 +188,8 @@ def test_item_image_overrides_category_image(tmp_path):
 # -------------------- 字段优先级 --------------------
 
 def test_item_model_lands_on_asset(tmp_path):
-    ctx = _simple(tmp_path, {"a": {"visual": "x", "model": "m-item"}})
+    ctx = _simple(tmp_path, {"a": {"visual": "x", "model": "m-item"}},
+                  item_overrides={"model": "model"})
     plan = build_category_plan(ctx, "ing")
     assert plan.assets[0].payload["model"] == "m-item"
 
@@ -364,15 +365,28 @@ def test_bad_data_source_is_error_not_crash(tmp_path):
 
 # -------------------- 数据列 vs 生成参数 --------------------
 
-def test_undeclared_control_column_still_works_but_is_reported(tmp_path):
-    """行为不变 —— 改了会让现有配置静默失效。但要说出来。"""
+def test_undeclared_control_column_is_an_error(tmp_path):
+    """4.0.0：配置的行为不该依赖没人声明过的巧合。
+
+    一列没声明的 model 改变生成内容的程度，和后端丢掉一个声明过的 model
+    一模一样 —— 3.20.0 已经把后者定成阻止，两者没理由一个拦一个放。
+    """
     ctx = _with_backend(
         _simple(tmp_path, {"a": {"visual": "x", "model": "m-from-data"}}),
         image_backend.LAOZHANG)
     plan = build_category_plan(ctx, "ing")
+    assert not plan.ok
+    assert any("'model'" in e and "item_overrides" in e for e in plan.errors)
+
+
+def test_allow_implicit_overrides_turns_it_back_into_a_warning(tmp_path):
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x", "model": "m-from-data"}}),
+        image_backend.LAOZHANG)
+    plan = build_category_plan(ctx, "ing", allow_implicit_overrides=True)
     assert plan.ok
     assert plan.assets[0].payload["model"] == "m-from-data"
-    assert any("'model'" in g and "item_overrides" in g for g in plan.governance)
+    assert any("--allow-implicit-overrides" in w for w in plan.warnings)
 
 
 def test_plain_data_produces_no_governance_issue(tmp_path):
@@ -382,11 +396,13 @@ def test_plain_data_produces_no_governance_issue(tmp_path):
 
 
 def test_declared_override_maps_a_named_column(tmp_path):
-    ctx = _simple(tmp_path, {"a": {"visual": "x", "gen_model": "m-declared"}},
-                  item_overrides={"model": "gen_model"})
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x", "gen_model": "m-declared"}},
+                item_overrides={"model": "gen_model"}),
+        image_backend.LAOZHANG)      # image-gen 不认 model，会撞上另一条检查
     plan = build_category_plan(ctx, "ing")
     assert plan.assets[0].payload["model"] == "m-declared"
-    assert plan.governance == []
+    assert plan.ok, plan.errors
 
 
 def test_declaring_overrides_closes_the_implicit_channel(tmp_path):
@@ -405,8 +421,8 @@ def test_empty_item_overrides_turns_the_channel_off(tmp_path):
     ctx = _simple(tmp_path, {"a": {"visual": "x", "model": "业务数据"}},
                   item_overrides={})
     plan = build_category_plan(ctx, "ing")
+    assert plan.ok, plan.errors
     assert "model" not in plan.assets[0].payload
-    assert plan.governance == []
 
 
 def test_declared_source_column_missing_is_a_note(tmp_path):
@@ -486,7 +502,7 @@ def test_backend_with_edit_support_accepts_image(tmp_path):
 
 # -------------------- 治理判定是配置属性，不是本次运行属性 --------------------
 
-def test_governance_scans_every_item_not_just_the_first(tmp_path):
+def test_implicit_override_check_scans_every_item(tmp_path):
     """**又一个 items[0]**：3.16.0 存在的全部理由就是抽第一条不够，
     而治理判定自己也差点这么干。带 model 的是第二条。
     """
@@ -499,10 +515,10 @@ def test_governance_scans_every_item_not_just_the_first(tmp_path):
     ctx = _with_backend(_ctx(tmp_path, {"categories": {"ing": spec}}),
                         image_backend.LAOZHANG)
     plan = build_category_plan(ctx, "ing")
-    assert any("'model'" in g for g in plan.governance)
+    assert any("'model'" in e for e in plan.errors)
 
 
-def test_governance_survives_limit_and_names(tmp_path):
+def test_implicit_override_check_survives_limit_and_names(tmp_path):
     """--limit 1 恰好跳过带 model 的那条，不代表这份配置没有隐式控制通道。"""
     (tmp_path / "items.json").write_text(
         json.dumps([{"id": "a", "visual": "x"},
@@ -514,7 +530,7 @@ def test_governance_survives_limit_and_names(tmp_path):
                         image_backend.LAOZHANG)
     plan = build_category_plan(ctx, "ing", limit=1)
     assert len(plan.assets) == 1
-    assert any("'model'" in g for g in plan.governance)
+    assert any("'model'" in e for e in plan.errors)
 
 
 def test_extra_fields_model_is_not_an_implicit_channel(tmp_path):
@@ -524,7 +540,7 @@ def test_extra_fields_model_is_not_an_implicit_channel(tmp_path):
                 extra_fields={"model": {"a": "m-from-config"}}),
         image_backend.LAOZHANG)
     plan = build_category_plan(ctx, "ing")
-    assert plan.governance == []
+    assert plan.ok, plan.errors
     assert plan.assets[0].payload["model"] == "m-from-config"
 
 
@@ -564,3 +580,72 @@ def test_custom_backend_from_env_is_capability_unknown(tmp_path, monkeypatch):
     assert any("能力未知" in n for n in ctx.notes)
     plan = build_category_plan(ctx, "ing")
     assert plan.ok and plan.warnings == []
+
+
+# -------------------- 后端自己知道的降级，能力层也要知道 --------------------
+
+def test_openai_model_with_non_native_ratio_is_caught(tmp_path):
+    """后端运行时会 [warn] 说「近似成 X，边缘被裁掉」—— 但那已经在生成了。
+
+    批量按张烧钱，该在发请求之前说。
+    """
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x"}}, aspect_ratio="16:9",
+                model="gpt-image-1"),
+        image_backend.LAOZHANG)
+    plan = build_category_plan(ctx, "ing")
+    assert not plan.ok
+    assert any("就近裁切" in e for e in plan.errors)
+
+
+def test_openai_model_with_native_ratio_is_fine(tmp_path):
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x"}}, aspect_ratio="2:3",
+                model="gpt-image-1"),
+        image_backend.LAOZHANG)
+    assert build_category_plan(ctx, "ing").ok
+
+
+def test_edit_mode_with_aspect_ratio_is_caught(tmp_path):
+    """给了 image 时输出尺寸跟随底图，aspect_ratio 不生效。"""
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x"}}, image="base.png",
+                aspect_ratio="16:9", model="gemini-3-pro-image"),
+        image_backend.LAOZHANG)
+    plan = build_category_plan(ctx, "ing")
+    assert not plan.ok
+    assert any("跟随底图" in e for e in plan.errors)
+
+
+def test_capability_conflict_is_reported_once_not_per_item(tmp_path):
+    """整批同因同果，说一遍就够 —— 逐条刷屏会把别的问题顶没。"""
+    items = {f"i{n}": {"visual": f"v{n}"} for n in range(6)}
+    ctx = _with_backend(
+        _simple(tmp_path, items, aspect_ratio="16:9", model="gpt-image-1"),
+        image_backend.LAOZHANG)
+    plan = build_category_plan(ctx, "ing")
+    assert len([e for e in plan.errors if "就近裁切" in e]) == 1
+
+
+def test_allow_degrade_covers_capability_conflicts(tmp_path):
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x"}}, aspect_ratio="16:9",
+                model="gpt-image-1"),
+        image_backend.LAOZHANG)
+    plan = build_category_plan(ctx, "ing", allow_degrade=True)
+    assert plan.ok
+    assert any("--allow-degrade" in w for w in plan.warnings)
+
+
+def test_unreadable_backend_rules_speak_up(tmp_path, monkeypatch):
+    """**「没发现」和「没看」得分开** —— 这是本仓库自己立的规矩，
+    而这条路径以前静默返回空，check 一句话都不说。
+    """
+    monkeypatch.setattr(image_backend, "_laozhang_rules", lambda: None)
+    ctx = _with_backend(
+        _simple(tmp_path, {"a": {"visual": "x"}}, aspect_ratio="16:9",
+                model="gpt-image-1"),
+        image_backend.LAOZHANG)
+    plan = build_category_plan(ctx, "ing")
+    assert not plan.ok
+    assert any("没检查" in e for e in plan.errors)

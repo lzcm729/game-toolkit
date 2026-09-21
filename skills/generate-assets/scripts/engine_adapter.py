@@ -158,6 +158,8 @@ ADAPTERS = {"godot": GODOT, "generic": GENERIC}
 #
 # 不是直接删掉：删了会让写着 `adapter: unreal` 的配置一上来就报错；
 # 而它在 3.16.0 之前还承担着工程根探测，那部分的行为差异刚刚才消除。
+# 下线计划：5.0.0 移除。在那之前它每次都会打一条提示说明等价关系 ——
+# 提示本身是成本，不该永远背着。
 LEGACY_ADAPTERS = {"unreal": "generic"}
 
 

@@ -666,8 +666,8 @@ def test_unknown_check_mode_is_rejected(tmp_path):
         check_config(cfg, tmp_path, checks="nope")
 
 
-def test_implicit_control_column_is_a_governance_issue(tmp_path, capsys):
-    """表里有 model 列却没声明过 —— 能跑，但行为依赖一个列名巧合。"""
+def test_implicit_control_column_is_a_runtime_error(tmp_path, capsys):
+    """4.0.0：表里有 model 列却没声明过 —— 行为依赖一个列名巧合，阻止。"""
     import check_config as cc
     # backend 要认 model，否则先撞上「后端不支持 model」那条运行性错误 ——
     # 这条测的是治理通道，不该被别的检查挡住
@@ -675,10 +675,12 @@ def test_implicit_control_column_is_a_governance_issue(tmp_path, capsys):
     (tmp_path / "items.json").write_text(
         json.dumps({"pearl": {"visual": "x", "model": "业务数据"}}), encoding="utf-8")
     report = check_config(cfg, tmp_path)
-    assert report.ok
-    assert not report.governance_ok
+    assert not report.ok
     assert "item_overrides" in _messages(report)
-    assert cc.main(["--config", str(cfg), "--project-root", str(tmp_path)]) == 3
+    args = ["--config", str(cfg), "--project-root", str(tmp_path)]
+    assert cc.main(args) == 1
+    # 两边开关必须配套，否则校验和执行又分家
+    assert cc.main(args + ["--allow-implicit-overrides"]) == 0
 
 
 def test_declaring_item_overrides_clears_it(tmp_path):

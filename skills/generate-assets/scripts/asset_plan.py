@@ -177,23 +177,36 @@ def resolve_item_overrides(cat_name: str, cat_spec: dict, plan: "CategoryPlan"):
     return out
 
 
-def implicit_override_governance(cat_name: str, items: list) -> list:
+def implicit_override_findings(
+    cat_name: str, items: list, *, allow_implicit: bool = False
+) -> "tuple[list, list]":
     """未声明 `item_overrides` 时，数据里撞名的字段正在当控制通道用。
 
-    不改变行为（那会让现有配置静默失效），但要说出来 —— 它是「能跑，
-    但这份配置的行为依赖一个列名巧合，没有被任何人声明过」。
+    4.0.0 起这是**错**，不是提示。规则收成一句话：**配置的行为不该依赖
+    没人声明过的巧合。** 一列没声明的 `model` 改变生成内容的程度，和后端
+    丢掉一个声明过的 `model` 一模一样 —— 3.20.0 已经把后者定成阻止，
+    两者没有理由一个拦一个放。
+
+    3.19.0 当时只告警，理由是「改了会让现有配置静默失效」。那句话把
+    「行为变化」和「静默」混为一谈：报错并指名该写哪一行，一点也不静默。
+
+    `--allow-implicit-overrides` 降回告警。它和 `--allow-degrade` 是两件事：
+    那个是「接受后端丢掉我声明的字段」，这个是「接受未声明的数据列操纵生成」。
     """
     hit = sorted({k for item in items for k in ITEM_CONTROL_PARAMS if k in item})
     if not hit:
-        return []
+        return [], []
     names = " / ".join(repr(k) for k in hit)
-    return [
-        f"category {cat_name}: 数据里的 {names} 正在当生图参数用（条目级优先级最高，"
+    msg = (
+        f"category {cat_name}: 数据里的 {names} 会当生图参数用（条目级优先级最高，"
         "压得过 category 和顶层的同名设置），但配置没声明过这件事。"
         f"有意的话写 item_overrides: {{{hit[0]}: {hit[0]}}}；"
         "是业务数据的话写 item_overrides: {} 关掉逐项覆盖。"
         "（别指望 data_source.columns —— 它是**加别名**，原列名照样留在条目里。）"
-    ]
+    )
+    if allow_implicit:
+        return [], [msg + " 已按 --allow-implicit-overrides 放行。"]
+    return [msg], []
 
 
 def apply_extra_fields(item: dict, extra_fields: dict) -> dict:
@@ -258,7 +271,8 @@ def unsupported_field_findings(
     return errors, warnings
 
 
-def capability_errors(cat_name: str, backend, defaults: dict, assets: list) -> list:
+def capability_errors(cat_name: str, backend, defaults: dict, assets: list,
+                      *, allow_degrade: bool = False) -> "tuple[list, list]":
     """按模型判定的能力冲突 —— `supports` 那种字段集合表达不了的。
 
     问的是后端自己（`backend.incompatibilities`），不是在这里重写一份
@@ -267,13 +281,21 @@ def capability_errors(cat_name: str, backend, defaults: dict, assets: list) -> l
     """
     hook = getattr(backend, "incompatibilities", None)
     if hook is None:
-        return []
+        return [], []
+    seen: set = set()
     out: list = []
     for asset in assets:
         payload = asset.payload if isinstance(asset, PlannedAsset) else asset
         for msg in hook(defaults, payload):
+            # 同一条规则会在每个条目上各命中一次。整批同因同果，说一遍就够；
+            # 逐条刷屏会把别的问题顶没。
+            if msg in seen:
+                continue
+            seen.add(msg)
             out.append(f"category {cat_name} item={payload.get('name')}: {msg}")
-    return out
+    if allow_degrade:
+        return [], [m + " 已按 --allow-degrade 放行。" for m in out]
+    return out, []
 
 
 def _item_override(item: dict, overrides: "dict | None", param: str):
@@ -352,6 +374,7 @@ def build_category_plan(
     name_filter: "set[str] | None" = None,
     limit: "int | None" = None,
     allow_degrade: bool = False,
+    allow_implicit_overrides: bool = False,
 ) -> CategoryPlan:
     """把一个 category 算成完整计划。不抛异常 —— 问题都进 plan.errors。
 
@@ -442,7 +465,10 @@ def build_category_plan(
     # --- 逐项覆盖：哪一列能当生成参数 ---
     overrides = resolve_item_overrides(cat_name, cat_spec, plan)
     if overrides is None:
-        plan.governance.extend(implicit_override_governance(cat_name, raw_items))
+        implicit_errors, implicit_warnings = implicit_override_findings(
+            cat_name, raw_items, allow_implicit=allow_implicit_overrides)
+        plan.errors.extend(implicit_errors)
+        plan.warnings.extend(implicit_warnings)
     else:
         for param, source in overrides.items():
             if items and not any(source in it for it in items):
@@ -576,8 +602,9 @@ def build_category_plan(
     )
     plan.errors.extend(unsupported_errors)
     plan.warnings.extend(unsupported_warnings)
-    plan.errors.extend(
-        capability_errors(cat_name, ctx.backend, plan.defaults, plan.assets)
-    )
+    capability_errs, capability_warns = capability_errors(
+        cat_name, ctx.backend, plan.defaults, plan.assets, allow_degrade=allow_degrade)
+    plan.errors.extend(capability_errs)
+    plan.warnings.extend(capability_warns)
 
     return plan

@@ -154,6 +154,7 @@ def main(argv: list[str] | None = None) -> int:
             name_filter=name_filter,
             limit=args.limit,
             allow_degrade=args.allow_degrade,
+            allow_implicit_overrides=args.allow_implicit_overrides,
         )
         results.append(result)
 
@@ -221,6 +222,12 @@ def _build_parser() -> argparse.ArgumentParser:
         help="后端不支持配置里的模型/风格/底图时仍然跑。默认阻止 —— 丢掉这些，"
              "产出的就不是你要的那件事了",
     )
+    parser.add_argument(
+        "--allow-implicit-overrides",
+        action="store_true",
+        help="数据里撞名的列（model/seed/aspect_ratio/image）没在 item_overrides 里"
+             "声明过时仍然跑。默认阻止 —— 配置的行为不该依赖没人声明过的巧合",
+    )
     parser.add_argument("--dry-run", action="store_true", help="image-gen 走 --dry-run")
     parser.add_argument("--force", action="store_true", help="覆盖已存在的输出文件")
     return parser
@@ -278,6 +285,7 @@ def _run_category(
     name_filter: "set[str] | None",
     limit: "int | None" = None,
     allow_degrade: bool = False,
+    allow_implicit_overrides: bool = False,
 ) -> CategoryRunResult:
     """算出计划 → 落盘 → 调后端。
 
@@ -289,6 +297,7 @@ def _run_category(
     plan = build_category_plan(
         ctx, cat_name, cat_spec, name_filter=name_filter, limit=limit,
         allow_degrade=allow_degrade,
+        allow_implicit_overrides=allow_implicit_overrides,
     )
 
     for note in plan.notes:
