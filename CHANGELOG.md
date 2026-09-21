@@ -3,6 +3,58 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 4.1.0 (2026-09-21)
+
+收掉两处存量双口径。一处是**我定错级的**。
+
+### category 名字不是字符串：check 退 0，生成器崩
+
+形状校验有三份（生成器 `list`、生成器主流程、校验器），我起初判断它们「结论
+一致，只是文案不同，是维护面隐患不是行为分家」。外部评审（Fable 5.1）驳回了：
+**三份一致，是因为盲区相同** —— 都只查 spec 是不是映射，从不查 category 名字的
+类型，而校验之后的代码默认名字是字符串。
+
+PyYAML 按 YAML 1.1 解析，不加引号的 `on:` 是布尔、`1:` 是整数、`~:` 是空值：
+
+| category 名 | check | `generate all` | `generate <名>` |
+|---|---|---|---|
+| `on` | 退 0 | 退 0，**图写进 `art/True/`** | `TypeError: ... bool found` |
+| `~` | 退 0 | `NoneType.__format__`（`list` 也崩） | traceback |
+| `1` | 退 0 | 退 0 | `TypeError: ... int found` |
+
+正是这一整天在修的那一类：**check 说能跑，生成器炸了。** 而 `on` / `off` / `yes` /
+`no` 不是冷门写法，「开关状态图标」「确认按钮」都是正常的资源分类名。
+
+合并三份的理由因此不是抽象的「维护面」，是具体的：**这个补丁本来要打三次。**
+
+现在 `asset_context.category_problems()` / `style_problem()` 是唯一一份，三个入口
+都调用它。非字符串名、空字符串名直接报错，提示加引号。style 和 category 都坏时
+两样一起报（以前 check 报完 style 就 return，生成器只报 category —— 退码一样，
+但得修两轮）。
+
+### `res://` 在同一份配置里有两个解释器
+
+`data_source.py` 无条件剥 `res://`、不问适配器；`output_root` / `reference_paths` /
+`image` 都走适配器。同一份 `adapter: generic` 配置：`output_root: res://art` 报错，
+`data_source.path: res://items.json` 通过。
+
+现在数据源路径先交给适配器解析，结果换成绝对路径再交给 `data_source`（它见到
+绝对路径原样用，一行没改）。
+
+**但 generic 下的 `res://` 不直接报错**：它是 `examples/README.md` 明写过「接受」
+的行为，照文档写的配置不该一上来就坏。所以现在告警、照旧按工程根解析，
+**5.0.0 起报错** —— 和 `adapter: unreal` 同一个节奏。因为落在共享计划里，
+check 的 note 和生成器的 `[warn]` 天然是同一条。
+
+`/Game/` 在数据源里从来不能用（以前被拼成一个不存在的路径，报「文件不存在」），
+现在直接说清为什么。
+
+### PLANNED.md 开了一节「留到下一个大版本一起破坏的」
+
+两件 5.0.0 的破坏（`unreal` 移除、generic 下 `res://` 报错）以前一件只活在代码注释
+和 CHANGELOG 里 —— 而 CHANGELOG 按约定只放已发布的事。现在列在一处，免得到时候
+发成两个大版本。
+
 ## 4.0.0 (2026-09-21)
 
 **破坏性**：数据列没在 `item_overrides` 里声明过就当生图参数用，现在阻止执行。
