@@ -1,6 +1,6 @@
 # game-toolkit
 
-Claude Code 插件源码仓库。当前版本 v4.4.0，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、可插拔引擎适配的资源管线。
+Claude Code 插件源码仓库。当前版本 v4.5.0，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、可插拔引擎适配的资源管线。
 
 > 本文是**维护者文档**（怎么改这个插件）。只想用它的话看 [README.md](README.md)。
 
@@ -21,6 +21,14 @@ Claude Code 插件源码仓库。当前版本 v4.4.0，游戏设计与实现契�
 
 ```
 1. 在此目录修改 agents/ skills/（3.0.0 起没有 commands/）
+   改完跑测试（仓库没有 pytest 配置，路径要写全）：
+     pytest skills/generate-assets/tests skills/asset-config/tests evals
+   **改了 asset-config 的 SKILL.md、check_config.py 或 generate-assets 的
+   examples/README.md**，发版前再跑一次冷启动评测：
+     python evals/asset-config-cold-start/run_eval.py
+   它让一个没有本插件上下文的 AI 只照着指引从零建配置 —— 指引和校验器
+   对不上的地方，我们自己读是读不出来的（4.4.0 的五处全是这么撞出来的）。
+   约 15 分钟、要调外部 AI，所以不进普通测试。怎么读结果见 evals/ 里的 README
 2. 更新 version（遵循 semver）——plugin.json 一处 + marketplace.json 两处，三处要一起改
 3. 补 CHANGELOG.md 条目
 4. git commit（commit message 参考 git log 风格：feat/fix/chore 前缀）
@@ -59,6 +67,8 @@ PLANNED.md                      # 下一版计划（未发布）。标题刻意�
                                 #   verify_release.py 靠那个格式找 CHANGELOG 最新段，
                                 #   带版本号的计划标题会被当成真版本段造成假通过
 scripts/verify_release.py       # 发布自检（校验 commit 而非工作区）
+evals/                          # 手动跑的评测（调外部 AI，不进普通测试）
+  asset-config-cold-start/      #   冷启动：没上下文的 AI 只照指引建配置。评分器的测试进普通套件
 
 （3.0.0 起没有 commands/ —— 11 个 slash command 连同 11 个 agent 一起移除，
  原因见下方「3.0.0 砍掉了什么」）

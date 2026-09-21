@@ -1,0 +1,7 @@
+# UE 生成物
+Binaries/
+Intermediate/
+Saved/
+DerivedDataCache/
+# 美术临时稿，不入库
+SourceArt/

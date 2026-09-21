@@ -1,0 +1,5 @@
+# 道具表的结构声明
+table: Design/props.csv
+identity_column: prop_id     # 资产文件名，程序按此列找图
+columns:
+  model: 游戏内模型精度（低模/高模），决定场景里用哪个 mesh
