@@ -3,6 +3,44 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 4.8.0 (2026-09-22)
+
+新 skill `collect-rulings`：待裁条目多到聊天里一条条问不过来时，出一张裁决单页面让用户拍。
+
+### 填的是哪个空
+
+design-iterate 第四阶段「等待用户逐条决策」、doc-consistency-check 的「带空白裁决列的修正清单」、
+sync-docs-ahead 的差距报告，三条流程都停在「用户裁决」上，一直是靠聊天逐条问。条目一多，
+用户看不全上下文，agent 也容易把追问混成落地。这个 skill 是那个环节的页面版：
+每题不读代码也看得懂、带一个倾向、有备注框；用户在页上选，选择以文件回到评审目录。
+
+### 真值是 JSON，页面是产物
+
+- `裁决单.json` 由 agent 写；`scripts/build_page.py` 校验后注入模板生成单文件 `裁决单.html`，
+  不依赖网络，浏览器直接打开。校验拦的是 SKILL.md 里那几条硬规则：每题恰好一个倾向、
+  选项 2～3 个、id 唯一、缺 ctx、「不在这张单上的」组名不在六个之内；标题或 ctx 里疑似代码名只提醒。
+- 用户点「我选好了」，页面下载 `裁决结果-<date>.json`；`scripts/read_rulings.py` 把它和裁决单
+  按 id 对上，打出复述表骨架（题号、选的、是否倾向、备注），只留「我打算怎么落」给 agent 填。
+  题号、选项键或日期对不上就退出 1 —— 那是拿错了文件。「复制结果文字」贴回来的用 `--text` 读。
+- 落地按 layer-contracts 的 `doc_feedback` 四个目标路由；分拣表的三档正好对应三个职责：
+  上单的是 Framework 规则，数值 agent 自己定是 Content，表现归 Interface。
+
+### Artifact 只是 Claude Code 上的可选传输
+
+有 Artifact 工具就按 `references/claude-code-artifact.md` 发布并开共享存储，读回后写成同一个
+`裁决结果-<date>.json`；没有（Codex 等）或用户说「出本地文件」就给 HTML 路径。两条路在
+read_rulings 汇合，下游不区分。靠运行时看工具列表判断，不进 `game-toolkit.yaml`：
+走哪条路是 harness 的属性，不是项目的。
+
+用示例裁决单在浏览器里走了一遍：选项、备注压行、结果文字、下载、本地存储都对。
+第一版模板缺 `<meta charset>`，本地打开时中文页面被猜成 GBK、脚本直接报错 —— 冒烟测试抓到的。
+
+另让一个只读本 skill 目录的 agent 拿 5 条陌生条目冷读建单：分拣六档全对、页面一次通过，
+但它列出了指引里 8 处读不通的地方，都改了 —— 一条里机制和数值混着怎么落、两行都命中谁优先、
+`owner` 查不到写什么、代码那一侧 `quotes` 引什么、机制题的倾向往哪边倒、同一天第二张单的
+`date` 写法、组名补一句的格式、「补代码事实」那句的括号读法。示例里 `owner` 写成「先拍 E1」
+也是它指出来的：那是先后顺序，该进 `note`。
+
 ## 4.7.0 (2026-09-22)
 
 给用插件的人一条反馈通道，顺手修掉它第一次跑出来的两处问题。

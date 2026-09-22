@@ -1,6 +1,6 @@
 # game-toolkit
 
-Claude Code 插件源码仓库。当前版本 v4.7.0，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、可插拔引擎适配的资源管线。
+Claude Code 插件源码仓库。当前版本 v4.8.0，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、可插拔引擎适配的资源管线。
 
 > 本文是**维护者文档**（怎么改这个插件）。只想用它的话看 [README.md](README.md)。
 
@@ -61,7 +61,7 @@ Claude Code 插件源码仓库。当前版本 v4.7.0，游戏设计与实现契�
 .claude-plugin/plugin.json      # 插件清单（name/version/description/author）
 .claude-plugin/marketplace.json # marketplace 清单（两处 version 要和 plugin.json 一起改）
 agents/                         # 4 个 sub-agent（.md，frontmatter + 系统提示词）
-skills/                         # 15 个 skill（每个一个子目录，含 SKILL.md 和资源）
+skills/                         # 16 个 skill（每个一个子目录，含 SKILL.md 和资源）
 CHANGELOG.md                    # 版本记录，每次 bump 同步补条目
 PLANNED.md                      # 下一版计划（未发布）。标题刻意不用 ## x.y.z：
                                 #   verify_release.py 靠那个格式找 CHANGELOG 最新段，
@@ -83,7 +83,7 @@ evals/                          # 手动跑的评测（调外部 AI，不进普�
 ### skills/
 
 - **共享定义**：`layer-contracts/`（三件套与 split-doc-layers 共用的分层定义与 A 层契约门槛，不直接面向用户）
-- **设计流程**：`design-discuss/`（讨论+收录）、`design-iterate/`（多视角评审迭代）、`doc-consistency-check/`（文档矛盾检查）、`split-doc-layers/`（Framework/Content/Interface 三层拆分）、`doc-summary-layer/`（仓库详稿＋阅读平台摘要的两层管理，平台适配在项目侧）
+- **设计流程**：`design-discuss/`（讨论+收录）、`design-iterate/`（多视角评审迭代）、`doc-consistency-check/`（文档矛盾检查）、`collect-rulings/`（裁决单页面收用户拍板：`裁决单.json` → build_page → HTML，结果 `裁决结果-<date>.json` → read_rulings 出复述表；Artifact 只是 Claude Code 上的可选传输，见其 references/）、`split-doc-layers/`（Framework/Content/Interface 三层拆分）、`doc-summary-layer/`（仓库详稿＋阅读平台摘要的两层管理，平台适配在项目侧）
 - **知识/理论**：`game-design-theory/`（四本设计书知识库）、`game-ui-design/`（引擎无关的游戏 UI 原则）、`book-to-reference/`
 - **可选技术适配**：`react-game-ui/`（Web 栈的游戏 UI 实现模式，只在项目确实用 React 时才用）
 - **代码/文档同步**：`sync-code-ahead/`（代码→文档）、`sync-docs-ahead/`（文档→代码 gap 分析）
