@@ -55,7 +55,7 @@ def check(ref: str, version: str) -> list:
     """返回问题列表；空表示可以发。"""
     problems = []
 
-    # 1) 三处 manifest 版本 —— 数量也要对，少一处等于漏改
+    # 1) 四处 manifest 版本 —— 数量也要对，少一处等于漏改
     for label, path, expect_count in MANIFESTS:
         try:
             found = versions_in(show(ref, path))
@@ -133,7 +133,7 @@ def main(argv=None) -> int:
             for p in problems:
                 print("  - %s" % p)
         else:
-            print("  ✓ 三处 manifest 版本、CHANGELOG 最新段、tag 状态都对得上")
+            print("  ✓ 四处 manifest 版本、CHANGELOG 最新段、tag 状态都对得上")
     return 1 if problems else 0
 
 
