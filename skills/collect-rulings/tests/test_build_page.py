@@ -94,6 +94,30 @@ def test_code_names_in_title_or_ctx_only_warn(tmp_path, capsys):
     assert "提醒" in capsys.readouterr().err
 
 
+def test_status_banner_rendered_only_when_filled(tmp_path):
+    """落地后把提交号、账本条目号写进 page.status 重建，页面顶上要能看见；没填就不渲染。"""
+    data = _load()
+    data["page"]["status"] = "已落地：提交 abc1234，账本 #0042"
+    src = _write(tmp_path, data)
+    assert bp.main([str(src)]) == 0
+    html = (tmp_path / "裁决单.html").read_text(encoding="utf-8")
+    assert "已落地：提交 abc1234，账本 #0042" in html
+    assert 'id="status"' in html
+    data["page"]["status"] = ""
+    _write(tmp_path, data)
+    assert bp.main([str(src)]) == 0
+    data["page"].pop("status")
+    _write(tmp_path, data)
+    assert bp.main([str(src)]) == 0
+
+
+def test_status_must_be_string():
+    data = _load()
+    data["page"]["status"] = ["不是字符串"]
+    errors, _ = bp.validate(data)
+    assert any("status" in e for e in errors), errors
+
+
 def test_script_tag_in_text_cannot_break_page(tmp_path):
     data = _load()
     data["groups"][0]["items"][0]["ctx"] = "有人在文档里写了 </script><b>x</b>"

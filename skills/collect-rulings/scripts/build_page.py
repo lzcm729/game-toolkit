@@ -56,6 +56,8 @@ def validate(data: dict) -> "tuple[list, list]":
         errors.append("page.date 要是 YYYY-MM-DD（同一天第二张单加字母后缀，如 2026-09-22b）")
     if not isinstance(page.get("intro", []), list) or not all(isinstance(x, str) for x in page.get("intro", [])):
         errors.append("page.intro 要是字符串列表")
+    if not isinstance(page.get("status", ""), str):
+        errors.append("page.status 要是字符串：落地后写提交号与账本条目号，没落地留空")
 
     groups = data.get("groups")
     if not isinstance(groups, list) or not groups:
@@ -154,6 +156,7 @@ def render(data: dict, template: str) -> str:
     page["storageKey"] = storage_key(page)
     page.setdefault("intro", [])
     page.setdefault("eyebrow", "")
+    page.setdefault("status", "")
     block = "const PAGE = %s;\nconst GROUPS = %s;\nconst OUTSIDE = %s;" % (
         _js(page), _js(data["groups"]), _js(data.get("outside", [])))
     head, rest = template.split(DATA_BEGIN, 1)

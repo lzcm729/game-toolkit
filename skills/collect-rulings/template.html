@@ -47,6 +47,8 @@ header.intro{padding-block:32px 8px;max-width:760px}
 .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--ink-3);text-transform:uppercase}
 h1{font-family:var(--serif);font-size:30px;line-height:1.3;margin:.3em 0 .4em;text-wrap:balance}
 .intro p{color:var(--ink-2);margin:.4em 0}
+.status{margin:12px 0 4px;padding:8px 12px;border-left:3px solid var(--ok);background:var(--ok-weak);color:var(--ink);border-radius:0 6px 6px 0;font-size:13.5px}
+.status b{color:var(--ok);font-weight:700;margin-right:6px}
 .legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--ink-2);margin-top:12px}
 .legend span{display:inline-flex;align-items:center;gap:6px}
 
@@ -128,6 +130,7 @@ textarea{display:block;width:100%;margin-top:8px;min-height:62px;resize:vertical
   <header class="intro">
     <div class="eyebrow" id="eyebrow"></div>
     <h1 id="pageTitle"></h1>
+    <div class="status" id="status" hidden><b>状态</b><span id="statusText"></span></div>
     <div id="introText"></div>
     <div class="legend">
       <span><span class="rec" style="margin:0">倾向</span>agent 的建议</span>
@@ -152,6 +155,7 @@ const OUTSIDE = [];
 document.getElementById("eyebrow").textContent = PAGE.eyebrow;
 document.getElementById("pageTitle").textContent = PAGE.title;
 for (const t of PAGE.intro){ const p = document.createElement("p"); p.textContent = t; document.getElementById("introText").append(p); }
+if (PAGE.status){ document.getElementById("statusText").textContent = PAGE.status; document.getElementById("status").hidden = false; }
 const DOC_PATH = "rulings/" + PAGE.date;
 const LS_KEY = PAGE.storageKey;
 const ALL = GROUPS.flatMap(g => g.items);
