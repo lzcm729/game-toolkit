@@ -2,6 +2,10 @@
 
 Phase 3.5 的详细执行指南。触发条件和核心原则见 `skill.md` Phase 3.5 章节。
 
+本工作流依赖 Claude Code 的 Teams（`TeamCreate` / `SendMessage` / `TaskUpdate`）。没有 Teams 的
+harness 不走这里：按 layer-contracts「起子代理」的办法顺序起各视角子代理，把上一轮结论作为输入
+传给下一轮，其余步骤照旧。
+
 ---
 
 ## 视角池

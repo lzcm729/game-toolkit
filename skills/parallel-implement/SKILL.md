@@ -164,7 +164,8 @@ TeamCreate("impl-batch-N")
 
 ### 3.3 并行 spawn 所有 agent
 
-一次性 spawn 全部 agent（无依赖角色立即工作，有依赖角色 idle 等待）：
+一次性 spawn 全部 agent（无依赖角色立即工作，有依赖角色 idle 等待）。下面的 `team_name` / `mode`
+是 Claude Code Teams 的参数；没有 Teams 的 harness 按依赖顺序分批起子代理，见 layer-contracts「起子代理」：
 
 ```
 每个 Task:

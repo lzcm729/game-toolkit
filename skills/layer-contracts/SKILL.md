@@ -223,6 +223,24 @@ python <本 skill>/scripts/project_env.py write <项目根> --engine unreal --en
 - 声明变化导致扫描范围变化时（新增目录或文件类型），依赖增量水位的流程
   必须触发一次全量对账，否则新纳入的文件会一直被跳过。
 
+## 起子代理
+
+本插件的流程在几处委派子代理：按角色起（framework / content / interaction / game-designer，
+指令在插件 `agents/<name>.md`），或起通用子代理（只读探索、带写权限的实现者）。各 harness 的做法：
+
+- **Claude Code**：Agent 工具。角色 agent 用 `subagent_type` 指定名字（插件里带前缀
+  `game-toolkit:<name>`），通用的用 `Explore`（只读）或 `general-purpose`；`run_in_background: true`
+  可并行。Teams（`TeamCreate` / `SendMessage` / `TaskUpdate`）只有这里有。
+- **Codex**：`spawn_agent`。把 `agents/<name>.md` frontmatter 之后的正文原样放在任务消息开头，
+  作为该子代理的角色指令，再接具体任务；通用子代理用内置 `explorer`（只读）或 `worker`。
+  项目里若有 `.codex/agents/<name>.toml`（插件根 `scripts/export_codex_agents.py <项目根>` 生成）
+  且你的 spawn 接口能按自定义 agent 名指定角色，就按名字起；不能就走上一句的办法。
+  没有 Teams：需要多轮讨论的地方改成顺序起子代理，把上一轮结论作为输入传给下一轮。
+- **其他 harness**：有子代理机制就照 Codex 的办法传正文；没有就在主流程里按 `agents/<name>.md`
+  的指令顺序执行，并在报告里说明没有并行。
+
+不管哪条路，委派时都要把工程根、相关声明字段和来源一起传过去（见上面「几条边界」）。
+
 ---
 
 ## C 层交接与四问自检

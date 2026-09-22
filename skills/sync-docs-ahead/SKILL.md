@@ -69,7 +69,8 @@ python <本 skill>/scripts/collect_gap.py --carry --baseline DIR --systems 系�
 
 ### Phase 2：分析
 
-每系统启动一个可 Read / Glob / Grep / Write / Bash 的 `general-purpose` 子 agent，
+每系统启动一个可 Read / Glob / Grep / Write / Bash 的 `general-purpose` 子 agent（非 Claude Code 见
+layer-contracts「起子代理」），
 使用本 skill 的 [references/analysis-prompt.md](references/analysis-prompt.md)。传入文档全集、
 参考清单、评分范围、源码线索、声明与出处、工程根、系统名和同一个 `{OUTPUT_DIR}`。
 给分析者与复核者传 `{collectorPath}`（本 skill `scripts/collect_gap.py` 的绝对路径），允许 Bash

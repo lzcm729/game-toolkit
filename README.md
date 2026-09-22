@@ -45,8 +45,17 @@ codex plugin marketplace add lzcm729/game-toolkit
 codex plugin add game-toolkit@game-toolkit
 ```
 
-装完开一个新会话。skill 以 `game-toolkit:<名字>` 出现；`agents/` 目录 Codex 不读，
-其余按 skill 描述自动触发。更新：
+装完开一个新会话。skill 以 `game-toolkit:<名字>` 出现，按描述自动触发。
+
+四个角色 agent（framework / content / interaction / game-designer）Codex 的插件清单带不进去。
+skill 委派子代理时会把 `agents/<名字>.md` 的正文直接传给子代理当角色指令（实测可用），所以不用装
+也能跑。想让它们成为 Codex 的原生自定义 agent（`.codex/agents/*.toml`，可随项目仓库提交）：
+
+```bash
+python ~/.codex/plugins/cache/game-toolkit/game-toolkit/<版本>/scripts/export_codex_agents.py <项目根>
+```
+
+Codex 0.154 的 `spawn_agent` 还不能按自定义 agent 名挑角色，导出的文件要等客户端支持后才会被按名字用上。更新插件：
 
 ```bash
 codex plugin marketplace upgrade game-toolkit

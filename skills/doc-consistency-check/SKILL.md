@@ -42,7 +42,8 @@ description: |
 
 ### 3. 阶段1：并行结构化提取
 
-每组一个 Explore agent（`run_in_background: true`），使用本 skill 的
+每组一个只读子代理（Claude Code 是 Explore agent，`run_in_background: true`；其他 harness 见
+layer-contracts「起子代理」），使用本 skill 的
 [references/extraction-prompt.md](references/extraction-prompt.md)，只提取不评价。
 若提取结果需落盘，则由主流程写入或使用具有 Write 的子 agent，不能要求只读工具集写文件。
 每组按六个维度提取：数值定义、概念定义、流程与规则、枚举列表、组内矛盾、模糊/未定义。

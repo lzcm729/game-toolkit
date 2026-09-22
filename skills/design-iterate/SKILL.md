@@ -235,6 +235,7 @@ docs/design-reviews/{YYYY-MM-DD}-{批次标识}/
 - **所有 Agent 并行启动**（同一消息中多个 Task 调用）
 - `subagent_type`: `game-designer`
 - `description`: `{视角名}评审-{系统名}`
+- 非 Claude Code 的 harness：怎么起、角色指令从哪拿，见 layer-contracts「起子代理」
 
 ### 文件验证
 
@@ -251,7 +252,7 @@ Agent 返回后，**验证而非保存**：
 
 ### 启动整合 Agent
 
-启动一个 `game-designer` agent，`description` 为 `整合评审-{系统名}`。
+启动一个 `game-designer` agent，`description` 为 `整合评审-{系统名}`（非 Claude Code 见 layer-contracts「起子代理」）。
 
 **Agent Prompt 模板：**
 
@@ -374,7 +375,7 @@ Teams 讨论结果与 Phase 3 的优化方向清单**合并**后一起进入 Pha
    - Phase 3.5 的 Teams 讨论结论（跨系统融合方案，如有）
 
 2. **更新原设计文档**（两阶段）
-   - **阶段 A: Agent 生成更新版** — 为每个文档启动 game-designer agent，将采纳的变更整合到文档中
+   - **阶段 A: Agent 生成更新版** — 为每个文档启动 game-designer agent，将采纳的变更整合到文档中（非 Claude Code 见 layer-contracts「起子代理」）
      - 设计文档目录用 Phase 1 步骤 4 已确定的那个
      - 如果设计文档在项目内 → Agent 直接写入原文件
      - 如果设计文档在项目外 → Agent 写入项目内临时路径 `docs/{系统名}-v{新版本}-updated.md`
