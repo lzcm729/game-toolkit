@@ -1,0 +1,20 @@
+{
+  "name": "game-toolkit",
+  "interface": {
+    "displayName": "Game Toolkit"
+  },
+  "plugins": [
+    {
+      "name": "game-toolkit",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

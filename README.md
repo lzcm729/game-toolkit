@@ -29,12 +29,31 @@
 
 ## 装
 
+**Claude Code**
+
 ```bash
 /plugin marketplace add lzcm729/game-toolkit
 /plugin install game-toolkit@game-toolkit
 ```
 
 装完 `/reload-plugins`，或重启 Claude Code。
+
+**Codex**（本仓库同时是一个 Codex marketplace）
+
+```bash
+codex plugin marketplace add lzcm729/game-toolkit
+codex plugin add game-toolkit@game-toolkit
+```
+
+装完开一个新会话。skill 以 `game-toolkit:<名字>` 出现；`agents/` 目录 Codex 不读，
+其余按 skill 描述自动触发。更新：
+
+```bash
+codex plugin marketplace upgrade game-toolkit
+codex plugin add game-toolkit@game-toolkit
+```
+
+用过之后想反馈，看 [FEEDBACK.md](FEEDBACK.md)。
 
 ## 有什么
 

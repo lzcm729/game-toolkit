@@ -29,6 +29,8 @@ REPO = Path(__file__).resolve().parent.parent
 MANIFESTS = [
     ("`.claude-plugin/plugin.json`", ".claude-plugin/plugin.json", 1),
     ("`.claude-plugin/marketplace.json`", ".claude-plugin/marketplace.json", 2),
+    # Codex 从同一个仓库装（codex plugin marketplace add）；它读的是这份清单，版本不同步就会装到旧号
+    ("`.codex-plugin/plugin.json`", ".codex-plugin/plugin.json", 1),
 ]
 
 

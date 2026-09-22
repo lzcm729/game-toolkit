@@ -1,0 +1,28 @@
+{
+  "name": "game-toolkit",
+  "version": "4.9.0",
+  "description": "Game design and implementation-contract toolkit: layered contracts, design-doc workflows, worktree orchestration, and a schema-driven asset pipeline with pluggable engine adapters",
+  "author": {
+    "name": "lzcm729",
+    "url": "https://github.com/lzcm729"
+  },
+  "homepage": "https://github.com/lzcm729/game-toolkit#readme",
+  "repository": "https://github.com/lzcm729/game-toolkit",
+  "license": "MIT",
+  "keywords": ["game-dev", "design-docs", "godot", "unreal", "asset-pipeline", "design-contracts"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Game Toolkit",
+    "shortDescription": "游戏设计与实现契约工具箱：分层契约、设计文档工作流、资源管线",
+    "longDescription": "让「设计文档 → 实现契约 → 代码」这条链不丢失信息：Framework / Content / Interface 分层契约，设计讨论、多视角评审、跨文档一致性检查、裁决单收拍板，文档与代码双向对表，以及 schema-driven 的批量资源生成（Godot / Unreal / filesystem）。",
+    "developerName": "lzcm729",
+    "category": "Productivity",
+    "capabilities": ["Write"],
+    "websiteURL": "https://github.com/lzcm729/game-toolkit",
+    "defaultPrompt": [
+      "帮我把 asset-config.yaml 建起来",
+      "检查这几份设计文档之间有没有矛盾",
+      "待裁的事项太多了，做个裁决单让我选"
+    ]
+  }
+}
