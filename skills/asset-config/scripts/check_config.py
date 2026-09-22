@@ -236,8 +236,9 @@ def _check_category(ctx, name: str, spec: dict, inputs: dict, r: Report,
         r.error(err)
     for note in plan.notes:
         r.note(note)
-    # 字段被后端丢掉：生成时是告警，这里也只提示 —— 它不会让生成失败，
-    # 只是结果和配置写的不一样。
+    # plan.warnings 只装两类后端丢字段：只影响可复现性的（seed 那类）和
+    # --allow-degrade 明确放行的降级 —— 都不会让生成失败，这里也只提示。
+    # 会改变结果含义的字段被丢掉走的是 plan.errors，上面已经算错。
     for warning in plan.warnings:
         r.note(warning)
     for issue in plan.governance:

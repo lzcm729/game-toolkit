@@ -58,16 +58,45 @@ def test_doc_feedback_absent_is_ok(tmp_path, capsys):
     assert "doc_feedback" not in out["declared"]
 
 
-def test_doc_feedback_missing_paths_collect_all_errors(tmp_path, capsys):
+def test_doc_feedback_missing_paths_are_unavailable_not_invalid(tmp_path, capsys):
+    """目标文件不存在是「该目标不可用」，不是配置损坏：对表 skill 要继续出报告，不能被 invalid 拦住。"""
     _write_yaml(tmp_path, {"engine": "无", "engine_version": "不适用", "project_root": ".",
-                           "doc_feedback": {"rulings_ledger": "不存在.md", "owners": "属主.md"},
+                           "doc_feedback": {"rulings_ledger": "不存在.md", "owners": "属主.md"}})
+    assert pe.main(["check", str(tmp_path)]) == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["status"] == "ok"
+    assert out["issues"] == []
+    assert len(out["unavailable"]) == 2
+    assert any("doc_feedback.rulings_ledger 路径不存在" in p for p in out["unavailable"])
+    assert any("doc_feedback.owners 路径不存在" in p for p in out["unavailable"])
+    assert "不可用" in out["next"]
+    assert "配置损坏" not in out["next"]
+    assert out["declared"]["engine"] == "无"
+
+
+def test_doc_feedback_missing_paths_reported_alongside_real_issues(tmp_path, capsys):
+    _write_yaml(tmp_path, {"engine": "无", "engine_version": "不适用", "project_root": ".",
+                           "doc_feedback": {"rulings_ledger": "不存在.md"},
                            "tech_stack": []})
     out = _check(tmp_path, capsys)
     assert out["status"] == "invalid"
-    assert len(out["issues"]) == 3
-    assert any("doc_feedback.rulings_ledger 路径不存在" in p for p in out["issues"])
-    assert any("doc_feedback.owners 路径不存在" in p for p in out["issues"])
-    assert out["declared"]["engine"] == "无"
+    assert len(out["issues"]) == 1
+    assert len(out["unavailable"]) == 1
+
+
+def test_validate_ignores_target_existence(tmp_path):
+    data = {"engine": "无", "engine_version": "不适用", "project_root": ".",
+            "doc_feedback": {"owners": "没有.md"}}
+    assert pe.validate(data, tmp_path) == []
+
+
+def test_write_accepts_doc_feedback_target_that_does_not_exist_yet(tmp_path, capsys):
+    """账本还没建就先声明路径是正常顺序，write 不该因此拒绝；但要在 stderr 提一句。"""
+    _write_yaml(tmp_path, {"engine": "无", "engine_version": "不适用", "project_root": "."})
+    assert pe.main(["write", str(tmp_path), "--doc-feedback", "{rulings_ledger: 还没建.md}"]) == 0
+    captured = capsys.readouterr()
+    assert "还没建.md" in captured.err
+    assert _load(tmp_path)["doc_feedback"] == {"rulings_ledger": "还没建.md"}
 
 
 def test_doc_feedback_check_and_write_roundtrip(tmp_path, capsys):

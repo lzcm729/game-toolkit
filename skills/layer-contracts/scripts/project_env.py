@@ -128,6 +128,34 @@ def load_config(root: Path):
     return data, None
 
 
+def unavailable_targets(data: dict, root: Path) -> list:
+    """`doc_feedback` 里声明了、但文件不存在的目标。
+
+    这不是配置损坏：对表 skill 的口径是「已配置但不存在则报告该目标不可用，
+    不路由、不猜路径」，其余声明照用。所以单独一个列表，不进 issues，
+    不影响 status 和退出码。类型错、绝对路径由 validate 报，这里跳过。
+    """
+    out = []
+    fb = data.get("doc_feedback")
+    pr = data.get("project_root")
+    if not isinstance(fb, dict) or not isinstance(pr, str) or _is_blank(pr):
+        return out
+    base = (root / pr).resolve()
+    if not base.is_dir():
+        return out  # project_root 本身不存在是 issues 里的事，别再逐个目标重复报
+    for field in ("rulings_ledger", "decision_ledger", "engineering_log", "owners"):
+        value = fb.get(field)
+        if not isinstance(value, str) or not value.strip():
+            continue
+        win = PureWindowsPath(value)
+        if win.drive or win.root or Path(value).is_absolute():
+            continue
+        target = (base / Path(value.replace("\\", "/"))).resolve()
+        if not target.exists():
+            out.append("doc_feedback.%s 路径不存在：%s" % (field, target))
+    return out
+
+
 def validate(data: dict, root: Path | None = None) -> list:
     """字段类型校验。返回问题列表；空表示通过。
 
@@ -155,11 +183,6 @@ def validate(data: dict, root: Path | None = None) -> list:
                 if win.drive or win.root or Path(value).is_absolute():
                     issues.append("%s 应为相对 project_root 的路径：%s" % (label, value))
                     continue
-                pr = data.get("project_root")
-                if root is not None and isinstance(pr, str) and not _is_blank(pr):
-                    target = (root / pr / Path(value.replace("\\", "/"))).resolve()
-                    if not target.exists():
-                        issues.append("%s 路径不存在：%s" % (label, target))
             if "exclude_markers" in v:
                 markers = v["exclude_markers"]
                 if not isinstance(markers, list) or not all(isinstance(x, str) for x in markers):
@@ -493,6 +516,11 @@ def _do_write(root: Path, declared, err, given: dict, force: bool) -> int:
               "或先手工加引号，或加 --force 接受改动。" % "\n  - ".join(issues),
               file=sys.stderr)
         return 1
+    unavailable = unavailable_targets(merged, root)
+    if unavailable:
+        # 先声明再建账本是正常顺序，不拦；但打错字也长这样，提一句让人看一眼
+        print("提示：doc_feedback 里这些目标现在还不存在（照写；check 会把它们列在 unavailable）：\n  - %s"
+              % "\n  - ".join(unavailable), file=sys.stderr)
     print(write_declaration(root, merged))
     return 0
 
@@ -554,12 +582,17 @@ def main(argv=None) -> int:
             nxt = ("声明与工程里探测到的对不上（见 conflicts）。**以声明为准** —— "
                    "那是人工填的。但先把冲突报给用户：是声明过期了，"
                    "还是 project_root 指到了别的目录？确认前别拿它当准确前提往下推。")
+        unavailable = unavailable_targets(declared, root) if declared else []
+        if unavailable and status in ("ok", "incomplete"):
+            nxt += ("doc_feedback 有 %d 个目标路径不存在（见 unavailable）：报告该目标不可用，"
+                    "不路由、不猜路径；其余声明照用。" % len(unavailable))
         print(json.dumps({
             "status": status,
             "config": str(config_path(root)),
             "config_exists": config_path(root).exists(),
             "error": err,
             "issues": issues,
+            "unavailable": unavailable,
             "declared": _json_safe(declared or {}),
             "detected": _json_safe(detected),
             "conflicts": conflicts,

@@ -116,6 +116,11 @@ python <layer-contracts>/scripts/project_env.py check <项目根>
 
 这些在 3.0.0 从本插件移除过一次，理由和迁移去向见 CHANGELOG。
 
+## 反馈
+
+用完之后让你的 agent 读 `FEEDBACK.md` 照做，把它生成的报告贴到 issue。
+Codex 等其他 harness 也适用 —— 报告会记下哪些指令在你的环境里执行不了、哪里靠猜。
+
 ## 维护
 
 改插件本身看 `CLAUDE.md`（开发回路、组件编写约定、版本发布流程）。

@@ -67,6 +67,7 @@ PLANNED.md                      # 下一版计划（未发布）。标题刻意�
                                 #   verify_release.py 靠那个格式找 CHANGELOG 最新段，
                                 #   带版本号的计划标题会被当成真版本段造成假通过
 scripts/verify_release.py       # 发布自检（校验 commit 而非工作区）
+FEEDBACK.md                     # 给使用者的反馈 prompt：让他们的 agent 写使用报告贴 issue（任何 harness）
 evals/                          # 手动跑的评测（调外部 AI，不进普通测试）
   asset-config-cold-start/      #   冷启动：没上下文的 AI 只照指引建配置。评分器的测试进普通套件
 
