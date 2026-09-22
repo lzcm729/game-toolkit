@@ -3,6 +3,36 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 4.9.0 (2026-09-22)
+
+本仓库同时成为一个 Codex marketplace：用 Codex 的同事也能一条命令装、一条命令更新，不用手拷 skills。
+
+### 装法对等了
+
+```bash
+codex plugin marketplace add lzcm729/game-toolkit
+codex plugin add game-toolkit@game-toolkit
+```
+
+Codex 的机制和 Claude Code 几乎一样：仓库根放 `.agents/plugins/marketplace.json`（把仓库自己登记为
+marketplace，插件根就是仓库根，`path: "./"`）和 `.codex-plugin/plugin.json`（`skills: "./skills/"`）。
+装上之后 16 个 skill 以 `game-toolkit:<名字>` 出现 —— 和 Claude Code 同一套命名空间，所以 skill 之间
+那 18 处 `game-toolkit:xxx` 引用在 Codex 里原样能用，不用改写。`agents/` 目录 Codex 不读。
+更新走 `codex plugin marketplace upgrade` 再 `codex plugin add`。
+
+本地实测：`marketplace add <仓库路径>` → `plugin add` → 探针列出全部 16 个带前缀的 skill。
+两份清单都过了 Codex 自带的 `validate_plugin.py`。
+
+### 发版自检多查一处
+
+`.codex-plugin/plugin.json` 的 version 也要和另外三处一起改，`verify_release.py` 现在查四处。
+CLAUDE.md 的发版回路同步。
+
+### collect-rulings 收尾加一步
+
+harness 有跨会话记忆的话（Claude Code 的项目记忆、Codex 的 memories），落完顺手记一条：
+拍了什么、落到哪、还开着什么。仓库里的账本才是真值，记忆只是下次少翻一遍。
+
 ## 4.8.1 (2026-09-22)
 
 补回 4.8.0 从个人版 skill 搬过来时丢掉的两处收尾细节。
