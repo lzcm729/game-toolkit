@@ -1,6 +1,6 @@
 # game-toolkit
 
-Claude Code 插件源码仓库。当前版本 v4.9.0，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、可插拔引擎适配的资源管线。
+Claude Code 插件源码仓库。当前版本 v4.10.0，游戏设计与实现契约工具箱：分层契约、设计文档工作流、配套编排、可插拔引擎适配的资源管线。
 
 > 本文是**维护者文档**（怎么改这个插件）。只想用它的话看 [README.md](README.md)。
 
@@ -22,7 +22,7 @@ Claude Code 插件源码仓库。当前版本 v4.9.0，游戏设计与实现契�
 ```
 1. 在此目录修改 agents/ skills/（3.0.0 起没有 commands/）
    改完跑测试（仓库没有 pytest 配置，路径要写全）：
-     pytest skills/generate-assets/tests skills/asset-config/tests evals
+     pytest skills/generate-assets/tests skills/asset-config/tests scripts/tests evals
    **改了 asset-config 的 SKILL.md、check_config.py 或 generate-assets 的
    examples/README.md**，发版前再跑一次冷启动评测：
      python evals/asset-config-cold-start/run_eval.py
@@ -70,6 +70,7 @@ PLANNED.md                      # 下一版计划（未发布）。标题刻意�
                                 #   verify_release.py 靠那个格式找 CHANGELOG 最新段，
                                 #   带版本号的计划标题会被当成真版本段造成假通过
 scripts/verify_release.py       # 发布自检（校验 commit 而非工作区）
+scripts/export_codex_agents.py  # agents/*.md → 项目 .codex/agents/*.toml（Codex 自定义 agent；插件清单带不进去）
 FEEDBACK.md                     # 给使用者的反馈 prompt：让他们的 agent 写使用报告贴 issue（任何 harness）
 evals/                          # 手动跑的评测（调外部 AI，不进普通测试）
   asset-config-cold-start/      #   冷启动：没上下文的 AI 只照指引建配置。评分器的测试进普通套件

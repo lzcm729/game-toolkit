@@ -3,6 +3,34 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 4.10.0 (2026-09-22)
+
+委派子代理不再绑死 Claude Code；四个角色 agent 给 Codex 用户一条导出路。
+
+### 「起子代理」成了 layer-contracts 里的一节
+
+design-iterate、doc-consistency-check、parallel-implement、sync-docs-ahead 和 teams-workflow
+共七处委派子代理，原文都是 Claude Code 的叫法（`subagent_type`、Explore、`run_in_background`、Teams 参数）。
+Claude Code 的原文一字未动，每处只加一句「非 Claude Code 见 layer-contracts『起子代理』」。
+那一节写清三种 harness 各怎么做：Claude Code 用 Agent 工具；Codex 用 `spawn_agent`，把
+`agents/<name>.md` frontmatter 之后的正文原样放在任务消息开头当角色指令，没有 Teams 就顺序起、
+把上一轮结论传给下一轮；其他 harness 有子代理就照 Codex 办，没有就主流程顺序执行并说明。
+
+实测：Codex 子代理拿到正文后能原样引用「You are a **Game Designer**…」，也知道知识库入口是
+`game-toolkit:game-design-theory`。
+
+### `scripts/export_codex_agents.py`
+
+Codex 有自定义 agent，格式是 TOML（`name` / `description` / `developer_instructions`），放项目的
+`.codex/agents/`，但插件清单带不进去（OpenAI 的 Claude 插件迁移指南直接说：把 agents 并进 skill）。
+这个脚本把 `agents/*.md` 导成四个 TOML 落到项目仓库，可随项目提交：description 去掉 Claude 风格的
+`<example>` 块，正文前加一段「运行在 Codex 上」的工具名对照，`tools` 白名单 Codex 没有对应字段、不导。
+写出去的文件用 `tomllib` 读回比对，转义有漏就不写。五条测试，`scripts/tests/` 进了普通测试命令。
+
+**一个坦白**：Codex 0.154 的 `spawn_agent` 在 exec 模式下没有按自定义 agent 名挑角色的参数，
+开 `multi_agent_v2` 也没有。它找得到 `.codex/agents/game-designer.toml`，但用不上。所以 skill 的委派
+不依赖它，走上面传正文的路；导出文件是给客户端支持之后无缝接上用的，README 里照实写。
+
 ## 4.9.0 (2026-09-22)
 
 本仓库同时成为一个 Codex marketplace：用 Codex 的同事也能一条命令装、一条命令更新，不用手拷 skills。
