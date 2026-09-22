@@ -1,0 +1,361 @@
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>裁决单</title>
+<style>
+:root{
+  --ground:#F2F4F1; --surface:#FFFFFF; --surface-2:#E9EDE9; --ink:#1B2624; --ink-2:#4E5D59; --ink-3:#7A8784;
+  --line:#D5DCD8; --accent:#1D6A64; --accent-weak:#DCEBE7; --rec:#B4432D; --rec-weak:#F7E4DF; --ok:#2E7746; --ok-weak:#DDEFE2;
+  --shadow:0 1px 2px rgba(20,40,36,.06),0 4px 14px rgba(20,40,36,.05);
+  --serif:"Noto Serif SC","Songti SC","SimSun",serif;
+  --sans:"Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+  --mono:"JetBrains Mono","Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#0F1513; --surface:#172020; --surface-2:#1F2A29; --ink:#E3EAE7; --ink-2:#A7B4B0; --ink-3:#7D8B87;
+    --line:#2D3A38; --accent:#6CC0B7; --accent-weak:#1C3432; --rec:#F08A6E; --rec-weak:#3B241F; --ok:#72C58D; --ok-weak:#1C3324;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#0F1513; --surface:#172020; --surface-2:#1F2A29; --ink:#E3EAE7; --ink-2:#A7B4B0; --ink-3:#7D8B87;
+  --line:#2D3A38; --accent:#6CC0B7; --accent-weak:#1C3432; --rec:#F08A6E; --rec-weak:#3B241F; --ok:#72C58D; --ok-weak:#1C3324;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 14px rgba(0,0,0,.25);
+}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.65;padding-inline:16px;padding-block:0 64px}
+a{color:var(--accent)}
+.wrap{max-width:1120px;margin:0 auto}
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:color-mix(in srgb,var(--ground) 92%,transparent);backdrop-filter:blur(6px);border-bottom:1px solid var(--line);margin-inline:-16px;padding:10px 16px}
+.bar-in{max-width:1120px;margin:0 auto;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.progress{display:flex;align-items:center;gap:10px;flex:1 1 260px;min-width:0}
+.meter{flex:1;height:6px;background:var(--surface-2);border-radius:3px;overflow:hidden;min-width:80px}
+.meter i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s}
+.count{font-family:var(--mono);font-size:13px;color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.save{font-size:12.5px;color:var(--ink-3);white-space:nowrap}
+.save.ok{color:var(--ok)}
+.save.warn{color:var(--rec)}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+button{font:inherit;cursor:pointer}
+.btn{border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:6px 12px;border-radius:6px;font-size:13.5px}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn[aria-pressed="true"]{background:var(--accent-weak);border-color:var(--accent);color:var(--accent)}
+.btn:focus-visible,.opt input:focus-visible+span,.note-toggle:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header.intro{padding-block:32px 8px;max-width:760px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.06em;color:var(--ink-3);text-transform:uppercase}
+h1{font-family:var(--serif);font-size:30px;line-height:1.3;margin:.3em 0 .4em;text-wrap:balance}
+.intro p{color:var(--ink-2);margin:.4em 0}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--ink-2);margin-top:12px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+
+.layout{display:grid;grid-template-columns:1fr;gap:28px;margin-top:18px}
+@media (min-width:980px){.layout{grid-template-columns:200px 1fr}}
+nav.toc{display:none}
+@media (min-width:980px){nav.toc{display:block;position:sticky;top:calc(env(safe-area-inset-top,0px) + 70px);align-self:start;font-size:13.5px}}
+.toc a{display:flex;justify-content:space-between;gap:8px;padding:6px 10px;border-radius:6px;color:var(--ink-2);text-decoration:none}
+.toc a:hover{background:var(--surface-2);color:var(--ink)}
+.toc .n{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+.toc .n.full{color:var(--ok)}
+
+section.group{margin-bottom:36px}
+.group-h{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px;border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:14px}
+.group-h h2{font-family:var(--serif);font-size:21px;margin:0}
+.group-h .owner{font-size:13px;color:var(--ink-3)}
+.group-note{font-size:13.5px;color:var(--ink-2);margin:-4px 0 14px;max-width:760px}
+
+.dec{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;margin-bottom:12px;box-shadow:var(--shadow)}
+.dec.done{border-color:color-mix(in srgb,var(--accent) 45%,var(--line))}
+.dec-h{display:flex;gap:10px;align-items:flex-start}
+.tag{font-family:var(--mono);font-size:12px;padding:2px 7px;border-radius:5px;background:var(--surface-2);color:var(--ink-2);flex:none;margin-top:3px}
+.dec.done .tag{background:var(--accent-weak);color:var(--accent)}
+.dec-h h3{font-size:16px;font-weight:700;margin:0;line-height:1.5;text-wrap:balance}
+.refs{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0 0 0}
+.refs code{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);background:transparent;border:1px solid var(--line);border-radius:4px;padding:0 5px}
+.ctx{color:var(--ink-2);font-size:14px;margin:10px 0 12px;max-width:72ch}
+.quotes{display:grid;gap:6px;margin:0 0 12px}
+.quote{margin:0;padding:8px 12px;border-left:3px solid var(--line);background:var(--surface-2);border-radius:0 6px 6px 0;font-size:13.5px;color:var(--ink);display:grid;gap:2px;max-width:76ch}
+.quote cite{font-style:normal;font-size:12px;color:var(--ink-3)}
+.facts{margin:0 0 12px;padding-left:1.2em;font-size:13.5px;color:var(--ink-2);max-width:72ch}
+.facts li{margin:2px 0}
+.facts-h{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;color:var(--ink-3);text-transform:uppercase;margin:0 0 4px}
+.conseq{font-size:13.5px;color:var(--ink);background:var(--rec-weak);border-radius:6px;padding:7px 12px;margin:0 0 12px;max-width:72ch}
+.conseq b{color:var(--rec);font-weight:700}
+.opts{display:grid;gap:8px;border:0;margin:0;padding:0}
+.opt{position:relative;display:block}
+.opt input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.opt > span{display:grid;grid-template-columns:22px 1fr;gap:4px 10px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);transition:border-color .15s,background .15s}
+.opt > span::before{content:"";width:16px;height:16px;border-radius:50%;border:1.5px solid var(--ink-3);margin-top:3px;grid-row:1 / span 2}
+.opt:hover > span{border-color:var(--accent)}
+.opt input:checked+span{border-color:var(--accent);background:var(--accent-weak)}
+.opt input:checked+span::before{border-color:var(--accent);background:radial-gradient(circle,var(--accent) 0 4px,transparent 5px)}
+.opt b{font-weight:500}
+.opt small{grid-column:2;color:var(--ink-2);font-size:13px;line-height:1.55}
+.rec{display:inline-block;font-size:11.5px;font-weight:700;color:var(--rec);background:var(--rec-weak);border-radius:4px;padding:0 6px;margin-left:6px;vertical-align:1px;letter-spacing:.04em}
+.note-toggle{margin-top:10px;background:none;border:0;padding:0;color:var(--accent);font-size:13px}
+textarea{display:block;width:100%;margin-top:8px;min-height:62px;resize:vertical;font:inherit;font-size:14px;color:var(--ink);background:var(--ground);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+
+.hide-done .dec.done{display:none}
+.outside{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 18px}
+.outside summary{cursor:pointer;font-weight:500}
+.outside ul{margin:10px 0 0;padding-left:1.2em;color:var(--ink-2);font-size:14px}
+.outside li{margin:3px 0}
+.outside .k{font-family:var(--mono);font-size:12px;color:var(--ink-3)}
+
+.result{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+.result pre{font-family:var(--mono);font-size:12.5px;line-height:1.6;background:var(--ground);border:1px solid var(--line);border-radius:8px;padding:10px 12px;white-space:pre-wrap;word-break:break-word;max-height:360px;overflow:auto;margin:10px 0}
+.result .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.hint{font-size:13px;color:var(--ink-3)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="bar">
+  <div class="bar-in">
+    <div class="progress">
+      <div class="meter" aria-hidden="true"><i id="meter"></i></div>
+      <span class="count" id="count">0 / 0</span>
+    </div>
+    <span class="save" id="save" role="status">选择存在这个浏览器里</span>
+    <div class="actions">
+      <button class="btn" id="fillRec" type="button">空着的全填成倾向</button>
+      <button class="btn" id="onlyOpen" type="button" aria-pressed="false">只看没选的</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="intro">
+    <div class="eyebrow" id="eyebrow"></div>
+    <h1 id="pageTitle"></h1>
+    <div id="introText"></div>
+    <div class="legend">
+      <span><span class="rec" style="margin:0">倾向</span>agent 的建议</span>
+      <span><span class="tag" style="margin:0">ID</span>条目编号</span>
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc" id="toc" aria-label="分组"></nav>
+    <main id="main"></main>
+  </div>
+</div>
+
+<script>
+/* 数据由 scripts/build_page.py 从 裁决单.json 注入，别手改这一段。 */
+/* DATA-BEGIN */
+const PAGE = {title:"裁决单（模板）", eyebrow:"", date:"", storageKey:"rulings-template", intro:["这是空模板。用 build_page.py 从 裁决单.json 生成正式页面。"]};
+const GROUPS = [];
+const OUTSIDE = [];
+/* DATA-END */
+
+document.getElementById("eyebrow").textContent = PAGE.eyebrow;
+document.getElementById("pageTitle").textContent = PAGE.title;
+for (const t of PAGE.intro){ const p = document.createElement("p"); p.textContent = t; document.getElementById("introText").append(p); }
+const DOC_PATH = "rulings/" + PAGE.date;
+const LS_KEY = PAGE.storageKey;
+const ALL = GROUPS.flatMap(g => g.items);
+let state = {choices:{}, notes:{}, done:false, updatedAt:null};
+let db = null, docRef = null, saving = false, dirty = false, timer = null, lastRemote = "";
+
+const $ = s => document.querySelector(s);
+const el = (tag, attrs={}, ...kids) => {
+  const n = document.createElement(tag);
+  for (const [k,v] of Object.entries(attrs)) {
+    if (k === "class") n.className = v; else if (k === "text") n.textContent = v; else n.setAttribute(k, v);
+  }
+  for (const c of kids) if (c != null) n.append(c);
+  return n;
+};
+
+function render(){
+  const main = $("#main"), toc = $("#toc");
+  main.replaceChildren(); toc.replaceChildren();
+  for (const g of GROUPS){
+    const sec = el("section",{class:"group",id:"g-"+g.id});
+    sec.append(el("div",{class:"group-h"}, el("h2",{text:g.title}), el("span",{class:"owner",text:g.owner || ""})));
+    if (g.note) sec.append(el("p",{class:"group-note",text:g.note}));
+    for (const d of g.items) sec.append(renderDecision(d));
+    main.append(sec);
+    const a = el("a",{href:"#g-"+g.id}, el("span",{text:g.title}), el("span",{class:"n","data-g":g.id}));
+    toc.append(a);
+  }
+  if (OUTSIDE.length){
+    const out = el("section",{class:"group",id:"g-outside"});
+    out.append(el("div",{class:"group-h"}, el("h2",{text:"不在这张单上的"}), el("span",{class:"owner",text:"供对照"})));
+    for (const [title, lines] of OUTSIDE){
+      const det = el("details",{class:"outside"}, el("summary",{text:title}));
+      const ul = el("ul"); for (const l of lines) ul.append(el("li",{text:l}));
+      det.append(ul); out.append(det); out.append(el("div",{style:"height:8px"}));
+    }
+    main.append(out);
+  }
+  const res = el("section",{class:"group",id:"g-result"});
+  res.append(el("div",{class:"group-h"}, el("h2",{text:"结果"}), el("span",{class:"owner",text:"自动生成"})));
+  const box = el("div",{class:"result"});
+  box.append(el("p",{class:"hint",id:"resultHint",text:"选完点「我选好了」：没有共享存储时会自动下载结果文件，把它放到这个页面所在的目录；也可以复制下面的文字贴回去。"}));
+  box.append(el("pre",{id:"resultText"}));
+  const row = el("div",{class:"row"});
+  const copy = el("button",{class:"btn",type:"button",id:"copyBtn",text:"复制结果文字"});
+  const dl = el("button",{class:"btn",type:"button",id:"dlBtn",text:"下载结果文件"});
+  const done = el("button",{class:"btn primary",type:"button",id:"doneBtn",text:"我选好了"});
+  row.append(copy, dl, done, el("span",{class:"hint",id:"doneHint"}));
+  box.append(row); res.append(box); main.append(res);
+  copy.addEventListener("click", copyResult);
+  dl.addEventListener("click", downloadResult);
+  done.addEventListener("click", () => { state.done = true; queueSave(); refresh(); if (!docRef) downloadResult(); });
+  toc.append(el("a",{href:"#g-result"}, el("span",{text:"结果"}), el("span",{class:"n"})));
+  refresh();
+}
+
+function renderDecision(d){
+  const box = el("article",{class:"dec",id:"d-"+d.id});
+  const head = el("div",{class:"dec-h"}, el("span",{class:"tag",text:d.id}));
+  const hw = el("div"); hw.append(el("h3",{text:d.title}));
+  const refs = el("div",{class:"refs"}); for (const r of (d.refs || [])) refs.append(el("code",{text:r}));
+  hw.append(refs); head.append(hw); box.append(head);
+  box.append(el("p",{class:"ctx",text:d.ctx}));
+  if (d.quotes && d.quotes.length){
+    const qs = el("div",{class:"quotes"});
+    for (const [src, text] of d.quotes) qs.append(el("blockquote",{class:"quote"}, el("cite",{text:src}), el("span",{text})));
+    box.append(qs);
+  }
+  if (d.facts && d.facts.length){
+    box.append(el("p",{class:"facts-h",text:"代码现在怎么做"}));
+    const ul = el("ul",{class:"facts"}); for (const f of d.facts) ul.append(el("li",{text:f}));
+    box.append(ul);
+  }
+  if (d.consequence) box.append(el("p",{class:"conseq"}, el("b",{text:"牵连　"}), document.createTextNode(d.consequence)));
+  const fs = el("fieldset",{class:"opts"}, el("legend",{class:"hint",style:"position:absolute;left:-9999px",text:d.title}));
+  for (const [key,label,detail,rec] of d.opts){
+    const id = `o-${d.id}-${key}`;
+    const input = el("input",{type:"radio",name:"r-"+d.id,id,value:key});
+    if (state.choices[d.id] === key) input.checked = true;
+    input.addEventListener("change", () => { state.choices[d.id] = key; state.done = false; queueSave(); refresh(); });
+    const b = el("b",{text:`${key}　${label}`}); if (rec) b.append(el("span",{class:"rec",text:"倾向"}));
+    const span = el("span",{}, b); if (detail) span.append(el("small",{text:detail}));
+    fs.append(el("label",{class:"opt",for:id}, input, span));
+  }
+  box.append(fs);
+  const hasNote = !!(state.notes[d.id] || "").trim();
+  const tbtn = el("button",{class:"note-toggle",type:"button","aria-expanded":String(hasNote),text: hasNote ? "备注" : "＋ 加备注"});
+  const ta = el("textarea",{id:"n-"+d.id,placeholder:"补充说明，比如改哪条、改成什么；也可以在这里推翻选项本身"});
+  ta.value = state.notes[d.id] || ""; ta.hidden = !hasNote;
+  tbtn.addEventListener("click", () => { ta.hidden = !ta.hidden; tbtn.setAttribute("aria-expanded", String(!ta.hidden)); if (!ta.hidden) ta.focus(); });
+  ta.addEventListener("input", () => { state.notes[d.id] = ta.value; state.done = false; queueSave(); refreshResult(); });
+  box.append(tbtn, ta);
+  return box;
+}
+
+function refresh(){
+  const n = ALL.filter(d => state.choices[d.id]).length;
+  $("#count").textContent = `已选 ${n} / ${ALL.length}`;
+  $("#meter").style.width = (ALL.length ? 100*n/ALL.length : 0) + "%";
+  for (const d of ALL){
+    const box = document.getElementById("d-"+d.id);
+    if (box) box.classList.toggle("done", !!state.choices[d.id]);
+  }
+  for (const g of GROUPS){
+    const c = g.items.filter(d => state.choices[d.id]).length;
+    const n2 = document.querySelector(`.toc .n[data-g="${g.id}"]`);
+    if (n2){ n2.textContent = `${c}/${g.items.length}`; n2.classList.toggle("full", c === g.items.length); }
+  }
+  const dh = $("#doneHint");
+  if (dh && !state.done) dh.textContent = n < ALL.length ? `还有 ${ALL.length - n} 个没选。` : "都选了。";
+  refreshResult();
+}
+
+/* 结果文字的格式被 scripts/read_rulings.py --text 解析：改格式两边一起改。 */
+function resultText(){
+  const lines = [];
+  for (const g of GROUPS){
+    lines.push(`【${g.title}】`);
+    for (const d of g.items){
+      const k = state.choices[d.id];
+      const o = d.opts.find(x => x[0] === k);
+      lines.push(`${d.id} ${d.title}：${o ? `${k}（${o[1]}）` : "（未选）"}`);
+      const note = (state.notes[d.id] || "").trim().replace(/\s*\n+\s*/g, " / ");
+      if (note) lines.push(`    备注：${note}`);
+    }
+  }
+  return lines.join("\n");
+}
+function refreshResult(){ const p = $("#resultText"); if (p) p.textContent = resultText(); }
+async function copyResult(){
+  const t = resultText();
+  try { await navigator.clipboard.writeText(t); $("#doneHint").textContent = "已复制。"; }
+  catch { const r = document.createRange(); r.selectNodeContents($("#resultText")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); $("#doneHint").textContent = "浏览器不让直接复制，已帮你选中，按 Ctrl+C。"; }
+}
+function resultFileName(){ return `裁决结果-${PAGE.date || "undated"}.json`; }
+function downloadResult(){
+  const body = {...snapshotBody(), date: PAGE.date, title: PAGE.title};
+  const blob = new Blob([JSON.stringify(body, null, 2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = resultFileName();
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  $("#doneHint").textContent = `已下载 ${resultFileName()}，把它放到这个页面所在的目录，然后回终端说一声。`;
+}
+
+function setSave(text, cls){ const s = $("#save"); s.textContent = text; s.className = "save" + (cls ? " "+cls : ""); }
+function snapshotBody(){ return {choices:state.choices, notes:state.notes, done:state.done, updatedAt:new Date().toISOString()}; }
+function saveLocal(){ try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch {} }
+
+function queueSave(){
+  saveLocal();
+  if (!docRef){ setSave("选择存在这个浏览器里"); return; }
+  dirty = true; setSave("保存中…");
+  clearTimeout(timer); timer = setTimeout(flush, 700);
+}
+async function flush(){
+  if (saving || !dirty) return;
+  saving = true; dirty = false;
+  const body = snapshotBody();
+  try { await docRef.set(body); lastRemote = JSON.stringify({c:body.choices,n:body.notes,d:body.done}); setSave("已保存到共享存储，agent 读得到","ok"); }
+  catch (e) {
+    if (e && e.code === "unavailable"){ dirty = true; setTimeout(flush, 800 + Math.random()*800); }
+    else setSave("保存失败：" + (e && e.code || "未知错误") + "，选择仍在本浏览器里","warn");
+  }
+  saving = false;
+  if (dirty) setTimeout(flush, 50);
+}
+
+function applyRemote(data){
+  if (!data) return;
+  const key = JSON.stringify({c:data.choices||{},n:data.notes||{},d:!!data.done});
+  if (key === lastRemote || dirty || saving) return;
+  lastRemote = key;
+  state.choices = {...(data.choices||{})}; state.notes = {...(data.notes||{})}; state.done = !!data.done;
+  render();
+}
+
+function start(){
+  try { const raw = localStorage.getItem(LS_KEY); if (raw){ const s = JSON.parse(raw); state.choices = s.choices||{}; state.notes = s.notes||{}; state.done = !!s.done; } } catch {}
+  render();
+  $("#fillRec").addEventListener("click", () => {
+    let n = 0;
+    for (const d of ALL){ if (!state.choices[d.id]){ const r = d.opts.find(o => o[3]); if (r){ state.choices[d.id] = r[0]; n++; } } }
+    state.done = false; render(); if (n) queueSave();
+  });
+  $("#onlyOpen").addEventListener("click", e => {
+    const on = e.currentTarget.getAttribute("aria-pressed") !== "true";
+    e.currentTarget.setAttribute("aria-pressed", String(on));
+    $("#main").classList.toggle("hide-done", on);
+  });
+  /* 共享存储只在 Claude Code 发布成 Artifact 时才有（window.claude）；本地打开走不到这里，一切照常。 */
+  if (!(window.claude && window.claude.use)) return;
+  window.claude.use("db").then(async d => {
+    db = d;
+    if (!db) return;
+    docRef = db.doc(DOC_PATH);
+    try {
+      const snap = await docRef.get();
+      if (snap.exists){ applyRemote(snap.data()); setSave("已载入共享存储里的选择","ok"); }
+      else if (Object.keys(state.choices).length){ dirty = true; flush(); }
+      else setSave("还没选，选了会自动保存到共享存储");
+    } catch (e) { setSave("共享存储读取失败：" + (e && e.code || "未知错误") + "，选择仍在本浏览器里","warn"); }
+    docRef.onSnapshot(s => { if (s.exists) applyRemote(s.data()); }, () => {});
+  }).catch(() => setSave("共享存储没连上，选择仍在本浏览器里","warn"));
+}
+start();
+</script>

@@ -47,10 +47,10 @@
 | `interaction` | 玩家输入与反馈：输入映射、局部交互状态、反馈时序 |
 | `game-designer` | 边界明确的独立设计任务（单视角评审、整合、按已采纳决定改写文档） |
 
-**15 个 skill**
+**16 个 skill**
 
 - **共享定义** — `layer-contracts`（两条轴、A 层交付门槛、执行模型要求、四问自检）
-- **设计流程** — `design-discuss`（主对话里讨论与收录）、`design-iterate`（多视角并行评审 + 用户裁决）、`doc-consistency-check`（跨文档矛盾检查）、`split-doc-layers`（把混写的文档按职责拆开）
+- **设计流程** — `design-discuss`（主对话里讨论与收录）、`design-iterate`（多视角并行评审 + 用户裁决）、`doc-consistency-check`（跨文档矛盾检查）、`collect-rulings`（待裁条目多时出一张裁决单页面让用户拍，结果以文件回到评审目录；有 Artifact 工具就发布，没有就本地 HTML）、`split-doc-layers`（把混写的文档按职责拆开）
 - **知识/理论** — `game-design-theory`（Rouse / Sylvester / Schell / Meadows 四本书，29 份参考）、`game-ui-design`（引擎无关的游戏 UI 原则）、`book-to-reference`（把书导入成参考文件）
 - **文档发布** — `doc-summary-layer`（仓库详稿是真值，阅读平台每页只放规则版摘要；三条数据流、草稿迁入、检查与构建脚本，平台适配在项目侧）
 - **文档 ↔ 代码** — `sync-code-ahead`（代码改了、文档没跟）、`sync-docs-ahead`（文档写了、代码没实现）
