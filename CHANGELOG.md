@@ -3,6 +3,40 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 4.7.0 (2026-09-22)
+
+给用插件的人一条反馈通道，顺手修掉它第一次跑出来的两处问题。
+
+### FEEDBACK.md：让使用者的 agent 写使用报告
+
+插件分发出去了，用的人不都在 Claude Code 上（有人用 codex）。问「感受」问不出东西，
+能问出来的是证据：读了哪些文件、哪条指令执行不了、哪个脚本报了什么错、哪里靠猜。
+`FEEDBACK.md` 就是这份操作规程：用完插件的同一个会话里让 agent 读它照做，出一份八节的
+报告（环境、做了什么、触发对错、执行不了的指令、脚本与工具、读了没照做、靠猜的地方、
+指引矛盾、最想改的一件事），每条标 `[观察]`／`[推测]`，观察必须带路径或原文。
+报告由用户贴 issue，发 issue 不是 agent 的事 —— 第一版没写这句，codex 真的跑去 `gh auth` 了。
+
+用 codex 0.154 在一个真实 UE 工程上跑了两个会话验证（校验 asset-config；三份文档一致性检查）：
+第一轮 codex 靠 description 自己挑中对应 skill，第二轮报告八节齐全、引用可核。
+下面两处修正就是这两份报告找出来的。
+
+### 目标文件不存在被当成配置损坏
+
+`project_env.py check` 遇到 `doc_feedback` 里声明的账本路径不存在，把它塞进 `issues`，
+status 变 `invalid`、退出码 1，`next` 写「配置损坏或字段类型不对，先让用户修」。
+而 doc-consistency-check 和 sync-docs-ahead 的口径都是「已配置但不存在则报告该目标不可用」、
+「不能为了找回填目标而阻断检查」。codex 照后者继续了，但那是它自己判断脚本在夸大。
+
+现在不存在的目标单独列在 `unavailable`，`status` 和退出码不受影响，`next` 补一句
+「报告该目标不可用，不路由、不猜路径」。类型错、绝对路径仍进 `issues`。`write` 也不再因为
+账本还没建就拒绝写声明（先声明再建账本是正常顺序），只在 stderr 提一句。
+
+### check_config.py 一条注释和指引说反了
+
+指引写「后端丢掉会改变结果含义的字段算错，不是提示」，代码也是这么做的；但 `check_config.py`
+里那段注释写「生成时是告警，这里也只提示」。行为没错，注释会让维护者以为降级只是提示。
+改成说清 `plan.warnings` 只装 seed 那类和 `--allow-degrade` 放行的两种。
+
 ## 4.6.1 (2026-09-21)
 
 清掉三笔小债。两笔来自上一次冷启动评测，一笔来自更早的外部评审。
