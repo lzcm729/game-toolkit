@@ -2,16 +2,15 @@
 name: game-design-theory
 description: >
   Game design consulting based on four foundational books:
-  (1) Richard Rouse III's "Game Design: Theory & Practice" - player psychology, gameplay systems, non-linear design, playtesting
-  (2) Tynan Sylvester's "Designing Games: A Guide to Engineering Experiences" - elegance, emergence, skill depth, decisions, motivation, iteration
-  (3) Jesse Schell's "The Art of Game Design: A Book of Lenses" - 113+ design lenses, interest curves, experience design, game mechanics, prototyping
-  (4) Donella H. Meadows' "Thinking in Systems: A Primer" - stocks & flows, feedback loops, system traps & leverage points (foundational systems thinking — not originally a game design book, bridged here to game systems)
-  Use when helping with game design decisions, player psychology, gameplay systems,
-  storytelling, playtesting, evaluating fun, balancing depth and accessibility,
-  designing reinforcement schedules, pacing and interest curves, character design,
-  iterative prototyping, analyzing decision-making in games, diagnosing system
-  problems (economy inflation, balance escalation, player retention spirals), or
-  choosing what to change for maximum leverage in a game system.
+  (1) Rouse's "Game Design: Theory & Practice" - player psychology, gameplay systems, non-linear design, playtesting
+  (2) Sylvester's "Designing Games" - elegance, emergence, skill depth, decisions, motivation, iteration
+  (3) Schell's "The Art of Game Design: A Book of Lenses" - 113+ design lenses, interest curves, experience design, game mechanics, prototyping
+  (4) Meadows' "Thinking in Systems" - stocks & flows, feedback loops, system traps & leverage points (bridged to game systems)
+  Use when helping with game design decisions, storytelling, evaluating fun,
+  balancing depth and accessibility, designing reinforcement schedules, pacing,
+  character design, analyzing decision-making in games, diagnosing system
+  problems (economy inflation, balance escalation, player retention spirals),
+  or choosing what to change for maximum leverage in a game system.
   NOT for coding or programming - focused on design philosophy and player experience.
 ---
 

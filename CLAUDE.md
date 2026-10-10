@@ -21,8 +21,10 @@ Claude Code 插件源码仓库。当前版本 v4.11.0，游戏设计与实现契
 
 ```
 1. 在此目录修改 agents/ skills/（3.0.0 起没有 commands/）
-   改完跑测试（仓库没有 pytest 配置，路径要写全）：
-     pytest skills/generate-assets/tests skills/asset-config/tests scripts/tests evals
+   改完跑测试：在仓库根直接 `pytest`，范围在 pytest.ini 的 testpaths（skills、scripts、evals），
+   新 skill 带 tests/ 自动算进去。4.12.0 之前这里手写目录清单，五个 skill 的 375 条测试一直没在跑。
+   scripts/tests/test_skill_files.py 管 SKILL.md 本身：name 与目录同名、description 不超 1024 字符、
+   引用的 references/、scripts/、examples/ 文件都在。
    **改了 asset-config 的 SKILL.md、check_config.py 或 generate-assets 的
    examples/README.md**，发版前再跑一次冷启动评测：
      python evals/asset-config-cold-start/run_eval.py
