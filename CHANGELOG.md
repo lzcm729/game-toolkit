@@ -3,6 +3,16 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 4.12.1 (2026-10-10)
+
+公开仓库里清掉作者自己项目留下的锚点。只改文字、示例和测试夹具，行为不变。
+
+- doc-summary-layer：实战数据和飞书适配参考里的项目名换成「一个 UE 多人项目」；示例的目录布局、命令和清单换成
+  `docs/design`、「系统分册/战斗」这类通用路径。清单示例里原样留着的两个真实飞书 `node_token` 和内容哈希换成占位值。
+- generate-assets：CSV 数据源的示例和测试夹具原本取自一张真实的鱼表（鱼名和表头都是原样），换成通用的「敌人表」；
+  代码注释里提到的项目脚本名一并去掉。
+- asset-config、split-doc-layers：示例里的项目路径和集合名换成通用写法；PLANNED.md 里的一句同样处理。
+
 ## 4.12.0 (2026-10-10)
 
 两处「靠自觉」改成脚本查，做法取自 answer-me-with-html：agent 只写内容，排版和检查交给程序，查不过的地方报出位置和改法。
