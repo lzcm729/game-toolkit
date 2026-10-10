@@ -3,6 +3,16 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 4.13.0 (2026-10-10)
+
+doc-summary-layer：`build_summary_pages.py` 的 `--ssot-root` 改为必填，不给就报错。
+
+原来的默认值 `Knowledge/Design` 是作者项目的目录名。SKILL.md 给的命令没带这个参数，别的项目照着跑，
+每页横幅里「以仓库某某为准」的路径都会静默指错。现在缺了就报错，SKILL.md 的命令补上了这个参数。
+这是行为变化，所以升次版本号；查过作者手里的项目，没有调用方依赖这个默认值，就没有像 PLANNED.md 里那三件一样先告警一个大版本。
+
+维护者文档（CLAUDE.md）写明：公开内容不留作者项目的锚点，唯一例外是奶茶塔防那套命名示例，有意保留为完整样例项目。
+
 ## 4.12.1 (2026-10-10)
 
 公开仓库里清掉作者自己项目留下的锚点。只改文字、示例和测试夹具，行为不变。
