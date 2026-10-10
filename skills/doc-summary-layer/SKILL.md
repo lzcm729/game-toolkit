@@ -138,7 +138,7 @@ description: |
     ↓
 python scripts/check_summaries.py --summaries <摘要目录> --manifest <清单> --dead-words <词表>
     ↓
-python scripts/build_summary_pages.py --summaries <摘要目录> --out <输出目录> --manifest <清单> --rev <仓库版本> [--profile <平台>]
+python scripts/build_summary_pages.py --summaries <摘要目录> --out <输出目录> --manifest <清单> --rev <仓库版本> --ssot-root <详稿目录> [--profile <平台>]
     ↓
 项目侧适配器把输出目录里的页发到平台（整页替换正文，保留原生对象）
     ↓

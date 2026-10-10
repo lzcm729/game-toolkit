@@ -116,3 +116,18 @@ def test_build_plain_profile_keeps_markdown(tmp_path: Path):
     assert page.startswith("> **规则版摘要**（2026-09-15，据仓库 v1.2）")
     assert "**一层**限时增益" in page
     assert "node_token" not in index[0]
+
+
+def test_ssot_root_has_no_default(tmp_path: Path, capsys):
+    """横幅里的真值路径前缀猜错了每页都指错地方，所以 --ssot-root 不给就报错，给了才构建。"""
+    summaries = tmp_path / "s"
+    write(summaries / "a.md", GOOD)
+    base = ["--summaries", str(summaries), "--out", str(tmp_path / "out"), "--rev", "v1"]
+    try:
+        bp.main(base)
+        raise AssertionError("缺 --ssot-root 应该报错")
+    except SystemExit as exc:
+        assert exc.code == 2
+    assert "--ssot-root" in capsys.readouterr().err
+    assert bp.main(base + ["--ssot-root", "docs/design"]) == 0
+    assert "`docs/design/a.md`" in io.open(tmp_path / "out" / "a.md", encoding="utf-8").read()

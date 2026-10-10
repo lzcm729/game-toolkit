@@ -2,9 +2,12 @@
 # -*- coding: utf-8 -*-
 """把摘要构建成可发布的页面：加横幅、按平台 profile 修正标记、写到输出目录并生成索引。
 
-    python build_summary_pages.py --summaries <摘要目录> --out <输出目录> --rev <仓库版本>
-                                  [--manifest <清单.json>] [--ssot-root Knowledge/Design]
-                                  [--profile plain|feishu] [--date YYYY-MM-DD] [--banner-template <文件>]
+    python build_summary_pages.py --summaries <摘要目录> --out <输出目录> --rev <仓库版本> --ssot-root <详稿目录>
+                                  [--manifest <清单.json>] [--profile plain|feishu] [--date YYYY-MM-DD]
+                                  [--banner-template <文件>]
+
+--ssot-root 必填：横幅里「以仓库某某为准」的路径前缀，写详稿目录相对仓库根的路径（如 docs/design）。
+不给默认值，是因为猜错了每页横幅都会静默指错地方。
 
 输出目录里每份页面与摘要同名同路径；另写 index.json（file / out / node_token / rev / date），
 项目侧适配器按它逐页发布。构建不碰平台，也不改摘要原文。
@@ -97,7 +100,7 @@ def main(argv=None) -> int:
     ap.add_argument("--out", required=True)
     ap.add_argument("--rev", required=True, help="仓库版本：短 hash 或版本号")
     ap.add_argument("--manifest", help="清单 JSON；给了就只构建清单里的文档并带上页身份")
-    ap.add_argument("--ssot-root", default="Knowledge/Design", help="横幅里真值路径的前缀")
+    ap.add_argument("--ssot-root", required=True, help="横幅里真值路径的前缀：详稿目录相对仓库根的路径，如 docs/design")
     ap.add_argument("--profile", default="plain", choices=sorted(PROFILES))
     ap.add_argument("--date", default=dt.date.today().isoformat())
     ap.add_argument("--banner-template", help="横幅模板文件，占位 {date} {rev} {ssot_root} {file}")

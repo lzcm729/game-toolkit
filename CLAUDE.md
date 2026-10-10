@@ -122,6 +122,8 @@ evals/                          # 手动跑的评测（调外部 AI，不进普�
 - **skill** 目录：一个 `SKILL.md` 作为入口（frontmatter 同 agent），可挂脚本/模板/参考资料到同级文件
 - **slash command**：本插件 3.0.0 起不再提供。若将来再加，`description` 必填——缺了它命令不进列表，Claude 不会主动挑到
 - 需要脚手架或规范时直接调用官方 `plugin-dev` 插件的 skill（`plugin-dev:agent-development` / `skill-development` / `command-development`）
+- 仓库是公开的：正文、示例、测试里不写作者自己项目的名字、目录路径、平台 token、真实数据（4.12.1 清过一轮）。
+  唯一的例外是奶茶塔防那套命名示例（`milk-tea-defense.yaml` 及引用它的测试与说明），它是有意保留的完整样例项目（2026-10-10 定）
 
 ## 协作注意事项
 
