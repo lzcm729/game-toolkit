@@ -76,8 +76,8 @@ description: |
 # 来源：用户选定（候选 image-gen / laozhang；本项目没装 image-gen）
 backend: laozhang
 
-      # 来源：沿用 Knowledge/Schema/鱼表格.yaml 的 identity_column 声明
-      id_column: fish_id
+      # 来源：沿用 docs/schema/敌人表.yaml 的 identity_column 声明
+      id_column: enemy_id
 ```
 
 `check` 会强制这一条 —— 缺了就指出是第几行的哪个字段。

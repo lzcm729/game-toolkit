@@ -180,6 +180,6 @@ python scripts/build_summary_pages.py --summaries <摘要目录> --out <输出�
 
 - `scripts/check_summaries.py` — 结构、超长、死概念、与清单一一对应
 - `scripts/build_summary_pages.py` — 横幅 ＋ 平台 profile 标记修正 ＋ 输出索引
-- `examples/README.md` — 目录布局、清单示例、CatFishing 2026-09 的实战数据
+- `examples/README.md` — 目录布局、清单示例、一个 UE 多人项目 2026-09 的实战数据
 - `examples/summary-sample.md` — 一份合格摘要的样子（虚构系统）
 - `references/feishu-adapter.md` — 飞书适配：lark-cli 做法与踩过的坑

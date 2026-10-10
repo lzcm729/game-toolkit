@@ -145,11 +145,11 @@ field_groups:
 虽然存在却不驱动现行机制。数值恰好相等不意味着来源可互换。详见真实样板；
 当前项目仍直接使用既有资源/脚本，本交付没有把 YAML 变成生产发布输入。
 
-Catfishing 示例（用户给定“飞书拥有平衡字段、UE 拥有绑定字段”的情景；未读取或验证项目/飞书，
+一个 UE 项目的示例（用户给定“飞书拥有平衡字段、UE 拥有绑定字段”的情景；未读取或验证项目/飞书，
 下面修订号与选择器是占位声明，实际启用前必须绑定真实不可变快照，不声称已配置）：
 
 ~~~yaml
-collection: catfishing.content
+collection: ue-game.content
 field_groups:
   - id: balance
     fields: 项目声明的平衡字段 ID 集合

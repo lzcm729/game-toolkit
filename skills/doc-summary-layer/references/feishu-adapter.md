@@ -1,7 +1,7 @@
-# 飞书适配：lark-cli 做法与踩过的坑（2026-09-15，CatFishing）
+# 飞书适配：lark-cli 做法与踩过的坑（2026-09-15，一个 UE 多人项目）
 
 本文是适配器的**参考实现说明**，不是通用规范。换平台时只保留「适配器契约」（见 SKILL.md），这里的坑重新试一遍。
-项目侧实现：CatFishing 工程仓库 `Scripts/push_feishu_summary.py`（读清单 → 加横幅 → 整页覆盖或保留内嵌表）。
+项目侧实现：放在项目仓库自己的推送脚本里（examples/README.md 里叫 `scripts/push_summary.py`；读清单 → 加横幅 → 整页覆盖或保留内嵌表）。
 
 ## 做法
 

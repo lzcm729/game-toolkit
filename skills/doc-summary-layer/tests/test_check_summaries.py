@@ -95,12 +95,12 @@ def test_build_adds_banner_and_applies_profile(tmp_path: Path):
     write(summaries / "GDD" / "篝火.md", "---\nssot: true\n---\n<title>篝火</title>\n" + GOOD.replace("一层限时增益", "**一层**限时增益"))
     out = tmp_path / "out"
     manifest = {"docs": [{"file": "GDD/篝火.md", "node_token": "tok1"}]}
-    index = bp.build(summaries, out, rev="abc1234", ssot_root="Knowledge/Design/", profile="feishu",
+    index = bp.build(summaries, out, rev="abc1234", ssot_root="docs/design/", profile="feishu",
                      date="2026-09-15", manifest=manifest, banner_template=bp.DEFAULT_BANNER)
     assert index[0]["node_token"] == "tok1"
     page = io.open(out / "GDD" / "篝火.md", encoding="utf-8").read()
     assert page.startswith("> <b>规则版摘要</b>（2026-09-15，据仓库 abc1234）")
-    assert "`Knowledge/Design/GDD/篝火.md`" in page
+    assert "`docs/design/GDD/篝火.md`" in page
     assert "ssot: true" not in page and "<title>" not in page
     assert "<b>一层</b>限时增益" in page and "**" not in page
     idx = json.loads(io.open(out / "index.json", encoding="utf-8").read())

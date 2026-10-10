@@ -427,7 +427,7 @@ categories:
     data_source:
       type: csv
       path: f.csv
-      # 来源：沿用 Knowledge/Schema/xxx.yaml 的 identity_column
+      # 来源：沿用 docs/schema/xxx.yaml 的 identity_column
       id_column: fid
     prompt_template: "{v}"
 """)

@@ -115,12 +115,12 @@ config 移动而改变相对路径基准，config 不在工程根时建议显式
 **`/Game/` 不能用**，这不是「暂未支持」而是它本来就不该用在这里：
 
 ```
-ArtSource/Fish/F_River.png          ← 本流水线产出的（导入前的源图片）
+ArtSource/Enemy/E_Slime.png          ← 本流水线产出的（导入前的源图片）
         ↓  UE 的 AssetImportTask
-Content/Fish/F_River.uasset         ← /Game/Fish/F_River 指的是这个
+Content/Enemy/E_Slime.uasset         ← /Game/Enemy/E_Slime 指的是这个
 ```
 
-`output_root` 要写相对工程根的普通路径（如 `ArtSource/Fish`）。把源图片写进
+`output_root` 要写相对工程根的普通路径（如 `ArtSource/Enemy`）。把源图片写进
 `Content/`，引擎既不认识裸 PNG，那个目录也会被搞乱。
 
 探测到 `*.uproject` 就会提示一句需要走 UE 导入 —— 它**陈述的是生成与导入的边界，
@@ -264,10 +264,10 @@ key 当 id，与 json_dict 同语义。
 ```yaml
 data_source:
   type: csv
-  path: "Knowledge/Design/鱼表格/第一版.csv"   # 相对 project_root
-  id_column: fish_id                          # 必填：哪一列当 id
+  path: "docs/design/敌人表/第一版.csv"       # 相对 project_root
+  id_column: enemy_id                         # 必填：哪一列当 id
   columns:                                    # 可选：列名 → 字段名
-    图鉴描述: description
+    简介: description
     名字: name
   encoding: utf-8-sig                         # 可选，缺省 utf-8-sig
 ```
@@ -276,8 +276,8 @@ data_source:
 
 | 表头里的实际列名 | 配置里写 |
 |---|---|
-| `fish_id（资产文件名，如 Fish_RiverPattern；…）` | `fish_id` |
-| `力量系数K（KG*K=力量）` | `力量系数K` |
+| `enemy_id（资产文件名，如 Enemy_Slime；…）` | `enemy_id` |
+| `攻击系数K（等级*K=攻击力）` | `攻击系数K` |
 | `名字` | `名字` |
 
 前缀匹配到多列会报错并列出候选，不会替你猜。表里同时有 `名字` 和 `名字（旧）` 时，

@@ -1247,11 +1247,11 @@ def test_backend_cwd_is_project_root_not_config_dir(tmp_project, mock_subprocess
 def test_csv_data_source_end_to_end(tmp_project, mock_subprocess_run):
     """CSV → filter → 别名 → prompt → batch，全程不手写中间产物。"""
     calls, _ = mock_subprocess_run
-    csv_path = tmp_project / "fish.csv"
+    csv_path = tmp_project / "enemy.csv"
     csv_path.write_text(
-        '"fish_id（资产文件名）",名字,稀有度\n'
-        "F_River,河纹鱼,普通\n"
-        "F_Silver,小银鱼,稀有\n",
+        '"enemy_id（资产文件名）",名字,稀有度\n'
+        "E_Slime,史莱姆,普通\n"
+        "E_Bat,蝙蝠,稀有\n",
         encoding="utf-8",
     )
     cfg = tmp_project / "asset-config.yaml"
@@ -1260,13 +1260,13 @@ def test_csv_data_source_end_to_end(tmp_project, mock_subprocess_run):
         "aspect_ratio": "1:1",
         "data_source": {
             "type": "csv",
-            "path": "fish.csv",
-            "id_column": "fish_id",
+            "path": "enemy.csv",
+            "id_column": "enemy_id",
             "columns": {"名字": "name"},
             "filter": {"稀有度": "稀有"},
         },
         "derived_fields": {"upper_name": "upper(name)"},
-        "prompt_template": "A fish named {name} / {upper_name}, rarity {稀有度}.",
+        "prompt_template": "An enemy named {name} / {upper_name}, rarity {稀有度}.",
     }
     _write_yaml(cfg, conf)
 
@@ -1274,13 +1274,13 @@ def test_csv_data_source_end_to_end(tmp_project, mock_subprocess_run):
     batch = json.loads(Path(calls[0]["cmd"][2]).read_text(encoding="utf-8"))
     assert len(batch["assets"]) == 1                      # filter 生效
     asset = batch["assets"][0]
-    assert asset["name"] == "F_Silver"                    # id 来自前缀匹配的列
-    assert asset["filename"] == "F_Silver.png"
-    assert "小银鱼" in asset["prompt"]                     # 别名进了模板
+    assert asset["name"] == "E_Bat"                    # id 来自前缀匹配的列
+    assert asset["filename"] == "E_Bat.png"
+    assert "蝙蝠" in asset["prompt"]                     # 别名进了模板
     assert "稀有" in asset["prompt"]                       # 原始列名也能用
     # derived_fields 的 DSL 只认 ASCII 字段名，中文列必须先经 columns 映射
     # 才能喂给它 —— 这正是 CSV 场景最容易踩的组合，必须覆盖
-    assert "小银鱼" in asset["prompt"]
+    assert "蝙蝠" in asset["prompt"]
 
 
 def test_backend_output_is_streamed_not_buffered(tmp_project, monkeypatch, capsys):

@@ -14,7 +14,7 @@ import engine_adapter
 
 def _uproject(d: Path) -> Path:
     d.mkdir(parents=True, exist_ok=True)
-    (d / "Catfishing.uproject").write_text("{}", encoding="utf-8")
+    (d / "Game.uproject").write_text("{}", encoding="utf-8")
     return d
 
 
@@ -80,8 +80,8 @@ def test_godot_resolves_res_prefix(tmp_path):
 
 
 def test_filesystem_accepts_plain_relative_path(tmp_path):
-    assert engine_adapter.FILESYSTEM.resolve_path("ArtSource/Fish", tmp_path) == \
-        (tmp_path / "ArtSource" / "Fish").resolve()
+    assert engine_adapter.FILESYSTEM.resolve_path("ArtSource/Enemy", tmp_path) == \
+        (tmp_path / "ArtSource" / "Enemy").resolve()
 
 
 def test_filesystem_accepts_absolute_path(tmp_path):
