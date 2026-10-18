@@ -36,13 +36,13 @@ def test_table_marks_recommended_and_notes(tmp_path, capsys):
     assert "| E1 |" in out and "| 是 |" in out          # E1 选的是倾向
     assert "| E2 |" in out and "| 否 |" in out          # E2 选的不是倾向
     assert "18 格 / 理由：先试试" in out               # 备注压成一行
-    assert "未选：F1" in out                            # 没选的列出来
+    assert "未选：F2, F1" in out                        # 没选的按单上顺序列出来
     assert "我理解为" in out and "我读成" in out         # 提醒要复述的两类
 
 
 def test_all_recommended_still_demands_table(tmp_path, capsys):
     page = _page(tmp_path)
-    res = _result(tmp_path, {"E1": "A", "E2": "A", "F1": "A"})
+    res = _result(tmp_path, {"E1": "A", "E2": "A", "F1": "A", "F2": "A"})
     assert rr.main([str(page), str(res)]) == 0
     assert "这不是跳过复述的理由" in capsys.readouterr().out
 
@@ -74,5 +74,40 @@ def test_pasted_text_fallback(tmp_path, capsys):
                     "    备注：18 格\n【战斗】\nF1 倒地后能不能被队友拉起：（未选）\n", encoding="utf-8")
     assert rr.main([str(page), "--text", str(text)]) == 0
     out = capsys.readouterr().out
-    assert "| E1 |" in out and "| E2 |" in out and "18 格" in out and "未选：F1" in out
+    assert "| E1 |" in out and "| E2 |" in out and "18 格" in out and "未选：F2, F1" in out
     assert "未知（贴回的文字）" in out
+
+
+def test_confirmation_is_not_counted_as_non_recommended(tmp_path, capsys):
+    """确认题没有倾向：倾向列写「不适用」，不进「非倾向项」，单独提醒它不入账。"""
+    page = _page(tmp_path)
+    res = _result(tmp_path, {"E1": "A", "E2": "A", "F1": "A", "F2": "A"})
+    assert rr.main([str(page), str(res)]) == 0
+    out = capsys.readouterr().out
+    assert "| F2 |" in out and "| 不适用 |" in out
+    assert "非倾向项" not in out
+    assert "确认题：F2" in out
+
+
+def test_required_note_missing_is_pending(tmp_path, capsys):
+    page = _page(tmp_path)
+    res = _result(tmp_path, {"E1": "A", "E2": "A", "F1": "A", "F2": "B"})
+    assert rr.main([str(page), str(res)]) == 0
+    out = capsys.readouterr().out
+    assert "待补充：F2" in out
+    res = _result(tmp_path, {"E1": "A", "E2": "A", "F1": "A", "F2": "B"}, {"F2": "任务系统"})
+    assert rr.main([str(page), str(res)]) == 0
+    assert "待补充" not in capsys.readouterr().out
+
+
+def test_confirmation_only_sheet_does_not_claim_rulings(tmp_path, capsys):
+    """单上只有确认题时，不能总结成「裁决题全部选了倾向」。"""
+    data = json.loads(EXAMPLE.read_text(encoding="utf-8"))
+    combat = next(g for g in data["groups"] if g["id"] == "combat")
+    data["groups"] = [{"id": "combat", "title": "战斗", "items": combat["items"][:1]}]
+    page = tmp_path / "裁决单.json"
+    page.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    res = _result(tmp_path, {"F2": "A"})
+    assert rr.main([str(page), str(res)]) == 0
+    out = capsys.readouterr().out
+    assert "确认题：F2" in out and "裁决题全部选了倾向" not in out

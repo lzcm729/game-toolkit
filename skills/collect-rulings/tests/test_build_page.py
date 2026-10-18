@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 """build_page.py：裁决单.json 校验与注入。
 
-规则来自 SKILL.md「写题」一节：每题恰好一个倾向、选项 2～3 个、id 全局唯一、
+规则来自 SKILL.md「写题」一节：裁决题恰好一个倾向、确认题不设倾向、选项 2～3 个、id 全局唯一、
 不在单上的组不空也不重名；这些靠脚本拦，比靠 agent 自觉稳。引文核对见后半部分。
 """
 from __future__ import annotations
@@ -368,3 +368,62 @@ def test_script_tag_in_text_cannot_break_page(tmp_path):
     assert bp.main([str(src)]) == 0
     html = (tmp_path / "裁决单.html").read_text(encoding="utf-8")
     assert html.count("</script>") == 1
+
+
+def _confirmation(**over):
+    item = {"id": "F9", "kind": "confirmation", "title": "请确认：倒地状态还有没有别的系统在读",
+            "ctx": "只有属主记得任务、成就这类系统读不读倒地状态。",
+            "opts": [["A", "没有", "倒地状态只有拉起逻辑在读。"], ["B", "有，备注写是哪些", "名单见备注。"]],
+            "note_required": ["B"]}
+    item.update(over)
+    return item
+
+
+def test_confirmation_without_tendency_validates():
+    """确认题问的是事实，不设倾向；也不要求两处原文。"""
+    data = _load()
+    data["groups"][1]["items"].append(_confirmation())
+    errors, _ = bp.validate(data)
+    assert errors == []
+
+
+def test_confirmation_with_tendency_is_rejected():
+    """确认题带倾向，「空着的全填成倾向」会替属主填上没核过的事实。"""
+    data = _load()
+    item = _confirmation()
+    item["opts"][0] = ["A", "没有", "倒地状态只有拉起逻辑在读。", 1]
+    data["groups"][1]["items"].append(item)
+    errors, _ = bp.validate(data)
+    assert any("确认题不设倾向" in e for e in errors), errors
+
+
+def test_ruling_still_needs_exactly_one_tendency_when_kind_is_explicit():
+    data = _load()
+    data["groups"][0]["items"][0]["kind"] = "ruling"
+    data["groups"][0]["items"][0]["opts"][0][3] = 0
+    errors, _ = bp.validate(data)
+    assert any("恰好一个倾向" in e for e in errors), errors
+
+
+def test_unknown_kind_is_rejected():
+    data = _load()
+    data["groups"][1]["items"].append(_confirmation(kind="survey"))
+    errors, _ = bp.validate(data)
+    assert any("kind" in e for e in errors), errors
+
+
+def test_note_required_must_name_existing_options():
+    data = _load()
+    data["groups"][1]["items"].append(_confirmation(note_required=["Z"]))
+    errors, _ = bp.validate(data)
+    assert any("note_required" in e for e in errors), errors
+
+
+def test_confirmation_render_hook_is_included(tmp_path):
+    """只证明渲染钩子进了页面；标签是否真的出现、填倾向是否跳过，要在浏览器里看，这里测不到。"""
+    data = _load()
+    data["groups"][1]["items"].append(_confirmation())
+    src = _write(tmp_path, data)
+    assert bp.main([str(src)]) == 0
+    html = (tmp_path / "裁决单.html").read_text(encoding="utf-8")
+    assert 'if (d.kind === "confirmation") head.append(el("span",{class:"tag confirm",text:"请确认"}))' in html

@@ -22,13 +22,15 @@ NOTE_LINE = re.compile(r"^\s*备注：(?P<note>.*)$")
 
 
 def index_page(data: dict) -> dict:
-    """id → {group, title, opts: {key: (label, rec)}}"""
+    """id → {group, title, kind, need_note, opts: {key: (label, rec)}}"""
     out = {}
     for g in data.get("groups", []):
         for d in g.get("items", []):
             out[d["id"]] = {
                 "group": g.get("title", ""),
                 "title": d.get("title", ""),
+                "kind": d.get("kind", "ruling"),
+                "need_note": set(d.get("note_required", [])),
                 "opts": {o[0]: (o[1], bool(len(o) > 3 and o[3])) for o in d.get("opts", [])},
             }
     return out
@@ -79,7 +81,7 @@ def restate(page: dict, result: dict) -> "tuple[str, list]":
     lines = ["# 复述表 · %s · %s" % (page["page"].get("title", ""), pdate or ""),
              "", "完成标记：%s" % done_text,
              "", "| 题号 | 题目 | 用户选的 | 倾向？ | 备注 | 我打算怎么落 |", "|---|---|---|---|---|---|"]
-    unanswered, non_rec, noted = [], [], []
+    unanswered, non_rec, noted, confirmed, pending = [], [], [], [], []
     for did, meta in items.items():
         key = choices.get(did)
         note = (notes.get(did) or "").replace("\r", "")
@@ -89,20 +91,32 @@ def restate(page: dict, result: dict) -> "tuple[str, list]":
             lines.append("| %s | %s | （未选） | | %s | |" % (did, meta["title"], note_flat))
             continue
         label, rec = meta["opts"][key]
-        if not rec:
-            non_rec.append(did)
+        if meta["kind"] == "confirmation":
+            confirmed.append(did)
+            rec_text = "不适用"
+        else:
+            rec_text = "是" if rec else "否"
+            if not rec:
+                non_rec.append(did)
+        if key in meta["need_note"] and not note_flat:
+            pending.append(did)
         if note_flat:
             noted.append(did)
-        lines.append("| %s | %s | %s %s | %s | %s | |" % (did, meta["title"], key, label, "是" if rec else "否", note_flat))
+        lines.append("| %s | %s | %s %s | %s | %s | |" % (did, meta["title"], key, label, rec_text, note_flat))
     lines.append("")
     if unanswered:
         lines.append("未选：%s —— 问用户是漏了还是有意跳过。" % ", ".join(unanswered))
+    if pending:
+        lines.append("待补充：%s —— 选的项要在备注里写清，备注是空的；问回去补上，不当成答完。" % ", ".join(pending))
     if non_rec:
         lines.append("非倾向项：%s —— 每条在表后写一句「我理解为……」。" % ", ".join(non_rec))
     if noted:
         lines.append("有备注：%s —— 每条在表后写一句「我读成……」；读不懂的写成问句，不猜。" % ", ".join(noted))
-    if not (unanswered or non_rec or noted):
-        lines.append("全部选了倾向、没有备注 —— 表照写，这不是跳过复述的理由。")
+    if confirmed:
+        lines.append("确认题：%s —— 答的是事实，回填事实和依据，不当成规则入账。" % ", ".join(confirmed))
+    has_ruling = any(meta["kind"] == "ruling" for meta in items.values())
+    if has_ruling and not (unanswered or pending or non_rec or noted):
+        lines.append("裁决题全部选了倾向、没有备注 —— 表照写，这不是跳过复述的理由。")
     return "\n".join(lines), []
 
 

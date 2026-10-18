@@ -38,6 +38,8 @@ DATA_END = "/* DATA-END */"
 
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}[a-z]?$")
 OPT_KEY = re.compile(r"^[A-Z][A-Z0-9]*$")
+# ruling＝裁决题，恰好一个倾向；confirmation＝确认题，问属主才知道的事实，不设倾向、不入账
+KINDS = ("ruling", "confirmation")
 # 代码名只该进 refs：类名::方法、带扩展名的文件、CamelCase、snake_case
 CODE_NAME = re.compile(r"::|\b\w+\.(?:cpp|hpp|h|cs|gd|py|ts|js|json|yaml|ini)\b"
                        r"|\b[A-Z][a-z0-9]+(?:[A-Z][a-z0-9]+)+\b|\b[a-z]+_[a-z0-9_]+\b")
@@ -109,6 +111,10 @@ def validate(data: dict) -> "tuple[list, list]":
             if not isinstance(quotes, list) or not all(
                     isinstance(q, list) and len(q) == 2 and all(isinstance(x, str) for x in q) for q in quotes):
                 errors.append("%s.quotes 要是 [[出处, 原文], …]" % label)
+            kind = d.get("kind", "ruling")
+            if kind not in KINDS:
+                errors.append("%s.kind 只能是 %s" % (label, " 或 ".join(KINDS)))
+                kind = "ruling"
             opts = d.get("opts")
             if not isinstance(opts, list) or not (2 <= len(opts) <= 3):
                 errors.append("%s 的选项要 2～3 个" % label)
@@ -127,8 +133,17 @@ def validate(data: dict) -> "tuple[list, list]":
                     recs += 1
             if len(keys) != len(set(keys)):
                 errors.append("%s 的选项键重复" % label)
-            if opts and recs != 1:
+            if opts and kind == "confirmation" and recs:
+                errors.append("%s 确认题不设倾向（现在 %d 个）：问的是事实，填了倾向就替属主答了" % (label, recs))
+            elif opts and kind == "ruling" and recs != 1:
                 errors.append("%s 要恰好一个倾向（现在 %d 个）：只给选项不给倾向，用户没法比" % (label, recs))
+            need = d.get("note_required", [])
+            if not isinstance(need, list) or not all(isinstance(x, str) for x in need):
+                errors.append("%s.note_required 要是选项键列表" % label)
+            else:
+                for k in need:
+                    if k not in keys:
+                        errors.append("%s.note_required 里的 %s 不是这题的选项键" % (label, k))
             for field in ("title", "ctx"):
                 v = d.get(field)
                 if isinstance(v, str):
