@@ -8,7 +8,7 @@ description: >
   simulation and in-game results disagree, checking whether a new mechanic, state, economy rule or threshold
   should be admitted, diagnosing playtest feedback such as "too weak", "didn't notice", "confusing",
   or writing acceptance criteria for a gameplay feature.
-  触发：数值模拟、调参、改了没效果、模拟和实机对不上、新机制准入、经济与奖惩、阈值、试玩反馈、玩家没注意到、玩法验收。
+  触发：数值模拟、调参、改了没效果、模拟和实机对不上、新机制准入、经济与奖惩、阈值、试玩反馈、玩家没注意到、玩法验收、五格、新设计项检查表、问题行。
 ---
 
 # 游戏开发实战经验
@@ -46,7 +46,8 @@ description: >
 ## 讨论设计的默认方式 → [references/discussing-design.md](references/discussing-design.md)
 
 12. 先结构后内容；规格只写客观动作；要重做的系统先按现状认；关系词先问清、先框架后细节、推理链回查起点、结论跟证据、讲规则带例子（design-discuss 讨论时会指到这一条）
+14. 五格：从问题行开始的设计项检查表，先问要不要做、再问怎么做；两处固定时刻、判定规则、输出格式 → [references/five-cells.md](references/five-cells.md)
 
 ## 来源
 
-作者在一个 Godot 塔防项目（2026-04 至 07，约 450 条经验）和一个 UE 多人项目里积累的经验，2026-09 去掉项目锚点后收入；第 13 条与第 12 条的后五点来自 2026-10-25 那个 UE 项目的一次资源结构讨论。
+作者在一个 Godot 塔防项目（2026-04 至 07，约 450 条经验）和一个 UE 多人项目里积累的经验，2026-09 去掉项目锚点后收入；第 13 条与第 12 条的后五点来自 2026-10-25 那个 UE 项目的一次资源结构讨论；第 14 条由同一讨论引出，10-26 在两例上试用后定稿。
