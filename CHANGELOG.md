@@ -3,6 +3,12 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 4.16.1 (2026-10-26)
+
+game-dev-lessons：五格第 1 格「找不到出处就标比喻或猜」改成先记「来源待核」，补齐材料后再归类，不据此断言它来自比喻或猜。
+
+- 来源：10-26 供奉态盲测里漏给一轮任务书，把用户原话误标成了比喻；codex Astra 复审设计哲学改稿时指出这句会把缺材料推成结论。无脚本改动，1058 条测试通过。
+
 ## 4.16.0 (2026-10-26)
 
 game-dev-lessons：加第 14 条「五格」，从问题行开始的设计项检查表；design-discuss 讨论流程指到它。
