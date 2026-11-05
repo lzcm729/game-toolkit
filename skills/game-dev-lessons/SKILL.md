@@ -21,6 +21,8 @@ description: >
 
 ## 数值模拟与调参 → [references/sim-and-tuning.md](references/sim-and-tuning.md)
 
+跑数值试验的工作环（先建模、写死逐格预期、再跑、逐格对照、修模型再选下一批）在 model-predict-verify，本节是它要用的判据。
+
 1. 模拟结论要能复现，样本要够
 2. 模拟代理只会用它认识的东西，新机制要接进决策模型
 3. 快慢两套工具结论相反时，分歧本身就是诊断信号
