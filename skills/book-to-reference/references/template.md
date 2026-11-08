@@ -99,7 +99,7 @@ Component A → Component B → Component C
 
 Examples:
 - sylvester-mechanic-cost-elegance.md
-- player-psychology.md
+- player-psychology.md（Rouse 的旧文件，没有作者前缀，是例外；新导入照上面的格式）
 - schell-lenses-core.md
 - koster-fun.md
 ```

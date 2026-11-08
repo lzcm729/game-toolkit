@@ -79,7 +79,7 @@ codex plugin add game-toolkit@game-toolkit
 
 - **共享定义** — `layer-contracts`（两条轴、A 层交付门槛、执行模型要求、四问自检）
 - **设计流程** — `design-discuss`（主对话里讨论与收录）、`design-iterate`（多视角并行评审 + 用户裁决）、`doc-consistency-check`（跨文档矛盾检查）、`collect-rulings`（待裁条目多时出一张裁决单页面让用户拍，结果以文件回到评审目录；有 Artifact 工具就发布，没有就本地 HTML）、`split-doc-layers`（把混写的文档按职责拆开）
-- **知识/理论** — `game-design-theory`（Rouse / Sylvester / Schell / Meadows 四本书，29 份参考）、`game-dev-lessons`（实战判据与清单：数值模拟与调参、机制准入、经济与奖惩、玩家感知、玩法验收、评审与试玩节奏）、`game-ui-design`（引擎无关的游戏 UI 原则）、`model-predict-verify`（数值问题的工作环：先建模、写下逐格预期、再跑、再修模型）、`book-to-reference`（把书导入成参考文件）
+- **知识/理论** — `game-design-theory`（Rouse / Sylvester / Schell / Meadows 四本书；Sylvester 按任务拆成能力卡）、`game-dev-lessons`（实战判据与清单：数值模拟与调参、机制准入、经济与奖惩、玩家感知、玩法验收、评审与试玩节奏）、`game-ui-design`（引擎无关的游戏 UI 原则）、`model-predict-verify`（数值问题的工作环：先建模、写下逐格预期、再跑、再修模型）、`book-to-reference`（把书导入成参考文件）
 - **文档发布** — `doc-summary-layer`（仓库详稿是真值，阅读平台每页只放规则版摘要；三条数据流、草稿迁入、检查与构建脚本，平台适配在项目侧）
 - **文档 ↔ 代码** — `sync-code-ahead`（代码改了、文档没跟）、`sync-docs-ahead`（文档写了、代码没实现）
 - **实现执行** — `parallel-implement`（git worktree 并行实现 + 顺序合并）

@@ -72,7 +72,7 @@ Designers design mechanics; mechanics and players generate events; an event's em
 ### 核心原则（各条的做法和出处在选卡表的卡里）
 1. 设计师只能设计生成体验的机制，不能直接设计体验；事件的情绪力量来自它改变的、玩家在乎的东西。
 2. 每个机制都有成本，最贵的是玩家的注意力；好设计让机制相乘而不是相加。
-3. 有意义的决定要求结果部分可预测：系统一致、可理解，信息既不饥饿也不过剩。
+3. 系统驱动的决定要求结果部分可预测：系统一致、可理解，信息既不饥饿也不过剩；预定义的剧情选择不套这条，另行评估。
 4. 平衡的对象是情境中的策略；退化策略让决策消失；平衡要先选目标技能段。
 5. 外在奖励会挤掉内在满足：只奖励玩家本来就想做、游戏检测得到的事；没被传达出去的事件等于没发生。
 6. 体验无法事先算准：按不确定性选规划视距，用灰盒和测试从现实学习，先做依赖栈底的核心，决定交给拥有相关知识的人。
@@ -228,13 +228,13 @@ Changing elements = weakest lever. Changing purpose = strongest. The purpose is 
 | 这段游玩为什么没感觉；情绪不够强，怎么找原因；怎么拆一段体验、复盘一个模式 | [sylvester-experience-analysis.md](references/sylvester-experience-analysis.md) | 关键价值已锁定、比赛早早定局；顿悟揭示 → `sylvester-suspense-and-insight.md` |
 | 比赛早早定局，后半段没悬念；本该紧张的高光时刻没人在意；怎么设计恍然大悟的揭示 | [sylvester-suspense-and-insight.md](references/sylvester-suspense-and-insight.md) | 落后方长时间必败、失败惩罚、怎么修已锁定的局面 → `sylvester-difficulty-and-failure.md` |
 | 要不要靠奇观、特效、精美美术提情绪；新技术当卖点行不行；这种情绪该靠玩法还是靠剧情 | [sylvester-emotional-triggers-and-fiction.md](references/sylvester-emotional-triggers-and-fiction.md) | 美术让玩家看不懂机制、视觉线索前后不一 → `sylvester-mechanic-metaphor.md` |
-| 体验太平、没有高潮；一整局都是同一种情绪；怎么让机制自己生成节奏曲线 | [sylvester-intensity-and-immersion.md](references/sylvester-intensity-and-immersion.md) | 秒级的决策节奏：等待、冷却、被淹没 → `sylvester-pacing-problems.md`；逐秒测绘 → `sylvester-decision-rhythm-mapp… |
+| 体验太平、没有高潮；一整局都是同一种情绪；怎么让机制自己生成节奏曲线 | [sylvester-intensity-and-immersion.md](references/sylvester-intensity-and-immersion.md) | 秒级的决策节奏：等待、冷却、被淹没 → `sylvester-pacing-problems.md`；逐秒测绘 → `sylvester-decision-rhythm-mapping.md` |
 
 **优雅与机制成本**
 
 | 用户在问 | 读这张卡 | 和近邻怎么分 |
 |---|---|---|
-| 这个机制要不要加、值不值；原型手感很好的机制能不能写进正式设计；两个功能差不多的方案留哪个 | [sylvester-mechanic-cost-elegance.md](references/sylvester-mechanic-cost-elegance.md) | 已有机制强弱怎么改，或加更多选项能否加深度（第 6 章：有两个可行策略后再加没有内在价值，p.161–162）→ `sylvester-balance-change-review… |
+| 这个机制要不要加、值不值；原型手感很好的机制能不能写进正式设计；两个功能差不多的方案留哪个 | [sylvester-mechanic-cost-elegance.md](references/sylvester-mechanic-cost-elegance.md) | 已有机制强弱怎么改，或加更多选项能否加深度（第 6 章：有两个可行策略后再加没有内在价值，p.161–162）→ `sylvester-balance-change-review.md` |
 
 **技能、难度与新手**
 
@@ -312,10 +312,10 @@ Changing elements = weakest lever. Changing purpose = strongest. The purpose is 
 | 试玩时该观察什么、问什么；自测没新发现了，换人测时我要不要说话；测后访谈怎么问才不诱导，回答怎么读 | [sylvester-playtest-observation.md](references/sylvester-playtest-observation.md) | 写测试协议、找谁测、测几场够、何时停测 → `sylvester-playtest-protocol.md` |
 | 我们该用什么开发流程；计划要做多远、迭代周期该多长；我们是规划不够还是规划过度 | [sylvester-process-and-planning-horizon.md](references/sylvester-process-and-planning-horizon.md) | 计划为什么总是过度自信、团队估计总偏乐观 → `sylvester-overplanning-bias.md` |
 | 这份计划是不是太自信；团队估计为什么总偏乐观；会上最笃定的人总能定方向，这正常吗 | [sylvester-overplanning-bias.md](references/sylvester-overplanning-bias.md) | 判断项目整体偏欠规划还是偏过度规划、该把视距定多长 → `sylvester-process-and-planning-horizon.md` |
-| 一轮迭代怎么定、做到哪、什么时候停；我们的开发流程是不是先做完再测；一场战斗或一个关卡段落怎么一轮轮做出来 | [sylvester-iteration-loop.md](references/sylvester-iteration-loop.md) | 环该多长、计划做多远 → `sylvester-process-and-planning-horizon.md`；计划是否过度自信 → `sylvester-overplanni… |
+| 一轮迭代怎么定、做到哪、什么时候停；我们的开发流程是不是先做完再测；一场战斗或一个关卡段落怎么一轮轮做出来 | [sylvester-iteration-loop.md](references/sylvester-iteration-loop.md) | 环该多长、计划做多远 → `sylvester-process-and-planning-horizon.md`；计划是否过度自信 → `sylvester-overplanning-bias.md` |
 | 原型里哪些部分用灰盒、用什么占位；现在要不要给灰盒加美术、特效、音效；关卡美术什么时候介入，上美术后要测什么 | [sylvester-graybox-and-art-timing.md](references/sylvester-graybox-and-art-timing.md) | 迭代环本身怎么定、战斗场景怎么分阶段 → `sylvester-iteration-loop.md` |
 | 一次试玩要定哪些规则、协议怎么写；找谁来测：新人、老玩家还是高手；测几场才够，什么时候能停 | [sylvester-playtest-protocol.md](references/sylvester-playtest-protocol.md) | 试玩现场怎么观察、自测何时切旁观、怎么主持、测后怎么问、建议怎么用 → `sylvester-playtest-observation.md` |
-| 这个问题该靠讨论、找资料、做原型、写分析还是测试来弄清楚；要不要开一场辩论会找方案的漏洞，开之前要注意什么；老板想亲自和下属辩方案，合不合适 | [sylvester-knowledge-creation-method.md](references/sylvester-knowledge-creation-method.md) | 试玩怎么组织、找谁、测几场 → `sylvester-playtest-protocol.md`；试玩现场怎么看、怎么问 → `sylvester-playtest-observ… |
+| 这个问题该靠讨论、找资料、做原型、写分析还是测试来弄清楚；要不要开一场辩论会找方案的漏洞，开之前要注意什么；老板想亲自和下属辩方案，合不合适 | [sylvester-knowledge-creation-method.md](references/sylvester-knowledge-creation-method.md) | 试玩怎么组织、找谁、测几场 → `sylvester-playtest-protocol.md`；试玩现场怎么看、怎么问 → `sylvester-playtest-observation.md` |
 | 怎么用数据调难度和节奏；要埋哪些点；玩家死在哪、补给放哪，怎么看出来 | [sylvester-metrics-and-telemetry.md](references/sylvester-metrics-and-telemetry.md) | 该靠数据、试玩还是分析来弄清 → `sylvester-knowledge-creation-method.md` |
 | 先做哪个系统；动画、美术、关卡现在能不能开做；这些后期系统现在要不要写细 | [sylvester-dependency-stack.md](references/sylvester-dependency-stack.md) | 核心玩法是什么、设计文档怎么组织、营销要提前定 → `sylvester-core-and-backlog.md` |
 | 这个游戏的核心玩法到底是什么；原型做出来不好玩，继续改还是推倒重来；有几个可能的核心，先做哪个 | [sylvester-core-and-backlog.md](references/sylvester-core-and-backlog.md) | 先做哪个系统、算上层存活概率、何时加下一个 → `sylvester-dependency-stack.md` |

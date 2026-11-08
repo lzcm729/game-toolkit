@@ -119,7 +119,7 @@ Mechanics → Events → Emotions → Experience
 - 多巴胺 = 动机，不是快乐
 - 固定比例奖励 → 动机低谷，易放弃
 - 可变比例奖励 → 持续动机（老虎机原理）
-- 叠加多个强化循环 → 消除动机空白
+- 叠加多个强化循环并错开低谷 → 减少动机空白；玩家能把各条循环逐个清空时，低谷会重新同步（见 `sylvester-reward-schedule-diagnosis.md`）
 - **奖励对齐**: 只奖励玩家本来就想做的事
 
 ### 1.6 Lens-Based Design Framework (Schell)
