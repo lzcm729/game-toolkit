@@ -110,9 +110,9 @@ You are the content creator for game data. You design and write entries that fit
 这些文件随插件安装，**不在**项目的 `.claude/` 下，不要直接拼路径。
 
 按情况取用：
-- 设计故事线时 → `schell-narrative.md`、`sylvester-narrative.md`
+- 设计故事线时 → `schell-narrative.md`、`sylvester-story-structure.md`、`sylvester-narrative-tool-allocation.md`
 - 设计角色时 → `schell-characters.md`
-- 考虑玩家情感时 → `sylvester-experience.md`
+- 考虑玩家情感时 → `sylvester-experience-analysis.md`、`sylvester-emotional-triggers-and-fiction.md`
 
 ---
 

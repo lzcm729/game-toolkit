@@ -107,11 +107,13 @@ Mechanics → Events → Emotions → Experience
 | 弹性挑战 | 允许不同程度的成功/失败 |
 
 **Decision Design (决策设计):**
-| 决策范围 | 时间 | 说明 |
+| 决策范围 | 时间（作者经验估计） | 说明 |
 |----------|------|------|
 | Twitch | <1秒 | 即时反应（点击、闪避） |
 | Tactical | 1-5秒 | 短期策略选择 |
-| Profound | 10+秒 | 影响深远的道德/战略决策 |
+| Profound | 10+秒 | 要想很久的决策（如国际象棋高手长考一刻钟）；多数游戏给不出 |
+
+秒数是作者的经验估计（原书 p.141），不是测量标准；5–10 秒没有归属；同一个决策的规模随玩家技能变，定级要注明按哪个水平的玩家。用法见 `sylvester-decision-rhythm-mapping.md`。
 
 **Motivation vs Fulfillment (动机vs满足):**
 - 多巴胺 = 动机，不是快乐
@@ -286,7 +288,7 @@ When user wants to integrate approved suggestions:
 ## Key Paths
 
 - **Design Documents:** 查看 CLAUDE.md 中的 "Design Documents" 章节获取路径
-- **Theory References:** 调用 `game-toolkit:game-design-theory` skill，其 `references/` 下 29 个参考文件
+- **Theory References:** 调用 `game-toolkit:game-design-theory` skill，其 `references/` 下的参考文件（选卡表在它的 SKILL.md）
 - **Project Code:** 当前工作目录
 - **Output:** `docs/` directory
 
@@ -294,18 +296,18 @@ When user wants to integrate approved suggestions:
 
 | 主题 | 推荐参考文件 |
 |------|-------------|
-| 玩家心理/动机 | `player-psychology.md`, `sylvester-motivation.md` |
-| 体验设计 | `schell-experience-design.md`, `sylvester-experience.md` |
+| 玩家心理/动机 | `player-psychology.md`, `sylvester-reward-alignment.md`, `sylvester-reward-schedule-diagnosis.md` |
+| 体验设计 | `schell-experience-design.md`, `sylvester-experience-analysis.md`, `sylvester-emotional-triggers-and-fiction.md`, `sylvester-intensity-and-immersion.md` |
 | 游戏机制 | `schell-mechanics.md`, `gameplay-elements.md` |
 | 平衡设计 | `schell-balance.md` |
-| 优雅/涌现 | `sylvester-elegance.md` |
-| 技能深度 | `sylvester-skill.md` |
-| 决策设计 | `sylvester-decisions.md` |
-| 叙事/故事 | `schell-narrative.md`, `sylvester-narrative.md`, `storytelling.md` |
+| 优雅/涌现 | `sylvester-mechanic-cost-elegance.md` |
+| 技能深度 | `sylvester-skill-range.md`, `sylvester-skill-depth-layers.md` |
+| 决策设计 | `sylvester-decision-quality-audit.md`, `sylvester-information-balance.md`, `sylvester-decision-rhythm-mapping.md` |
+| 叙事/故事 | `schell-narrative.md`, `sylvester-narrative-tool-allocation.md`, `sylvester-story-structure.md`, `sylvester-world-narrative.md`, `storytelling.md` |
 | 角色设计 | `schell-characters.md` |
 | 兴趣曲线/节奏 | `schell-interest-curve.md` |
 | 界面/反馈 | `schell-interface.md` |
-| 迭代/原型 | `schell-iteration.md`, `sylvester-iteration.md` |
+| 迭代/原型 | `schell-iteration.md`, `sylvester-iteration-loop.md`, `sylvester-graybox-and-art-timing.md` |
 | 测试方法 | `schell-playtesting.md`, `playtesting.md` |
 | 设计透镜 | `schell-lenses-core.md` |
 | 设计原则 | `design-principles.md` |

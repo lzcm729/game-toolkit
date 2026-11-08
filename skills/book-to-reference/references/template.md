@@ -98,8 +98,8 @@ Component A → Component B → Component C
 {author-lastname}-{topic-keyword}.md
 
 Examples:
-- sylvester-elegance.md
-- rouse-player-psychology.md
-- schell-lenses.md
+- sylvester-mechanic-cost-elegance.md
+- player-psychology.md
+- schell-lenses-core.md
 - koster-fun.md
 ```

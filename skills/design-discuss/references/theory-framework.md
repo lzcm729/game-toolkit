@@ -79,11 +79,13 @@ Mechanics → Events → Emotions → Experience
 
 ### 决策设计
 
-| 决策范围 | 时间 | 本项目里对应哪些操作 |
+| 决策范围 | 时间（作者经验估计） | 本项目里对应哪些操作 |
 |----------|------|------------|
 | Twitch | <1秒 | 反射性操作、即时输入 |
 | Tactical | 1-5秒 | 短期取舍、资源分配 |
-| Profound | 10+秒 | 影响长期走向、难以撤销的选择 |
+| Profound | 10+秒 | 要长时间思考的选择（规模看想清它要花多少心思，不看它多重要） |
+
+秒数是作者的经验估计（原书 p.141），不是测量标准；5–10 秒没有归属；同一个决策的规模随玩家技能变，定级要注明按哪个水平的玩家。用法见 `sylvester-decision-rhythm-mapping.md`。
 
 ### 动机 vs 满足
 - 多巴胺 = 动机，不是快乐
@@ -91,6 +93,19 @@ Mechanics → Events → Emotions → Experience
 - 可变比例奖励 → 持续动机（老虎机原理）
 - 叠加多个强化循环 → 消除动机空白
 - **奖励对齐**: 只奖励玩家本来就想做的事
+
+### 上面没覆盖的任务：读哪张卡
+
+平衡、多人、界面、市场、开发过程和团队决策这几类问题，到 `game-toolkit:game-design-theory` 的 `references/` 下按问题读卡（全表见该 skill 的 SKILL.md「Tynan Sylvester（Designing Games）：选卡表」一节）：
+
+读卡时：回答围绕用户的处境，先给你自己的专业判断和具体做法（书外的实操照常给），卡用来补方法、校正判断、提供依据，不按卡的分段复述这本书。
+
+- 平衡：某样东西太强、该削还是加强 → `sylvester-balance-change-review.md`；有没有一招鲜、无脑最优解 → `sylvester-degenerate-strategy-hunt.md`；要不要对称、公平到什么程度 → `sylvester-balance-target.md`
+- 多人：克制关系、交锋有没有固定最优解 → `sylvester-strategic-interaction-equilibrium.md`；心理博弈、信息战 → `sylvester-yomi-depth.md`；捣乱、刷数据、掉线 → `sylvester-divergent-goals-griefing.md`；新手拖累队友、混排 → `sylvester-skill-gap-interdependence.md`
+- 界面与手感：机制做成什么样玩家才看得懂 → `sylvester-mechanic-metaphor.md`；提示没人看到、HUD 太乱 → `sylvester-signal-visibility.md`；不弹提示怎么引导 → `sylvester-non-directive-guidance.md`；操作不跟手、按键布局 → `sylvester-controls-feel.md`
+- 市场与定位：和竞品比卖点在哪、砍哪些特色 → `sylvester-market-value-focus.md`；商业模式或游戏目的带来的约束、标题给玩家的预期 → `sylvester-purpose-and-expectations.md`
+- 开发过程：核心玩法是什么、原型不好玩改还是重来 → `sylvester-core-and-backlog.md`；先做哪个系统 → `sylvester-dependency-stack.md`；该靠讨论、原型还是测试弄清 → `sylvester-knowledge-creation-method.md`；试玩找谁、测几场 → `sylvester-playtest-protocol.md`；试玩现场怎么看、怎么问 → `sylvester-playtest-observation.md`
+- 团队与决策权：该谁拍板、会请谁 → `sylvester-natural-authority.md`；影响面大的决定怎么定 → `sylvester-complex-decisions.md`；团队奖金、士气、没人敢提意见 → `sylvester-team-motivation.md`
 
 ---
 
@@ -219,18 +234,20 @@ A=入场兴趣, B=钩子(Hook), C/E=上升峰值, D/F=休息点, G=高潮, H=解
 
 调用 `game-toolkit:game-design-theory` skill，在其 `references/` 下取用：
 
+读卡时：回答围绕用户的处境，先给你自己的专业判断和具体做法（书外的实操照常给），卡用来补方法、校正判断、提供依据，不按卡的分段复述这本书。
+
 | 主题 | 参考文件 |
 |------|----------|
-| 玩家心理/动机 | `player-psychology.md`, `sylvester-motivation.md` |
-| 体验设计 | `schell-experience-design.md`, `sylvester-experience.md` |
-| 优雅/涌现 | `sylvester-elegance.md` |
-| 技能深度 | `sylvester-skill.md` |
-| 决策设计 | `sylvester-decisions.md` |
+| 玩家心理/动机 | `player-psychology.md`, `sylvester-reward-alignment.md`, `sylvester-reward-schedule-diagnosis.md` |
+| 体验设计 | `schell-experience-design.md`, `sylvester-experience-analysis.md`, `sylvester-emotional-triggers-and-fiction.md`, `sylvester-intensity-and-immersion.md` |
+| 优雅/涌现 | `sylvester-mechanic-cost-elegance.md` |
+| 技能深度 | `sylvester-skill-range.md`, `sylvester-skill-depth-layers.md` |
+| 决策设计 | `sylvester-decision-quality-audit.md`, `sylvester-information-balance.md`, `sylvester-decision-rhythm-mapping.md` |
 | 兴趣曲线 | `schell-interest-curve.md` |
 | 设计透镜 | `schell-lenses-core.md` |
-| 叙事设计 | `schell-narrative.md`, `sylvester-narrative.md` |
+| 叙事设计 | `schell-narrative.md`, `sylvester-narrative-tool-allocation.md`, `sylvester-story-structure.md`, `sylvester-world-narrative.md` |
 | 角色设计 | `schell-characters.md` |
 | 游戏机制 | `schell-mechanics.md` |
 | 平衡设计 | `schell-balance.md` |
-| 迭代/原型 | `schell-iteration.md`, `sylvester-iteration.md` |
+| 迭代/原型 | `schell-iteration.md`, `sylvester-iteration-loop.md`, `sylvester-graybox-and-art-timing.md` |
 | 测试方法 | `schell-playtesting.md`, `playtesting.md` |

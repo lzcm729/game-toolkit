@@ -91,9 +91,9 @@ You turn design requirements into explicit implementation contracts and working 
 这些文件随插件安装，**不在**项目的 `.claude/` 下，不要直接拼路径。
 
 按情况取用：
-- 实现新系统时 → `sylvester-elegance.md`（优雅性检查）
-- 设计决策机制时 → `sylvester-decisions.md`（决策设计）
-- 涉及玩家动机时 → `sylvester-motivation.md`（动机设计）
+- 实现新系统时 → `sylvester-mechanic-cost-elegance.md`（优雅性检查）
+- 设计决策机制时 → `sylvester-decision-quality-audit.md`（选择有没有意思）、`sylvester-information-balance.md`（信息给多少）
+- 涉及玩家动机时 → `sylvester-reward-alignment.md`（奖励与内在动机对齐）、`sylvester-reward-schedule-diagnosis.md`（奖励节奏）
 - 设计反馈系统时 → `schell-interface.md`（界面反馈）
 
 ### Quick Design Check（快速设计检查）

@@ -1,17 +1,7 @@
 ---
 name: game-design-theory
 description: >
-  Game design consulting based on four foundational books:
-  (1) Rouse's "Game Design: Theory & Practice" - player psychology, gameplay systems, non-linear design, playtesting
-  (2) Sylvester's "Designing Games" - elegance, emergence, skill depth, decisions, motivation, iteration
-  (3) Schell's "The Art of Game Design: A Book of Lenses" - 113+ design lenses, interest curves, experience design, game mechanics, prototyping
-  (4) Meadows' "Thinking in Systems" - stocks & flows, feedback loops, system traps & leverage points (bridged to game systems)
-  Use when helping with game design decisions, storytelling, evaluating fun,
-  balancing depth and accessibility, designing reinforcement schedules, pacing,
-  character design, analyzing decision-making in games, diagnosing system
-  problems (economy inflation, balance escalation, player retention spirals),
-  or choosing what to change for maximum leverage in a game system.
-  NOT for coding or programming - focused on design philosophy and player experience.
+  Game design knowledge from four books, by design task: Rouse, Sylvester (Designing Games), Schell (lenses), Meadows (Thinking in Systems). Use when judging whether a design is fun, deep or elegant; player psychology, experience, emotion, immersion, interest curves and pacing; decision quality and information balance; skill depth, difficulty, onboarding and failure; balance, fairness and degenerate or dominant strategies; multiplayer counters, yomi, griefing and skill gaps; rewards, reinforcement schedules and motivation; story vs mechanics, emergent, branching and non-linear narrative, characters; interface metaphor, signals and control feel; market positioning against competitors; development process: planning, iteration, prototypes and greyboxes, playtesting, metrics, what to build first, who decides; diagnosing system problems (economy inflation, balance escalation, retention spirals) via stocks, flows and feedback loops, and finding leverage points. NOT for writing code or engine-specific implementation.
 ---
 
 # Game Design Theory Skill
@@ -30,6 +20,7 @@ A design consulting framework based on four foundational books:
 - Balancing difficulty and challenge
 - Creating non-linear experiences
 - Integrating story with gameplay
+- Balance, multiplayer interaction, interface signals, market positioning, team and process decisions (Sylvester cards)
 - Planning and conducting playtesting
 - Making design trade-off decisions
 - Diagnosing economy inflation, power creep, player retention spirals (Meadows)
@@ -76,41 +67,16 @@ Games are about **player experience**, not designer intention. The goal is to me
 ```
 Mechanics → Events → Emotions → Experience
 ```
-Games design mechanics that generate events, triggering emotions through human value changes.
+Designers design mechanics; mechanics and players generate events; an event's emotional force comes from the human values it changes.
 
-### Elegance Heuristics
-1. Mechanics that interact with many others
-2. Simple mechanics (write on cocktail napkin)
-3. Mechanics usable multiple ways
-4. Mechanics that don't overlap roles
-5. Reuse established conventions
-6. Similar scale to existing mechanics
-7. Mechanics reused many times
-8. No content restrictions
-9. Full expressiveness of interface
-
-### Skill Range
-- **Depth**: Meaningful play at high skill (chess, poker)
-- **Accessibility**: Meaningful play at low skill
-- **Widest range = both accessible AND deep**
-
-### Decision Scope
-| Scope | Time | Example |
-|-------|------|---------|
-| Twitch | <1 sec | Punch or kick? |
-| Tactical | 1-5 sec | Which equipment? |
-| Profound | 10+ sec | Chess grandmaster |
-
-### Motivation vs Fulfillment
-- **Dopamine = motivation**, not pleasure
-- Extrinsic rewards can destroy intrinsic fulfillment
-- **Rewards alignment**: Only reward what players already want to do
-
-### Key Mantras (Sylvester)
-- "Games are artificial systems for generating experiences."
-- "Elegance: Maximizing power while minimizing burden."
-- "We can want something without liking it."
-- "The player need only sense the possibility of something happening."
+### 核心原则（各条的做法和出处在选卡表的卡里）
+1. 设计师只能设计生成体验的机制，不能直接设计体验；事件的情绪力量来自它改变的、玩家在乎的东西。
+2. 每个机制都有成本，最贵的是玩家的注意力；好设计让机制相乘而不是相加。
+3. 有意义的决定要求结果部分可预测：系统一致、可理解，信息既不饥饿也不过剩。
+4. 平衡的对象是情境中的策略；退化策略让决策消失；平衡要先选目标技能段。
+5. 外在奖励会挤掉内在满足：只奖励玩家本来就想做、游戏检测得到的事；没被传达出去的事件等于没发生。
+6. 体验无法事先算准：按不确定性选规划视距，用灰盒和测试从现实学习，先做依赖栈底的核心，决定交给拥有相关知识的人。
+7. 书里的一切都是需要经验校准的模型；原书没给的阈值和判据由设计者判断，不要编。决策时长分级、试玩场次这类数字是作者的经验估计。
 
 ## Quick Reference: Schell
 
@@ -249,15 +215,118 @@ Changing elements = weakest lever. Changing purpose = strongest. The purpose is 
 - **Playtesting**: See [references/playtesting.md](references/playtesting.md) for testing practices and balancing
 - **Design Principles**: See [references/design-principles.md](references/design-principles.md) for focus, teaching, and I/O design
 
-### Tynan Sylvester (Systems-Driven Design)
+### Tynan Sylvester（Designing Games）：选卡表
 
-- **Experience Engine**: See [references/sylvester-experience.md](references/sylvester-experience.md) for Mechanics→Events→Emotions→Experience model, human values, emotional triggers, fiction layer, flow, and immersion
-- **Elegance & Emergence**: See [references/sylvester-elegance.md](references/sylvester-elegance.md) for maximizing depth while minimizing complexity, 9 elegance heuristics, mechanics that multiply
-- **Skill & Depth**: See [references/sylvester-skill.md](references/sylvester-skill.md) for skill ceiling, skill range, reinvention, elastic challenges, handling failure
-- **Decisions**: See [references/sylvester-decisions.md](references/sylvester-decisions.md) for feeling the future, predictability, information balance, decision scope, flow gaps
-- **Motivation**: See [references/sylvester-motivation.md](references/sylvester-motivation.md) for dopamine vs pleasure, reinforcement schedules, extrinsic vs intrinsic motivation, rewards alignment
-- **Narrative**: See [references/sylvester-narrative.md](references/sylvester-narrative.md) for desk jumping, human interaction problem, emergent story, world story, fiction-mechanics tradeoffs
-- **Iteration**: See [references/sylvester-iteration.md](references/sylvester-iteration.md) for planning horizons, overplanning biases, grayboxing, paradox of quality, serendipity
+47 张能力卡，一张卡管一类任务，每个分支写清输入、步骤、输出、原书页码和边界。按下表「用户在问」找对口的卡；两张都像时看「和近邻怎么分」，两条路线都能完成任务就都可以用。
+**怎么用卡**：回答围绕用户的处境，先给你自己的专业判断和具体做法，书外的实操（算一个例子、查数据、估成本、排期）照常给；卡用来补方法、校正判断、提供依据，不是回答的模板。不要按卡的分段复述这本书，卡里没写的不等于不能答。书名、作者和页码只在用户问出处或需要核对时给。
+术语和只作参考的作者观点（原书讲了、但没给出可照做步骤的）在 [sylvester-notes.md](references/sylvester-notes.md)。卡里标「原书未说明」的地方可以给你自己的建议，但要说明不出自本书。
+
+**体验与情绪**
+
+| 用户在问 | 读这张卡 | 和近邻怎么分 |
+|---|---|---|
+| 这段游玩为什么没感觉；情绪不够强，怎么找原因；怎么拆一段体验、复盘一个模式 | [sylvester-experience-analysis.md](references/sylvester-experience-analysis.md) | 关键价值已锁定、比赛早早定局；顿悟揭示 → `sylvester-suspense-and-insight.md` |
+| 比赛早早定局，后半段没悬念；本该紧张的高光时刻没人在意；怎么设计恍然大悟的揭示 | [sylvester-suspense-and-insight.md](references/sylvester-suspense-and-insight.md) | 落后方长时间必败、失败惩罚、怎么修已锁定的局面 → `sylvester-difficulty-and-failure.md` |
+| 要不要靠奇观、特效、精美美术提情绪；新技术当卖点行不行；这种情绪该靠玩法还是靠剧情 | [sylvester-emotional-triggers-and-fiction.md](references/sylvester-emotional-triggers-and-fiction.md) | 美术让玩家看不懂机制、视觉线索前后不一 → `sylvester-mechanic-metaphor.md` |
+| 体验太平、没有高潮；一整局都是同一种情绪；怎么让机制自己生成节奏曲线 | [sylvester-intensity-and-immersion.md](references/sylvester-intensity-and-immersion.md) | 秒级的决策节奏：等待、冷却、被淹没 → `sylvester-pacing-problems.md`；逐秒测绘 → `sylvester-decision-rhythm-mapp… |
+
+**优雅与机制成本**
+
+| 用户在问 | 读这张卡 | 和近邻怎么分 |
+|---|---|---|
+| 这个机制要不要加、值不值；原型手感很好的机制能不能写进正式设计；两个功能差不多的方案留哪个 | [sylvester-mechanic-cost-elegance.md](references/sylvester-mechanic-cost-elegance.md) | 已有机制强弱怎么改，或加更多选项能否加深度（第 6 章：有两个可行策略后再加没有内在价值，p.161–162）→ `sylvester-balance-change-review… |
+
+**技能、难度与新手**
+
+| 用户在问 | 读这张卡 | 和近邻怎么分 |
+|---|---|---|
+| 新手进不来，到底卡在哪；这个游戏深度够不够，高手还有没有提升空间；我们需不需要做成易学难精 | [sylvester-skill-range.md](references/sylvester-skill-range.md) | 学会一层后没有下一层、玩具型游戏的自定目标 → `sylvester-skill-depth-layers.md` |
+| 玩家学会以后就腻了，深度断在哪；高手玩法没有新层次怎么办；单人游戏想做到能玩上百小时现实吗 | [sylvester-skill-depth-layers.md](references/sylvester-skill-depth-layers.md) | 天花板在哪、区间要不要宽 → `sylvester-skill-range.md` |
+| 教程怎么做才不烦人；玩家第一关、前十分钟就走；开局教学弹窗太多、手把手太细 | [sylvester-onboarding-and-opening.md](references/sylvester-onboarding-and-opening.md) | 先弄清新手要会什么 → `sylvester-skill-range.md` 分支 1 |
+| 游戏太难或太简单，问题出在哪段；难度怎么调，要不要做难度选择或动态难度；一个挑战新手过不了、高手没挑战 | [sylvester-difficulty-and-failure.md](references/sylvester-difficulty-and-failure.md) | 区间要不要宽、该用哪类手段 → `sylvester-skill-range.md`；教程 → `sylvester-onboarding-and-opening.md` |
+
+**叙事**
+
+| 用户在问 | 读这张卡 | 和近邻怎么分 |
+|---|---|---|
+| 这段剧情用过场还是实机表现；玩家会不会打断或错过剧情事件，怎么预案；过场太多、节奏走走停停，能改成什么 | [sylvester-narrative-tool-allocation.md](references/sylvester-narrative-tool-allocation.md) | 世界叙事具体怎么布置、线索怎么分层 → `sylvester-world-narrative.md` |
+| 怎么用环境和物件讲一个地方的过去；玩家不按顺序看到线索，故事还拼不拼得出；世界观自不自洽，核心能力在世界里怎么解释 | [sylvester-world-narrative.md](references/sylvester-world-narrative.md) | 某块故事该用世界叙事还是脚本 → `sylvester-narrative-tool-allocation.md` |
+| 怎么让玩家自己讲出故事；沙盒或模拟游戏没有故事感；要不要给单位起名、加性格标签 | [sylvester-emergent-story.md](references/sylvester-emergent-story.md) | 某块故事该交给涌现还是脚本、世界叙事；拆一段游玩逐段归因 → `sylvester-narrative-tool-allocation.md` |
+| 剧情或任务的先后顺序怎么保证；线性、轴辐还是开放世界，结构怎么排；分支剧情太多写不过来 | [sylvester-story-structure.md](references/sylvester-story-structure.md) | 某块故事用什么手段讲 → `sylvester-narrative-tool-allocation.md` |
+| 玩家做了角色绝不会做的事，怎么办；剧情时刻玩家朝 NPC 开枪、跳桌子、捣乱；角色是好人，机制却奖励乱杀乱抢 | [sylvester-desk-jumping-and-characters.md](references/sylvester-desk-jumping-and-characters.md) | 多人里有人追自己的目标、弄坏别人的局 → `sylvester-divergent-goals-griefing.md` |
+
+**决策与节奏**
+
+| 用户在问 | 读这张卡 | 和近邻怎么分 |
+|---|---|---|
+| 这个选择有没有意思，玩家其实有没有得选；这段关卡是不是太线性，只有一条路；结果太随机或太必然，要不要加随机 | [sylvester-decision-quality-audit.md](references/sylvester-decision-quality-audit.md) | 系统一致、可理解，选择仍难懂或太明显，原因在信息多少 → `sylvester-information-balance.md` |
+| 玩家乱试乱选、要看攻略才会玩，怎么办；试玩很顺、没人卡关，但没有张力；开局要选职业或天赋，玩家什么都还不知道 | [sylvester-information-balance.md](references/sylvester-information-balance.md) | 结果难预测是因为规则不一致或太复杂 → `sylvester-decision-quality-audit.md` |
+| 谜题玩家想不到解法、只能乱试；玩家去试游戏里没有的交互；道德选择影响数值后要不要给明确信息 | [sylvester-fiction-and-metagame-info.md](references/sylvester-fiction-and-metagame-info.md) | 机制内部的信息量问题（视野、明牌、数值显示）→ `sylvester-information-balance.md` |
+| 等待、冷却、过场、被控时玩家没事做；试玩者手忙脚乱、压力太大；回合制太慢、每回合操作太碎、有人长考 | [sylvester-pacing-problems.md](references/sylvester-pacing-problems.md) | 要整段测绘节奏、逐秒拆解、实现前推演 → `sylvester-decision-rhythm-mapping.md` |
+| 这段玩法的节奏和手感怎么评估；还没做出来，怎么预判节奏和空档；拆一段对局或标杆游戏，看它为什么耐玩 | [sylvester-decision-rhythm-mapping.md](references/sylvester-decision-rhythm-mapping.md) | 症状已知（等待、溢出、微操、单调），要修 → `sylvester-pacing-problems.md` |
+
+**平衡**
+
+| 用户在问 | 读这张卡 | 和近邻怎么分 |
+|---|---|---|
+| 这个单位、武器或卡牌太强，怎么削；该不该削弱或加强某样东西；加一个新单位或新选项能不能加深度 | [sylvester-balance-change-review.md](references/sylvester-balance-change-review.md) | 还不知道哪里不平衡，要找一招鲜、看收益地形 → `sylvester-degenerate-strategy-hunt.md` |
+| 有没有一招鲜、无脑最优解；高手都用同一个套路，是不是不平衡；新加的强力单位或卡牌会不会让决策消失 | [sylvester-degenerate-strategy-hunt.md](references/sylvester-degenerate-strategy-hunt.md) | 已经知道哪里强，要定怎么改、动哪个属性、要不要砍 → `sylvester-balance-change-review.md` |
+| 要不要做成对称；非对称游戏要平衡到什么程度，能不能刻意不公平；聚会模式和排位模式的公平要求一样吗 | [sylvester-balance-target.md](references/sylvester-balance-target.md) | 找出某个技能段的退化策略、按段列表 → `sylvester-degenerate-strategy-hunt.md`（它的分支 2 是这里分支 2 的输入） |
+
+**多人**
+
+| 用户在问 | 读这张卡 | 和近邻怎么分 |
+|---|---|---|
+| 对抗里某个交锋有没有固定最优解；兵种、技能、招式的克制关系怎么设计；石头剪刀布式克制够不够，要不要再加兵种或姿态 | [sylvester-strategic-interaction-equilibrium.md](references/sylvester-strategic-interaction-equilibrium.md) | 有没有心理博弈、虚张声势、信息战 → `sylvester-yomi-depth.md` |
+| 对抗打起来像抛硬币，没有心理博弈；怎么做虚张声势、侦察与反侦察、信息战；多人混战太乱，玩家猜不过来 | [sylvester-yomi-depth.md](references/sylvester-yomi-depth.md) | 交锋有没有固定最优解、克制环怎么搭 → `sylvester-strategic-interaction-equilibrium.md` |
+| 玩家刷个人数据，不推团队目标；有人捣乱、坑队友，怎么处理；有人中途掉线或退出，剩下的人玩不下去 | [sylvester-divergent-goals-griefing.md](references/sylvester-divergent-goals-griefing.md) | 新手拖累、高手虐新手、一人失误全队受罚 → `sylvester-skill-gap-interdependence.md` |
+| 新手拖累队友、被骂被踢；高手和新手混排体验都差；一人倒下或失误就全队失败，要不要改 | [sylvester-skill-gap-interdependence.md](references/sylvester-skill-gap-interdependence.md) | 有人故意捣乱、刷数据、掉线 → `sylvester-divergent-goals-griefing.md` |
+
+**动机与奖励**
+
+| 用户在问 | 读这张卡 | 和近邻怎么分 |
+|---|---|---|
+| 玩家在领奖、升级或通关后流失，想找原因；刷到某个阶段就没劲了，想看奖励节奏；几条奖励线会不会同时断档 | [sylvester-reward-schedule-diagnosis.md](references/sylvester-reward-schedule-diagnosis.md) | 某个行为该不该奖励、奖励让玩法变味、玩家为奖励去刷无聊内容 → `sylvester-reward-alignment.md` |
+| 要不要给这个行为加成就、积分或奖励；加奖励会不会让玩法变味；玩家为了奖励去刷无聊的事，怎么改 | [sylvester-reward-alignment.md](references/sylvester-reward-alignment.md) | 奖励何时给、玩家在哪个节点流失 → `sylvester-reward-schedule-diagnosis.md` |
+
+**界面与手感**
+
+| 用户在问 | 读这张卡 | 和近邻怎么分 |
+|---|---|---|
+| 这个机制该做成什么样子玩家才看得懂；玩家分不清哪些东西能交互、哪些是布景；同一种可交互物在不同关卡长得不一样 | [sylvester-mechanic-metaphor.md](references/sylvester-mechanic-metaphor.md) | 谜题解法依赖玩家想到某个虚构推理，或要不要打破类型惯例 → `sylvester-fiction-and-metagame-info.md` |
+| 试玩者没看到这个提示，要不要做得更显眼；HUD 太乱，新手说看不过来、老手说信息不够；这条信息（血量、弹药）该放多显眼，要不要随数值变化 | [sylvester-signal-visibility.md](references/sylvester-signal-visibility.md) | 换上美术后看不清敌人、路线 → `sylvester-mechanic-metaphor.md` 分支 3 |
+| 想让玩家走这条路，但不想弹提示、不想强制；一路战斗过来，玩家见到该交谈的 NPC 就开枪；不用教程文字怎么教会玩家某个做法 | [sylvester-non-directive-guidance.md](references/sylvester-non-directive-guidance.md) | 可以明说，只是怕玩家漏看 → `sylvester-signal-visibility.md` 分支 4 |
+| 按键怎么布局，玩家换工具得停下怎么办；操作不跟手、手感发软、按了没反应；要不要做辅助瞄准或其他输入辅助，怎么做才不被察觉 | [sylvester-controls-feel.md](references/sylvester-controls-feel.md) | 某个武器或单位太强、整体怎么削（辅助只是其中一根杠杆）→ `sylvester-balance-change-review.md` |
+
+**市场与定位**
+
+| 用户在问 | 读这张卡 | 和近邻怎么分 |
+|---|---|---|
+| 和竞品比我们到底有什么；该做哪几个特色、砍哪几个；这个立项是不是什么都想要 | [sylvester-market-value-focus.md](references/sylvester-market-value-focus.md) | 商业模式或游戏目的给设计什么约束、宣传会给玩家什么预期 → `sylvester-purpose-and-expectations.md` |
+| 商业模式或游戏目的对设计有什么约束；非商业项目（展项、教育、艺术）该怎么推设计约束；这个标题会让玩家以为是什么游戏 | [sylvester-purpose-and-expectations.md](references/sylvester-purpose-and-expectations.md) | 和竞品比卖点在哪、该押哪几项 → `sylvester-market-value-focus.md` |
+
+**开发过程**
+
+| 用户在问 | 读这张卡 | 和近邻怎么分 |
+|---|---|---|
+| 试玩时该观察什么、问什么；自测没新发现了，换人测时我要不要说话；测后访谈怎么问才不诱导，回答怎么读 | [sylvester-playtest-observation.md](references/sylvester-playtest-observation.md) | 写测试协议、找谁测、测几场够、何时停测 → `sylvester-playtest-protocol.md` |
+| 我们该用什么开发流程；计划要做多远、迭代周期该多长；我们是规划不够还是规划过度 | [sylvester-process-and-planning-horizon.md](references/sylvester-process-and-planning-horizon.md) | 计划为什么总是过度自信、团队估计总偏乐观 → `sylvester-overplanning-bias.md` |
+| 这份计划是不是太自信；团队估计为什么总偏乐观；会上最笃定的人总能定方向，这正常吗 | [sylvester-overplanning-bias.md](references/sylvester-overplanning-bias.md) | 判断项目整体偏欠规划还是偏过度规划、该把视距定多长 → `sylvester-process-and-planning-horizon.md` |
+| 一轮迭代怎么定、做到哪、什么时候停；我们的开发流程是不是先做完再测；一场战斗或一个关卡段落怎么一轮轮做出来 | [sylvester-iteration-loop.md](references/sylvester-iteration-loop.md) | 环该多长、计划做多远 → `sylvester-process-and-planning-horizon.md`；计划是否过度自信 → `sylvester-overplanni… |
+| 原型里哪些部分用灰盒、用什么占位；现在要不要给灰盒加美术、特效、音效；关卡美术什么时候介入，上美术后要测什么 | [sylvester-graybox-and-art-timing.md](references/sylvester-graybox-and-art-timing.md) | 迭代环本身怎么定、战斗场景怎么分阶段 → `sylvester-iteration-loop.md` |
+| 一次试玩要定哪些规则、协议怎么写；找谁来测：新人、老玩家还是高手；测几场才够，什么时候能停 | [sylvester-playtest-protocol.md](references/sylvester-playtest-protocol.md) | 试玩现场怎么观察、自测何时切旁观、怎么主持、测后怎么问、建议怎么用 → `sylvester-playtest-observation.md` |
+| 这个问题该靠讨论、找资料、做原型、写分析还是测试来弄清楚；要不要开一场辩论会找方案的漏洞，开之前要注意什么；老板想亲自和下属辩方案，合不合适 | [sylvester-knowledge-creation-method.md](references/sylvester-knowledge-creation-method.md) | 试玩怎么组织、找谁、测几场 → `sylvester-playtest-protocol.md`；试玩现场怎么看、怎么问 → `sylvester-playtest-observ… |
+| 怎么用数据调难度和节奏；要埋哪些点；玩家死在哪、补给放哪，怎么看出来 | [sylvester-metrics-and-telemetry.md](references/sylvester-metrics-and-telemetry.md) | 该靠数据、试玩还是分析来弄清 → `sylvester-knowledge-creation-method.md` |
+| 先做哪个系统；动画、美术、关卡现在能不能开做；这些后期系统现在要不要写细 | [sylvester-dependency-stack.md](references/sylvester-dependency-stack.md) | 核心玩法是什么、设计文档怎么组织、营销要提前定 → `sylvester-core-and-backlog.md` |
+| 这个游戏的核心玩法到底是什么；原型做出来不好玩，继续改还是推倒重来；有几个可能的核心，先做哪个 | [sylvester-core-and-backlog.md](references/sylvester-core-and-backlog.md) | 先做哪个系统、算上层存活概率、何时加下一个 → `sylvester-dependency-stack.md` |
+
+**团队与决策权**
+
+| 用户在问 | 读这张卡 | 和近邻怎么分 |
+|---|---|---|
+| 这个设计决定该谁拍板；评审会或决策会该请哪些人；看完一次评审能不能直接给具体改法 | [sylvester-natural-authority.md](references/sylvester-natural-authority.md) | 团队奖金、氛围、士气 → `sylvester-team-motivation.md` |
+| 要不要给团队发绩效奖金、按指标奖励或评最佳创意；团队不敢提意见，评审总是一致通过；有人老是弄坏版本、忘了解锁文件，怎么处理 | [sylvester-team-motivation.md](references/sylvester-team-motivation.md) | 给玩家的奖励、成就、积分 → `sylvester-reward-alignment.md`（第 8 章，同一组词的另一种用法） |
+| 这个影响面大的设计决定怎么定；哪些决定要开会讨论、哪些当场定；临近内容锁定发现问题，改还是不改 | [sylvester-complex-decisions.md](references/sylvester-complex-decisions.md) | 谁来拍板、会请谁 → `sylvester-natural-authority.md` |
 
 ### Jesse Schell (Lens-Based Design)
 
