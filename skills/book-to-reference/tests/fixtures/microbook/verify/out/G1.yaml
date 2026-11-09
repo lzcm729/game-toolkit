@@ -1,10 +1,26 @@
+group: G1
 units:
 - unit_id: u01-01
   title: 固定灯笼
+  type: checklist
+  one_liner: 固定灯笼后比较影子。
+  source_evidence:
+  - location: p.1
+    quote: A steady lantern makes every shadow easier to compare.
+  task_ids: [t01-01]
+  supports:
+    cases: [c-01]
+    counter_examples: [ce-01]
+    terms: [g-01]
+  V1_source_sufficiency: {passed: true, reason: 有明确步骤}
+  V2_executability: {passed: true}
+  V3_task_utility: {passed: true}
   decision: verified
-- unit_id: u02-01
-  title: 逐片改变挡板
-  decision: verified
-- unit_id: u03-01
-  title: 记录暗角
-  decision: verified
+  decision_reason: 可以比较。
+  gaps: []
+candidate_disposition:
+  f1-01: u01-01
+  p1-01: u01-01
+coverage:
+  t01-01: {units: [u01-01], status: covered, note: 有方法}
+unattached_support: {}

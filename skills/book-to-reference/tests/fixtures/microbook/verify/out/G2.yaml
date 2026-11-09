@@ -1,0 +1,28 @@
+group: G2
+units:
+- unit_id: u02-01
+  title: 逐片改变挡板
+  type: procedure
+  one_liner: 每次改变一片挡板。
+  source_evidence: [{location: p.2}]
+  task_ids: [t02-01]
+  decision: verified
+  decision_reason: 可以试验。
+  gaps: []
+- unit_id: u03-01
+  title: 记录暗角
+  type: checklist
+  one_liner: 记录最暗的角落。
+  source_evidence: [{location: p.3}]
+  task_ids: [t03-01]
+  decision: verified
+  decision_reason: 可以记录。
+  gaps: []
+candidate_disposition:
+  f2-01: u02-01
+  p2-01: u02-01
+  f3-01: u03-01
+  p3-01: u03-01
+coverage:
+  t02-01: {units: [u02-01], status: covered}
+  t03-01: {units: [u03-01], status: covered}

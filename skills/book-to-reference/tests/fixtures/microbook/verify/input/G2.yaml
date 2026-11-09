@@ -1,0 +1,5 @@
+framework: [{id: f2-01}, {id: f3-01}]
+principle: [{id: p2-01}, {id: p3-01}]
+case: [{id: c-02}]
+counter_example: [{id: ce-01}, {id: ce-02}]
+term: [{id: g-02}]

@@ -1,0 +1,12 @@
+batch: R1
+units:
+- unit_id: u01-01
+  decision_after: reference
+  steps:
+  - step: 固定灯笼后再比较影子
+    support: reconstructed
+    location: p.1
+  narrowing: 原文只说明好处，没有固定方法。
+  must_go_to_boundary: [不能声称有测量精度标准]
+  gaps: [缺固定方法]
+  reason: 原文没有可执行的固定方法。
