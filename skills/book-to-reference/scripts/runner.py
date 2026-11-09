@@ -15,6 +15,7 @@ import sys
 import tempfile
 
 from chain import parse_run
+from bookconf import check_work_output
 
 
 @dataclass
@@ -59,6 +60,9 @@ def run_batch(jobs, out_dir: Path, runs_root: Path, batch_id: str, lanes: int,
     if lanes < 1 or budget_usd <= 0 or not batch_id or not claude_cmd:
         raise ValueError("lanes、budget、batch_id 和 claude_cmd 无效")
     jobs = list(jobs)
+    protected = [job.plugin_dir for job in jobs]
+    out_dir = check_work_output(out_dir, roots=protected)
+    runs_root = check_work_output(runs_root, roots=protected)
     destinations = []
     seen = set()
     for job in jobs:

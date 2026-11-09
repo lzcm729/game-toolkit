@@ -400,6 +400,10 @@ def main(argv=None) -> int:
     args = build_parser().parse_args(argv)
     try:
         cfg = open_workdir(args.workdir)
+        from bookconf import check_work_output
+        for name in ("out", "out_dir"):
+            if getattr(args, name, None) is not None:
+                setattr(args, name, check_work_output(getattr(args, name), cfg))
         if args.command == "pick":
             used = set()
             for path in args.used:

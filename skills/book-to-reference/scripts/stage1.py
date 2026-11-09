@@ -164,7 +164,9 @@ def coverage(cfg, workdir: Path) -> CoverageResult:
     return CoverageResult(by_task, problems, scope)
 
 
-def chapter_key(source_chapter: str) -> str | None:
+def chapter_key(source_chapter: str, mapping: dict[str, str] | None = None) -> str | None:
+    if mapping and source_chapter in mapping:
+        return mapping[source_chapter]
     text = str(source_chapter).lower()
     match = re.search(r"\bch(?:apter)?\s*(\d+)", text)
     if match:
@@ -191,7 +193,7 @@ def split_candidates(cfg, workdir: Path) -> dict[str, dict[str, list]]:
     groups = {key: group for group, keys in cfg.verify_groups.items() for key in keys}
     for kind, items in data.items():
         for item in items:
-            key = chapter_key(item.get("source_chapter", ""))
+            key = chapter_key(item.get("source_chapter", ""), cfg.chapter_map)
             group = groups.get(key)
             if group is None:
                 problems.append(f"{item['id']}: unmapped chapter {key!r}: {item.get('source_chapter')}")

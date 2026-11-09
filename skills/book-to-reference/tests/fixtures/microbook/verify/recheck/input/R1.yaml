@@ -1,0 +1,10 @@
+batch: R1
+units:
+- unit_id: u01-01
+  title: 固定灯笼
+  type: checklist
+  one_liner: 固定灯笼后比较影子。
+  source_evidence:
+  - location: p.1
+    quote: A steady lantern makes every shadow easier to compare.
+  task_ids: [t01-01]

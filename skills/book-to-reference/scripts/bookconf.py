@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass, fields
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 import sys
 from typing import Literal
@@ -71,6 +71,7 @@ class BookConfig:
     residue_allow: list[str]
     convert: dict
     answer_compare: dict
+    chapter_map: dict[str, str] = field(default_factory=dict)
 
 
 def _mapping(value, name: str) -> dict:
@@ -164,6 +165,8 @@ def load_config(workdir: Path) -> BookConfig:
         rulings=rulings, residue_allow=_strings(data.get("residue_allow", []), "residue_allow"),
         convert=_mapping(data.get("convert", {}), "convert"),
         answer_compare=_mapping(data.get("answer_compare", {}), "answer_compare"),
+        chapter_map={_string(k, "chapter_map 标签"): _string(v, "chapter_map 规范键")
+                     for k, v in _mapping(data.get("chapter_map", {}), "chapter_map").items()},
     )
 
 
@@ -206,6 +209,18 @@ def open_workdir(workdir: Path) -> BookConfig:
             if root is not None and path.is_relative_to(root):
                 raise ValueError(f"{name} 不能落在源码仓库里: {path}")
     return cfg
+
+
+def check_work_output(path: Path, cfg: BookConfig | None = None, roots=()) -> Path:
+    """显式输出参数不能绕过工作目录隔离；同时检查解析后的符号链接。"""
+    path = Path(path).expanduser().resolve()
+    protected = [find_repo_root(Path(__file__)), find_repo_root(path), *roots]
+    if cfg is not None:
+        protected.append(cfg.target_root.resolve())
+    for root in protected:
+        if root is not None and path.is_relative_to(Path(root).resolve()):
+            raise ValueError(f"工作产物输出不能落在源码仓库里: {path}")
+    return path
 
 
 def build_parser():

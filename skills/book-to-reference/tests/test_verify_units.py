@@ -102,6 +102,9 @@ def test_recheck_overlapping_batches_are_idempotent(microbook):
     record["batch"] = "R2"
     record["units"][0]["decision_after"] = "needs_review"
     dump(microbook / "verify/recheck/out/R2.yaml", record)
+    inp = yaml.safe_load((microbook / "verify/recheck/input/R1.yaml").read_text(encoding="utf-8"))
+    inp["batch"] = "R2"
+    dump(microbook / "verify/recheck/input/R2.yaml", inp)
     cfg = bookconf.open_workdir(microbook)
     assert len(vu.apply_recheck(cfg, microbook, None, False)) == 2
     path = microbook / "verify/out/G1.yaml"
@@ -109,6 +112,28 @@ def test_recheck_overlapping_batches_are_idempotent(microbook):
     assert vu.apply_recheck(cfg, microbook, None, False) == []
     assert vu.apply_recheck(cfg, microbook, ["R1"], False) == []
     assert path.read_bytes() == before
+
+
+@pytest.mark.parametrize("defect", ["missing", "duplicate", "field", "changed"])
+def test_recheck_requires_complete_frozen_batch(microbook, defect):
+    cfg = bookconf.open_workdir(microbook)
+    path = microbook / "verify/recheck/out/R1.yaml"
+    if defect == "changed":
+        vu.apply_recheck(cfg, microbook, None, False)
+    before = (microbook / "verify/out/G1.yaml").read_bytes()
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if defect == "missing":
+        data["units"] = []
+    elif defect == "duplicate":
+        data["units"].append(data["units"][0].copy())
+    elif defect == "field":
+        del data["units"][0]["reason"]
+    else:
+        data["units"][0]["reason"] = "changed"
+    dump(path, data)
+    with pytest.raises(ValueError):
+        vu.apply_recheck(cfg, microbook, None, False)
+    assert (microbook / "verify/out/G1.yaml").read_bytes() == before
 
 
 def test_doubt_flags_show_matched_words(microbook):
@@ -120,3 +145,11 @@ def test_doubt_flags_show_matched_words(microbook):
     flags = (microbook / "verify/_flags.md").read_text(encoding="utf-8")
     assert "信号：" + str(sorted(["偏宽", "收窄", "原图缺失", "也可以改判"])) in flags
     assert "['']" not in flags
+
+
+def test_coverage_owner_can_reference_other_group(microbook):
+    path = microbook / "verify/out/G1.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["coverage"]["t01-01"]["units"].append("u02-01")
+    dump(path, data)
+    assert vu.aggregate(bookconf.open_workdir(microbook), microbook).problems == []

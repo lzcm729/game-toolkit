@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 from collections import Counter, defaultdict
 from dataclasses import dataclass
+import hashlib
 from pathlib import Path
 import re
 import shutil
@@ -187,6 +188,44 @@ def apply_recheck(cfg, workdir: Path, batches: list[str] | None, dry: bool) -> l
             where[uid] = group
     paths = sorted(resolve(cfg, workdir, "recheck_out").glob("*.yaml"), key=_natural)
     records = [(index, path, _read(path)) for index, path in enumerate(paths)]
+    ledger_path = resolve(cfg, workdir, "recheck_out").parent / "_applied.yaml"
+    ledger = _read(ledger_path) if ledger_path.exists() else {}
+    fingerprints = {}
+    for _, path, data in records:
+        inp_path = named_yaml(resolve(cfg, workdir, "recheck_in"), path.stem)
+        inp = _read(inp_path)
+        if inp.get("batch") != path.stem or data.get("batch") != path.stem:
+            raise ValueError(f"{path.stem}: batch 必须与文件名一致")
+        def indexed(rows, required):
+            if not isinstance(rows, list):
+                raise ValueError(f"{path.stem}: units 必须是列表")
+            found = {}
+            for row in rows:
+                if not isinstance(row, dict) or set(required) - set(row):
+                    raise ValueError(f"{path.stem}: 单元缺必要字段 {required}")
+                uid = row["unit_id"]
+                if not isinstance(uid, str) or uid in found:
+                    raise ValueError(f"{path.stem}: duplicate/invalid unit {uid}")
+                found[uid] = row
+            return found
+        inputs = indexed(inp.get("units"), KEEP)
+        outputs = indexed(data.get("units"), ("unit_id", "decision_after", "steps", "narrowing",
+                                             "must_go_to_boundary", "gaps", "reason"))
+        if set(inputs) != set(outputs):
+            raise ValueError(f"{path.stem}: 复核输入/输出单元集合不等: {sorted(set(inputs) ^ set(outputs))}")
+        for uid, row in outputs.items():
+            if uid not in units or row["decision_after"] not in DECISIONS:
+                raise ValueError(f"{path.stem}: unknown unit/decision {uid}")
+            if not isinstance(row["reason"], str) or not row["reason"].strip():
+                raise ValueError(f"{uid}: reason 必须非空")
+            if any(not isinstance(row[k], list) for k in ("steps", "must_go_to_boundary", "gaps")):
+                raise ValueError(f"{uid}: steps/must_go_to_boundary/gaps 必须是列表")
+        digest = hashlib.sha256(inp_path.read_bytes() + b"\0" + path.read_bytes()).hexdigest()
+        fingerprints[path.stem] = digest
+        if path.stem in ledger and ledger[path.stem] != digest:
+            raise ValueError(f"{path.stem}: 已应用批次内容变化，请使用新批次")
+        if path.stem not in ledger and any((u.get("recheck") or {}).get("batch") == path.stem for u in units.values()):
+            raise ValueError(f"{path.stem}: 已应用旧批次缺冻结摘要，请使用新批次")
     applied_through = {}
     for index, path, data in records:
         batch = data.get("batch", path.stem)
@@ -254,6 +293,8 @@ def apply_recheck(cfg, workdir: Path, batches: list[str] | None, dry: bool) -> l
             if not backup.exists():
                 shutil.copyfile(path, backup)
             path.write_text(_dump(groups[group]), encoding="utf-8", newline="\n")
+        ledger.update({path.stem: fingerprints[path.stem] for _, path, _ in records})
+        ledger_path.write_text(_dump(ledger), encoding="utf-8", newline="\n")
     return changes
 
 

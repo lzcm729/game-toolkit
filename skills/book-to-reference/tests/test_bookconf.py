@@ -115,3 +115,22 @@ def test_malformed_config_is_value_error(microbook):
     (microbook / "book.yaml").write_text("prefix: [\n", encoding="utf-8", newline="\n")
     with pytest.raises(ValueError, match="book.yaml"):
         bc.load_config(microbook)
+
+
+def test_explicit_outputs_cannot_bypass_boundary(microbook, plugin_copy, tmp_path, monkeypatch):
+    import grading
+    import reach
+    import runner
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path / "fake-home"))
+    cfg = bc.open_workdir(microbook)
+    for path in (plugin_copy / "out", bc.find_repo_root(Path(bc.__file__)) / "out"):
+        with pytest.raises(ValueError, match="输出"):
+            bc.check_work_output(path, cfg)
+        assert grading.main(["prompts", str(microbook), "--items", "missing", "--prompts-raw", "missing",
+                             "--out-dir", str(path)]) == 1
+        assert reach.main(["expected", str(microbook), "--out", str(path)]) == 1
+    job = runner.Job("q1", "prompt", "new", plugin_copy, 1)
+    for out, runs in ((plugin_copy / "out", tmp_path / "runs"), (tmp_path / "out", plugin_copy / "runs")):
+        with pytest.raises(ValueError, match="输出"):
+            runner.run_batch([job], out, runs, "b", 1, 1, "fake", ["fake"])
+    assert not (plugin_copy / "out").exists()

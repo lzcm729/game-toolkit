@@ -51,6 +51,16 @@ def test_non_numeric_chapter_key(microbook):
     assert result["G1"]["framework"][0]["id"] == "f1-01"
 
 
+@pytest.mark.parametrize("label", ["第一章", "Appendix A", "Part VI"])
+def test_explicit_chapter_map(microbook, label):
+    clean_candidates(microbook)
+    path = microbook / "candidates/frameworks.md"
+    path.write_text(path.read_text(encoding="utf-8").replace("Chapter 1 Observe", label), encoding="utf-8")
+    cfg = bookconf.open_workdir(microbook)
+    cfg.chapter_map = {label: "1"}
+    assert stage1.split_candidates(cfg, microbook)["G1"]["framework"][0]["id"] == "f1-01"
+
+
 def test_coverage_requires_executable_candidate(microbook):
     clean_candidates(microbook)
     for name in ("frameworks.md", "principles.md"):
