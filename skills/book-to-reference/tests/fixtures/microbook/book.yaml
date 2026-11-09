@@ -1,0 +1,28 @@
+book_id: microbook
+prefix: micro-
+target_root: ../plugin
+mask_names:
+  authors: [Mira Example]
+  titles: [The Lantern Workshop]
+verify_groups:
+  G2: ['2', '3']
+  G1: ['pre', 'p1', '1']
+entry_groups:
+  灯光试验: ['02', '03']
+  起步: ['00', '01']
+old_files: [old.md]
+paths: {}
+skill_md:
+  quick_ref_start: '<!-- QUICK START -->'
+  quick_ref_end: '<!-- QUICK END -->'
+  quick_ref_file: stage2/quick-ref.md
+  table_start: '<!-- TABLE START -->'
+  table_end: '<!-- TABLE END -->'
+  table_heading: '## 按任务选卡'
+  when_to_use_anchor: '## 何时使用'
+  when_to_use_line: '需要做灯光试验时使用。'
+  description_file: null
+rulings: []
+residue_allow: []
+convert: {}
+answer_compare: {}
