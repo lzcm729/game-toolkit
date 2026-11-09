@@ -11,3 +11,5 @@
 ## Chapter 3: Record
 
 [p.3] Record the dimmest corner before ending the workshop.
+
+[p.4] An unlit lantern can stand for a quiet promise. This is a viewpoint, not a procedure.

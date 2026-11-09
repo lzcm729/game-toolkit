@@ -1,5 +1,6 @@
 """发布生成要可重跑，分组、截断和路径错误都不能静默改变交付。"""
 import os
+import re
 import subprocess
 import sys
 
@@ -104,3 +105,25 @@ def test_notes_title_uses_display_names(microbook, plugin_copy):
     path.write_text(yaml.safe_dump(data), encoding="utf-8", newline="\n")
     integrate.run(microbook)
     assert notes.read_bytes() == first
+
+
+def test_scope_reference_enters_notes_without_unit(microbook):
+    prepare(microbook)
+    before = {path.name: path.read_bytes() for path in (microbook / "verify/out").glob("*.yaml")}
+    integrate.run(microbook)
+    notes = (microbook / "landing/notes.md").read_text(encoding="utf-8")
+    section = notes.split("## 只作参考的作者观点", 1)[1]
+    assert "讨论灯笼的象征" in section and "只作参考" in section
+    assert "没有可执行步骤" in section and "p.4" in section
+    assert not re.search(r"u\d\d-\d\d", section)
+    assert before == {path.name: path.read_bytes() for path in (microbook / "verify/out").glob("*.yaml")}
+
+
+def test_scope_out_of_scope_not_in_notes(microbook):
+    prepare(microbook)
+    path = microbook / "candidates/_scope.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data[0]["decision"] = "out_of_scope"
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8", newline="\n")
+    integrate.run(microbook)
+    assert "讨论灯笼的象征" not in (microbook / "landing/notes.md").read_text(encoding="utf-8")

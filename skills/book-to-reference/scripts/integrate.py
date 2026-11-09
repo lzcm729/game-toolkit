@@ -12,7 +12,7 @@ import yaml
 
 from bookconf import open_workdir, resolve
 import publicize
-from stage1 import read_tasks
+from stage1 import read_tasks, scope_dispositions
 
 
 USAGE = ("> **怎么用这张卡**：它是方法和书中依据的来源之一，不是回答的模板。回答围绕用户的处境：先给你自己的专业判断和具体做法，"
@@ -150,6 +150,23 @@ def _notes(cfg, workdir, unit_card):
             line = (f"- **{unit['title']}**（{status}，{', '.join(pages)}）：{_first_sentence(public(readable(unit.get('one_liner'))))}"
                     f" 原因：{_first_sentence(reason, 140)} 相关：{cards}")
             lines.append(public(line))
+        lines.append("")
+    tasks = read_tasks(resolve(cfg, workdir, "overview").read_text(encoding="utf-8"))
+    scope, problems = scope_dispositions(resolve(cfg, workdir, "scope"), tasks)
+    if problems:
+        raise ValueError("\n".join(problems))
+    references = {task: item for task, item in scope.items() if item["decision"] == "reference_only"}
+    if references:
+        # 范围处置本身就是参考去向，不要求执行者虚构一个方法候选或单元。
+        lines.extend(["### 按任务保留的参考", ""])
+        for task, item in sorted(references.items()):
+            pages = item.get("pages") or []
+            if not isinstance(pages, list):
+                pages = [pages]
+            location = ", ".join(f"p.{str(page).removeprefix('p.').strip()}" for page in pages) or "页码未提供"
+            title = public(readable(tasks[task]))
+            reason = public(readable(" ".join(item["reason"].split())))
+            lines.append(f"- **{title}**（只作参考，{location}）：{reason}")
         lines.append("")
     return "\n".join(lines)
 

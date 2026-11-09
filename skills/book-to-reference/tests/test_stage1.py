@@ -76,9 +76,6 @@ def write_scope(workdir, entries):
 @pytest.mark.parametrize("decision", ["reference_only", "out_of_scope"])
 def test_scope_disposition_clears_gap(microbook, decision, capsys):
     clean_candidates(microbook)
-    overview = microbook / "BOOK_OVERVIEW.md"
-    overview.write_text(overview.read_text(encoding="utf-8") + "| t03-02 | 了解灯的象征 | 第 3 章 |\n",
-                        encoding="utf-8", newline="\n")
     entry = {"task_id": "t03-02", "decision": decision, "reason": "补读后仅有观点，没有可执行步骤", "pages": [9]}
     write_scope(microbook, [entry])
     result = stage1.coverage(bookconf.open_workdir(microbook), microbook)

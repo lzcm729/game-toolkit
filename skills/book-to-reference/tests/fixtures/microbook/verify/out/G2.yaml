@@ -26,3 +26,4 @@ candidate_disposition:
 coverage:
   t02-01: {units: [u02-01], status: covered}
   t03-01: {units: [u03-01], status: covered}
+  t03-02: {units: [], status: reference_only, note: 范围处置中的观点交付到 notes}
