@@ -37,3 +37,11 @@ def test_reach_writer_does_not_receive_expected_cards(microbook, tmp_path):
     writer = (directory / "tasks-for-prompt-writer.yaml").read_text(encoding="utf-8")
     assert "steady-shadow" not in writer
     assert "steady-shadow" in (directory / "expected.json").read_text(encoding="utf-8")
+
+
+def test_protected_hit_requires_expected_reference(tmp_path):
+    source = (RUNS / "success.jsonl").read_text(encoding="utf-8")
+    path = tmp_path / "q-r1.jsonl"
+    path.write_text(source, encoding="utf-8")
+    assert reach.score(tmp_path, {"q": "p-other"}, {"p-other": ["SKILL.md"]}, "micro-")["q"] == "MISS"
+    assert reach.score(tmp_path, {"q": "p-other"}, {"p-other": ["SKILL.md", "micro-a.md"]}, "micro-")["q"] == "HIT"

@@ -10,6 +10,7 @@ import os
 from pathlib import Path
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import tempfile
@@ -54,10 +55,29 @@ def _write_json(path, data):
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
+def _execute(command, cwd, env, timeout):
+    options = {"creationflags": subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
+    process = subprocess.Popen(command, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
+                               stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                               encoding="utf-8", errors="replace", **options)
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+        return subprocess.CompletedProcess(command, process.returncode, stdout, stderr), False
+    except subprocess.TimeoutExpired:
+        # 只杀父进程会留下持有管道的子进程，communicate 仍可能永久阻塞。
+        if os.name == "nt":
+            subprocess.run(["taskkill", "/PID", str(process.pid), "/T", "/F"], capture_output=True,
+                           creationflags=subprocess.CREATE_NO_WINDOW)
+        else:
+            os.killpg(process.pid, signal.SIGKILL)
+        stdout, stderr = process.communicate()
+        return subprocess.CompletedProcess(command, process.returncode, stdout, stderr), True
+
+
 def run_batch(jobs, out_dir: Path, runs_root: Path, batch_id: str, lanes: int,
-              budget_usd: float, model: str, claude_cmd: list[str]) -> list[Path]:
+              budget_usd: float, model: str, claude_cmd: list[str], timeout_seconds: float = 600) -> list[Path]:
     check_runs_root(runs_root)
-    if lanes < 1 or budget_usd <= 0 or not batch_id or not claude_cmd:
+    if lanes < 1 or budget_usd <= 0 or timeout_seconds <= 0 or not batch_id or not claude_cmd:
         raise ValueError("lanes、budget、batch_id 和 claude_cmd 无效")
     jobs = list(jobs)
     protected = [job.plugin_dir for job in jobs if (job.plugin_dir / ".claude-plugin/plugin.json").is_file()]
@@ -81,7 +101,8 @@ def run_batch(jobs, out_dir: Path, runs_root: Path, batch_id: str, lanes: int,
         job, path = pair
         meta_path = Path(str(path) + ".meta.json")
         meta = {"batch_id": batch_id, "variant": job.variant, "prompt_id": job.prompt_id, "rep": job.rep,
-                "requested_model": model, "model": model, "cc_version": "", "config_dir": config.as_posix()}
+                "requested_model": model, "model": model, "cc_version": "", "config_dir": config.as_posix(),
+                "timeout_seconds": timeout_seconds}
         try:
             plugin = job.plugin_dir.resolve().as_posix()
             prompt_sha = hashlib.sha256(job.prompt.encode("utf-8")).hexdigest()
@@ -105,11 +126,12 @@ def run_batch(jobs, out_dir: Path, runs_root: Path, batch_id: str, lanes: int,
                        "--model", model, "--tools", "Read,Glob,Grep,Skill", "--output-format", "stream-json",
                        "--verbose", "--no-session-persistence", "--max-budget-usd", str(budget_usd), job.prompt]
             env = {**os.environ, "CLAUDE_CONFIG_DIR": config.as_posix()}
-            process = subprocess.run(command, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
-                                     capture_output=True, text=True, encoding="utf-8", errors="replace")
+            process, timed_out = _execute(command, cwd, env, timeout_seconds)
             path.write_text(process.stdout, encoding="utf-8", newline="\n")
             Path(str(path) + ".err").write_text(process.stderr, encoding="utf-8", newline="\n")
             meta["returncode"] = process.returncode
+            if timed_out:
+                raise TimeoutError(f"运行超过墙钟 {timeout_seconds} 秒，已终止进程树")
             run = parse_run(path)
             meta.update(model=run.model or model, cc_version=run.cc_version)
             if process.returncode:
@@ -145,6 +167,7 @@ def build_parser():
     parser.add_argument("--budget", type=float, required=True)
     parser.add_argument("--runs-root", type=Path, required=True)
     parser.add_argument("--batch-id", required=True)
+    parser.add_argument("--timeout-seconds", type=float, default=600)
     parser.add_argument("--model", default="claude-opus-5-5")
     parser.add_argument("--claude", default="claude", help="命令及固定参数；路径用正斜杠")
     return parser
@@ -161,7 +184,7 @@ def main(argv=None) -> int:
         variants = dict(item.split("=", 1) for item in args.variant)
         jobs = plan_jobs(prompts, {name: Path(path) for name, path in variants.items()}, args.reps)
         paths = run_batch(jobs, args.out_dir, args.runs_root, args.batch_id, args.lanes, args.budget,
-                          args.model, shlex.split(args.claude.replace("\\", "/")))
+                          args.model, shlex.split(args.claude.replace("\\", "/")), args.timeout_seconds)
         failed = [path.as_posix() for path in paths if not is_success(path, args.batch_id)]
         print(f"runs: {len(paths)}; failed: {len(failed)}")
         for path in failed:

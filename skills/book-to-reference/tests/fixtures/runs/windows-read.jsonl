@@ -1,3 +1,3 @@
 {"type":"assistant","message":{"content":[{"type":"tool_use","id":"s1","name":"Skill","input":{"skill":"game-toolkit:game-design-theory"}},{"type":"tool_use","id":"r1","name":"Read","input":{"file_path":"Z:\\snap\\skills\\game-design-theory\\references\\micro-a.md"}}]}}
-{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"r1","is_error":false,"content":"Synthetic card"}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"r1","is_error":false,"content":"Synthetic card"},{"type":"tool_result","tool_use_id":"s1","content":"Launching skill"}]}}
 {"type":"result","subtype":"success","is_error":false,"result":"Synthetic answer"}

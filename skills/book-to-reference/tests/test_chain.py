@@ -60,3 +60,22 @@ def test_parse_run_tolerates_mixed_event_shapes():
     assert run.skills == ["game-toolkit:design-discuss"]
     assert run.reads == ["plugin/skills/game-design-theory/references/micro-shutter-test.md"]
     assert run.cost == 0 and run.model == "" and run.cc_version == ""
+
+
+def test_skill_activation_requires_successful_tool_result(tmp_path):
+    import json
+    source = [json.loads(line) for line in (RUNS / "success.jsonl").read_text(encoding="utf-8").splitlines()]
+    for kind in ("error", "missing"):
+        events = json.loads(json.dumps(source))
+        content = events[2]["message"]["content"]
+        if kind == "error":
+            content[0]["is_error"] = True
+        else:
+            content.pop(0)
+        path = tmp_path / f"{kind}.jsonl"
+        path.write_text("\n".join(json.dumps(e) for e in events), encoding="utf-8")
+        run = chain.parse_run(path)
+        assert run.ok and run.skills == []
+        assert run.skill_requests == ["game-toolkit:design-discuss"]
+        assert run.skill_failures == (["game-toolkit:design-discuss"] if kind == "error" else [])
+        assert chain.counts([run], MARKER, "micro-")["skill"] == 0

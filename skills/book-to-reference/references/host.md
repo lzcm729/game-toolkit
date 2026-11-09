@@ -37,3 +37,9 @@ failed 单列，不进入其他激活分类；runs 是包含失败的总数。
 Codex 宿主没有独立上下文时照常保留产物，但相关步骤标“未独立验证”，不能宣称验收通过。
 以后 `claude plugin eval` 可以接替加载隔离、执行和工具观测；只有满足同批、完整性和
 独立性的契约才可替换，默认评分不能替代口径 B 或消费链验收。
+
+runner 的输入 TSV 每行三列：`qid<TAB>group<TAB>prompt`，不加表头。group 在运行器里不参与提示词，留给分组与评分使用。
+
+`--timeout-seconds` 默认 600 秒，是每次运行的墙钟上限（与美元预算独立）。超时会终止整个进程树，保存已收集的输出，在 meta.error 记 TimeoutError；同批其他 job 继续，重跑只补失败项。
+
+chain 的 skills/skill 仅含关联到成功 tool_result 的 Skill 激活；skill_requests 记录请求，skill_failures 记录明确失败，未返回结果的请求不算成功或明确失败。counts 这两列统计至少出现一次对应事件的运行数，包含失败运行；成功分类仍排除没有最终成功回答的运行。

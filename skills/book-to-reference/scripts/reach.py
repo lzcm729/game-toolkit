@@ -65,7 +65,8 @@ def score(runs_dir: Path, id_map: dict, expected: dict, card_prefix: str) -> dic
             result[qid] = "FIRED" if fired or any(REFS_MARKER in path for path in run.reads) else "REJECT"
         elif item.startswith("p-"):
             accepted = expected.get(item, [])
-            hit = any(name in accepted for name in names) or ("SKILL.md" in accepted and fired)
+            hit = any("/references/" in path and path.rsplit("/", 1)[-1] in accepted
+                      and path.rsplit("/", 1)[-1] != "SKILL.md" for path in run.reads)
             result[qid] = "HIT" if hit else "MISS"
         else:
             cards = [name[len(card_prefix):-3] for name in names

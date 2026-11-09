@@ -126,3 +126,29 @@ def test_batch_records_launch_error(tmp_path, monkeypatch):
         meta = json.loads(Path(str(path) + ".meta.json").read_text(encoding="utf-8"))
         assert meta["error"]["type"] == "FileNotFoundError"
         assert not runner.is_success(path, "batch")
+
+
+def test_wall_timeout_kills_tree_and_continues(tmp_path, monkeypatch):
+    import os
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    monkeypatch.setenv("FAKE_CLAUDE_LOG", str(tmp_path / "fake.log"))
+    jobs = runner.plan_jobs([("q1", "timeout-tree"), ("q2", "answer")], {"a": tmp_path}, 1)
+    paths = runner.run_batch(jobs, tmp_path / "out", tmp_path / "runs", "batch", 1, .1,
+                             "fake", [sys.executable, str(FIXTURES / "fake_claude.py")], timeout_seconds=1)
+    meta = json.loads(Path(str(paths[0]) + ".meta.json").read_text(encoding="utf-8"))
+    assert meta["error"]["type"] == "TimeoutError"
+    assert not runner.is_success(paths[0], "batch") and runner.is_success(paths[1], "batch")
+    pid = int(paths[0].read_text(encoding="utf-8").split("child_pid=")[1].splitlines()[0])
+    if os.name == "nt":
+        import ctypes
+        kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel.OpenProcess.restype = ctypes.c_void_p
+        handle = kernel.OpenProcess(0x1000, False, pid)
+        if handle:
+            code = ctypes.c_ulong()
+            kernel.GetExitCodeProcess(ctypes.c_void_p(handle), ctypes.byref(code))
+            kernel.CloseHandle(ctypes.c_void_p(handle))
+            assert code.value != 259
+    else:
+        status = Path(f"/proc/{pid}/stat")
+        assert not status.exists() or status.read_text().split()[2] == "Z"

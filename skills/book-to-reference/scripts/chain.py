@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import json
 import math
 from pathlib import Path
@@ -22,6 +22,8 @@ class Run:
     answer: str | None
     model: str
     cc_version: str
+    skill_requests: list[str] = field(default_factory=list)
+    skill_failures: list[str] = field(default_factory=list)
 
 
 def successful(events: list[dict]) -> bool:
@@ -46,9 +48,11 @@ def parse_run(jsonl: Path) -> Run:
                 events.append(event)
     except (OSError, ValueError):
         valid = False
-    skills = []
+    requests = []
+    skill_calls = {}
     read_calls = {}
     read_success = set()
+    tool_failures = set()
     model = version = ""
     for event in events:
         if event.get("type") == "system" and event.get("subtype") == "init":
@@ -70,7 +74,10 @@ def parse_run(jsonl: Path) -> Run:
                 if block.get("name") == "Skill":
                     skill = inputs.get("skill")
                     if isinstance(skill, str) and skill:
-                        skills.append(skill)
+                        requests.append(skill)
+                        call_id = block.get("id")
+                        if isinstance(call_id, str) and call_id:
+                            skill_calls[call_id] = skill
                 elif block.get("name") == "Read":
                     call_id, path = block.get("id"), inputs.get("file_path")
                     if isinstance(call_id, str) and call_id and isinstance(path, str):
@@ -81,8 +88,10 @@ def parse_run(jsonl: Path) -> Run:
                     continue
                 if not block.get("is_error"):
                     read_success.add(call_id)
+                    tool_failures.discard(call_id)
                 else:
                     read_success.discard(call_id)
+                    tool_failures.add(call_id)
     reads = [path for key, path in read_calls.items() if key in read_success and path]
     ok = valid and successful(events)
     final = events[-1] if events and events[-1].get("type") == "result" else {}
@@ -93,14 +102,18 @@ def parse_run(jsonl: Path) -> Run:
         cost = 0.0
     if not math.isfinite(cost):
         cost = 0.0
-    return Run(jsonl, ok, skills, reads, cost, final["result"] if ok else None, model, version)
+    skills = [skill for key, skill in skill_calls.items() if key in read_success]
+    failures = [skill for key, skill in skill_calls.items() if key in tool_failures]
+    return Run(jsonl, ok, skills, reads, cost, final["result"] if ok else None, model, version, requests, failures)
 
 
 def counts(runs: list[Run], refs_marker: str, card_prefix: str) -> dict[str, int]:
     result = dict.fromkeys(("runs", "failed", "skill", "skill_and_any_book_ref", "skill_and_card",
-                            "skill_but_no_book_ref", "no_skill"), 0)
+                            "skill_but_no_book_ref", "no_skill", "skill_requests", "skill_failures"), 0)
     for run in runs:
         result["runs"] += 1
+        result["skill_requests"] += any(s.startswith("game-toolkit:") for s in run.skill_requests)
+        result["skill_failures"] += any(s.startswith("game-toolkit:") for s in run.skill_failures)
         if not run.ok:
             result["failed"] += 1
             continue
@@ -116,14 +129,14 @@ def counts(runs: list[Run], refs_marker: str, card_prefix: str) -> dict[str, int
 
 
 def per_question(dirs: dict[str, Path], card_prefix: str) -> str:
-    lines = ["| 题与重复 | 版本 | 完成 | 本插件激活 | 读卡 | 成功读取的文件 | 美元 |",
-             "|---|---|---|---|---|---|---|"]
+    lines = ["| 题与重复 | 版本 | 完成 | 本插件请求 | 激活 | 调用失败 | 读卡 | 成功读取的文件 | 美元 |",
+             "|---|---|---|---|---|---|---|---|---|"]
     for variant, directory in dirs.items():
         for path in sorted(Path(directory).glob("*.jsonl")):
             run = parse_run(path)
             row = counts([run], REFS_MARKER, card_prefix)
             reads = "<br>".join(run.reads).replace("|", "／") or "—"
-            lines.append(f"| {path.stem} | {variant} | {run.ok} | {row['skill']} | {row['skill_and_card']} | {reads} | {run.cost:.3f} |")
+            lines.append(f"| {path.stem} | {variant} | {run.ok} | {row['skill_requests']} | {row['skill']} | {row['skill_failures']} | {row['skill_and_card']} | {reads} | {run.cost:.3f} |")
     return "\n".join(lines) + "\n"
 
 

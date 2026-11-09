@@ -3,6 +3,8 @@ import json
 import os
 from pathlib import Path
 import sys
+import subprocess
+import time
 
 args = sys.argv[1:]
 log = {"args": args, "cwd": Path.cwd().as_posix(),
@@ -11,6 +13,10 @@ log = {"args": args, "cwd": Path.cwd().as_posix(),
 path = Path(os.environ["FAKE_CLAUDE_LOG"])
 with path.open("a", encoding="utf-8", newline="\n") as stream:
     stream.write(json.dumps(log) + "\n")
+if args[-1] == "timeout-tree":
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(600)"])
+    print(f"child_pid={child.pid}", flush=True)
+    time.sleep(600)
 if args[-1] == "invalid-once":
     previous = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
     if sum(call["args"][-1] == "invalid-once" for call in previous) == 1:
