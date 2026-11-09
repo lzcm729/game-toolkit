@@ -30,6 +30,7 @@ landing/notes.md
 未覆盖的字段取上图默认值。
 
 `mask_names.authors` 和 `mask_names.titles` 列出盲评需要遮蔽的全部作者和书名，含另外三本书。
+两份列表的首项也分别用于 notes 标题的作者名和书名；其他项可列全名、姓氏和书名别称。
 `verify_groups` 和 `entry_groups` 按 YAML 文件顺序保留，键空间不同：
 
 - `verify_groups` 的值是候选 `source_chapter` 解析出的章标签：数字章 `"1"` 等，
@@ -48,6 +49,10 @@ landing/notes.md
 
 `convert` 留给 PDF 字体、页段、页码偏移和说明文字等参数。
 `answer_compare` 留给冻结的回答对比协议。两者是 mapping，由对应阶段解释。
+回答抽样时 `answer_compare.target_source` 是能力清单里的本书来源，比较时不区分大小写；
+`quotas` 是 `组名: [必测数, 可选数]`，包括本书旧覆盖组、`O-other` 和 `N`。
+`exclude_items` 可用通配符，`other_books` 指定其他书的最少题数。
+输入 YAML 清单顺序和 seed 一起冻结；目标书和其他书没有在抽样脚本里写死。
 `residue_allow` 列出允许保留的书内短语，扫描只豁免命中的片段。
 除列出的必填字段外，列表默认 `[]`、这两个阶段配置默认 `{}`；未知配置字段报错，避免拼错后静默使用默认值。
 
