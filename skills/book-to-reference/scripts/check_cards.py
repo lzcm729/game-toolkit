@@ -28,6 +28,7 @@ class QuoteResult:
     pages_claimed: frozenset[int | str]
     found_on: list[int | str]
     status: str
+    manual_reason: str = ""
 
 
 @dataclass
@@ -121,7 +122,9 @@ def quote_pages(source_md: str, card_md: str) -> list[QuoteResult]:
                        or any(character.isalpha() and ord(character) > 127 for character in quote))
         if not allowed or unsupported:
             status = "NOPAGE" if not allowed else "MANUAL" if manual else "UNSUPPORTED: 非英文或少于五词，须人工核对标记"
-            results.append(QuoteResult(line, allowed, [], status))
+            if status == "MANUAL" and not allowed.issubset(set(pages[1:])):
+                status = "NOPAGE: 人工摘句所引页标在原文中不存在"
+            results.append(QuoteResult(line, allowed, [], status, manual.group(1).strip() if manual else ""))
             continue
         segments = [_norm(part) for part in re.split(r"…|\.\.\.", quote) if _norm(part)]
         status = "OK" if allowed else "NOPAGE"
@@ -238,12 +241,15 @@ def main(argv=None) -> int:
                 quotes = quote_pages(source, path.read_text(encoding="utf-8"))
                 results.extend(quotes)
                 for quote in quotes:
-                    if quote.status not in ("OK", "MANUAL"):
+                    if quote.status == "MANUAL":
+                        print(f"{path.name}:{quote.card_line}: MANUAL; {quote.manual_reason}")
+                    elif quote.status != "OK":
                         print(f"{path.name}:{quote.card_line}: {quote.status}; cited={sorted(quote.pages_claimed, key=str)}; found={quote.found_on}")
-            good = sum(quote.status in ("OK", "MANUAL") for quote in results)
+            automatic = sum(quote.status == "OK" for quote in results)
             manual_count = sum(quote.status == "MANUAL" for quote in results)
-            print(f"quotes {good}/{len(results)} accepted; manual={manual_count}")
-            bad |= good != len(results)
+            failed = len(results) - automatic - manual_count
+            print(f"quotes total={len(results)}; automatic={automatic}; manual={manual_count}; failed={failed}")
+            bad |= failed != 0
         if args.only in (None, "steps"):
             results = []
             for path in cards:

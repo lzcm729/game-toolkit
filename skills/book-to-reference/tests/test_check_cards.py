@@ -83,10 +83,33 @@ def test_cross_page_quote_checks_each_ellipsis_segment():
 
 @pytest.mark.parametrize("quote", ["完全错误的中文摘句", "Change one thing.", "five English words here 加上中文"])
 def test_unsupported_quote_requires_explicit_manual_check(quote):
-    card = f"## R\n> {quote}\n> — p.99\n"
+    card = f"## R\n> {quote}\n> — p.1\n"
     assert cc.quote_pages("[p.1] unrelated source", card)[0].status.startswith("UNSUPPORTED")
     marked = card.replace(quote, quote + " <!-- quote-manual: 已人工逐页核对原文和译文，短句核验 -->")
     assert cc.quote_pages("[p.1] unrelated source", marked)[0].status == "MANUAL"
+
+
+@pytest.mark.parametrize("pages, expected", [("p.999", False), ("p.fm-9", False), ("p.1, 999", False), ("p.1", True), ("p.fm-2", True)])
+def test_manual_quote_requires_all_cited_page_markers(pages, expected):
+    card = f"## R\n> 短摘句 <!-- quote-manual: 核对原文和译文 -->\n> — {pages}\n"
+    result, = cc.quote_pages("[p.fm-2] 前言 [p.1] 正文", card)
+    assert (result.status == "MANUAL") is expected
+    if not expected:
+        assert result.status.startswith("NOPAGE")
+
+
+def test_manual_quote_cli_reports_location_reason_and_separate_counts(microbook, capsys):
+    path = microbook / "cards/steady-shadow.md"
+    path.write_text("## R\n> 短摘句 <!-- quote-manual: 已逐页核对原文与译文，中文原文 -->\n> — p.1\n", encoding="utf-8")
+    assert cc.main([str(microbook), "--only", "quotes"]) == 0
+    output = capsys.readouterr().out
+    assert "steady-shadow.md:2: MANUAL; 已逐页核对原文与译文，中文原文" in output
+    assert "total=3; automatic=2; manual=1; failed=0" in output
+
+
+def test_manual_mark_does_not_bypass_english_verification():
+    card = "## R\n> These five words never appear here. <!-- quote-manual: 人工声明 -->\n> — p.1\n"
+    assert cc.quote_pages("[p.1] unrelated source", card)[0].status == "MISS"
 
 
 @pytest.mark.parametrize("card", ["", "## R\n\n## I\n方法", "## R\n> 译：只有译文\n> — p.1\n"])
