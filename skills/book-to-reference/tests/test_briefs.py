@@ -45,6 +45,9 @@ def test_briefs_self_contained():
 def test_brief_commands_exist():
     # 没有在任务书中举例的工具也必须暴露解析器，后续入口检查会复用它。
     for script in sorted((SKILL / "scripts").glob("*.py")):
+        # 页标契约是两个 CLI 共用的库，不虚构一个不能执行任务的命令入口。
+        if script.stem == "page_labels":
+            continue
         assert isinstance(importlib.import_module(script.stem).build_parser(), argparse.ArgumentParser)
     found = []
     for path in sorted((SKILL / "references").rglob("*.md")):

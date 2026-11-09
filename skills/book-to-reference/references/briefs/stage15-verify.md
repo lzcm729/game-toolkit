@@ -44,6 +44,7 @@ coverage:
 
 本组每个 framework/principle 恰好一条 disposition：值为单元号，或 `{rejected: 理由}`。
 每个任务恰好一行 coverage，status 为 covered/reference_only/needs_review/gap，不拿待核查算可执行覆盖。
+跨组任务由主执行方指定 verify_groups 顺序中第一个含该任务候选的组负责唯一 coverage 行，列出跨组全部相关单元；其他组只写自己的单元，不重复 coverage。归属和引用都在全局汇总时检查。
 case 挂 supports.cases 并保留 example_kind；反例挂 counter_examples，术语挂 terms；挂不上的支持材料在 unattached_support 写原因。
 needs_review 必填具体 gaps 和补读/询问事项。importance 取 critical/high/medium/low 并写任务依据。
 
