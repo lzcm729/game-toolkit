@@ -1,3 +1,4 @@
 slug: steady-shadow
 title: 比较影子
 units: [u01-01]
+intents: [两次影子为什么没法比较, 怎么保持观察条件一致]

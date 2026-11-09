@@ -1,3 +1,4 @@
 slug: shutter-test
 title: 试验挡板
 units: [u02-01]
+intents: [每次应该只动哪片挡板, 怎么判断变化来自哪一片挡板]

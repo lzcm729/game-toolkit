@@ -212,11 +212,18 @@ def run(workdir: Path) -> IntegrateReport:
 
     generated = {}
     groups = {group: [] for group in cfg.entry_groups}
+    neighbour_gaps = defaultdict(list)
     chapter_group = {chapter: group for group, chapters in cfg.entry_groups.items() for chapter in chapters}
     unmapped = set()
     for slug in slugs:
         card = (resolve(cfg, workdir, "cards") / f"{slug}.md").read_text(encoding="utf-8")
         meta = yaml.safe_load((resolve(cfg, workdir, "meta") / f"{slug}.yaml").read_text(encoding="utf-8"))
+        raw_intents = meta.get("intents") if isinstance(meta, dict) else None
+        if not isinstance(raw_intents, list) or any(not isinstance(item, str) for item in raw_intents):
+            raise ValueError(f"{slug}: meta.intents 必须是非空字符串列表")
+        clean_intents = [item.strip() for item in raw_intents if item.strip()]
+        if not clean_intents:
+            raise ValueError(f"{slug}: meta.intents 没有触发意图")
         units = re.findall(r"u\d\d-\d\d", card.splitlines()[0])
         # 所有参与卡片的章号都必须有组，不能只检查占多数的章。
         unmapped.update(uid[1:3] for uid in units if uid[1:3] not in chapter_group)
@@ -231,10 +238,15 @@ def run(workdir: Path) -> IntegrateReport:
         neighbour = re.search(r"\*\*与相邻卡的区分[^*]*\*\*\s*\n((?:\s*- .*\n)+)", card)
         neighbour = neighbour.group(1).strip().splitlines()[0].lstrip("- ").strip() if neighbour else "—"
         neighbour = safe_cut(public(rewrite(neighbour)), 90).replace("|", "／")
-        intents = "；".join(meta.get("intents", [])[:3]).replace("|", "／")
+        if neighbour in ("", "—"):
+            neighbour_gaps[chapter_group[chapter]].append(slug)
+        intents = "；".join(clean_intents[:3]).replace("|", "／")
         groups[chapter_group[chapter]].append(f"| {intents} | [{cfg.prefix}{slug}.md](references/{cfg.prefix}{slug}.md) | {neighbour} |")
     if unmapped:
         raise ValueError(f"unmapped entry chapters: {sorted(unmapped)}")
+    for group, entries in groups.items():
+        if len(entries) > 1 and neighbour_gaps[group]:
+            raise ValueError(f"{group}: 多卡分组缺近邻区分: {', '.join(neighbour_gaps[group])}")
     notes = _notes(cfg, workdir, unit_card)
     generated[destination(f"{cfg.prefix}notes.md")] = notes
     table = [cfg.skill_md.table_heading, "",

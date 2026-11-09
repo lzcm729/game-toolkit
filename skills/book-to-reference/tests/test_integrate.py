@@ -31,7 +31,7 @@ def prepare(workdir):
     path.write_text("简短速查。\n\n", encoding="utf-8", newline="\n")
     for path in (workdir / "meta").glob("*.yaml"):
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
-        data["intents"] = [data["title"]]
+        data.setdefault("intents", [data["title"]])
         path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8", newline="\n")
 
 
@@ -127,3 +127,49 @@ def test_scope_out_of_scope_not_in_notes(microbook):
     path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8", newline="\n")
     integrate.run(microbook)
     assert "讨论灯笼的象征" not in (microbook / "landing/notes.md").read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("intents", [None, [], ["", "  "], "比较影子", [7]])
+def test_empty_or_invalid_intents_block_before_writes(microbook, plugin_copy, intents, capsys):
+    prepare(microbook)
+    path = microbook / "meta/shutter-test.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if intents is None:
+        del data["intents"]
+    else:
+        data["intents"] = intents
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8", newline="\n")
+    before = {p.relative_to(plugin_copy): p.read_bytes() for p in plugin_copy.rglob("*") if p.is_file()}
+    assert integrate.main([str(microbook)]) == 1
+    message = capsys.readouterr().err
+    assert "shutter-test" in message and "intents" in message
+    assert before == {p.relative_to(plugin_copy): p.read_bytes() for p in plugin_copy.rglob("*") if p.is_file()}
+    assert not (microbook / "landing/notes.md").exists()
+
+
+def test_single_card_group_allows_no_neighbour(microbook, plugin_copy):
+    prepare(microbook)
+    integrate.run(microbook)
+    skill = (plugin_copy / "skills/game-design-theory/SKILL.md").read_text(encoding="utf-8")
+    row = next(line for line in skill.splitlines() if "[micro-steady-shadow.md]" in line)
+    assert row.endswith("| — |")
+
+
+def test_multi_card_group_requires_neighbour(microbook):
+    prepare(microbook)
+    card = microbook / "cards/shutter-test.md"
+    text = re.sub(r"\*\*与相邻卡的区分\*\*.*?(?=^## |\Z)", "", card.read_text(encoding="utf-8"), flags=re.M | re.S)
+    card.write_text(text, encoding="utf-8", newline="\n")
+    with pytest.raises(ValueError, match="近邻.*shutter-test"):
+        integrate.run(microbook)
+
+
+def test_intents_skip_blank_entries(microbook, plugin_copy):
+    prepare(microbook)
+    path = microbook / "meta/shutter-test.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["intents"] = ["", " ", "", "  每次应该只动哪片挡板  "]
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8", newline="\n")
+    integrate.run(microbook)
+    skill = (plugin_copy / "skills/game-design-theory/SKILL.md").read_text(encoding="utf-8")
+    assert "| 每次应该只动哪片挡板 |" in skill

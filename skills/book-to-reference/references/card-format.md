@@ -53,6 +53,8 @@ Rouse 的旧 `player-psychology.md` 没有作者前缀，是保留的旧文件�
 ## A2 — 触发场景 (Future Trigger)
 
 - 你换了挡板，却分不清影子变化来自哪里；compare shadows。
+
+**与相邻卡的区分**
 - 与记录卡的区别：本卡控制比较条件，记录卡整理观察结果；两条路线可组合。
 
 ## E — 执行 (Execution)
@@ -105,6 +107,9 @@ B：逐条承接复核的 narrowing、must_go_to_boundary、gaps 和原文的反
 
 工作目录下的 `Paths.meta/<slug>.yaml` 是独立文件；卡头与元数据的 units、revision 同步。
 intents 用设计者会问的话，also_read 只放必要依赖或组合，选择表同时说明近邻差别。
+每卡给两三条实际问法；接入会拒绝缺失、全空或类型错误的 intents。
+A2 的 `**与相邻卡的区分**` 后用列表写近邻差别，首条用于选卡表；同组多卡不能留空，单卡组可用“—”。
+单元的 supports.terms 列实际用到的术语编号，notes 据此选入术语。
 不设置独立 skill 的 promotion 字段。
 
 ```yaml
