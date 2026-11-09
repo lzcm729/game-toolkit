@@ -1,0 +1,10 @@
+units:
+- unit_id: u01-01
+  title: 固定灯笼
+  decision: verified
+- unit_id: u02-01
+  title: 逐片改变挡板
+  decision: verified
+- unit_id: u03-01
+  title: 记录暗角
+  decision: verified
