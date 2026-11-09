@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","model":"fake-model","claude_code_version":"0.fake"}
+{"type":"assistant","message":{"content":[{"type":"text","text":"unfinished"}]}}

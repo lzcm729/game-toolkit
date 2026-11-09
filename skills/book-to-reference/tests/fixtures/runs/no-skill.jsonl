@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","model":"fake-model","claude_code_version":"0.fake"}
+{"type":"result","subtype":"success","is_error":false,"result":"Synthetic answer","total_cost_usd":0}

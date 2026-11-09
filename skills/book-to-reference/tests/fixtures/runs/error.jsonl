@@ -1,0 +1,2 @@
+{"type":"system","subtype":"init","model":"fake-model","claude_code_version":"0.fake"}
+{"type":"result","subtype":"error_max_budget_usd","is_error":true,"result":"Budget exhausted","total_cost_usd":0.01}

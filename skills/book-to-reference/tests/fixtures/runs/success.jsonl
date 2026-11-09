@@ -1,0 +1,4 @@
+{"type":"system","subtype":"init","model":"fake-model","claude_code_version":"0.fake"}
+{"type":"assistant","message":{"content":[{"type":"tool_use","id":"s1","name":"Skill","input":{"skill":"game-toolkit:design-discuss"}},{"type":"tool_use","id":"r1","name":"Read","input":{"file_path":"/snap/skills/game-design-theory/references/micro-a.md"}},{"type":"tool_use","id":"r2","name":"Read","input":{"file_path":"/snap/skills/game-design-theory/references/micro-b.md"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"s1","content":"Launching skill"},{"type":"tool_result","tool_use_id":"r1","content":"first card"},{"type":"tool_result","tool_use_id":"r2","content":"second card","is_error":false}]}}
+{"type":"result","subtype":"success","is_error":false,"result":"Synthetic answer","total_cost_usd":0.01}
