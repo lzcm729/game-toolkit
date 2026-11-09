@@ -163,3 +163,34 @@ def test_recheck_requires_every_contract_field(microbook, field):
     dump(path, data)
     with pytest.raises(ValueError, match="必要字段"):
         vu.apply_recheck(bookconf.open_workdir(microbook), microbook, None, False)
+
+
+@pytest.mark.parametrize("defect", ["empty", "unfinished", "no-output"])
+def test_empty_or_unfinished_recheck_does_not_succeed(microbook, defect):
+    inp = microbook / "verify/recheck/input/R1.yaml"
+    out = microbook / "verify/recheck/out/R1.yaml"
+    if defect == "empty":
+        dump(inp, {"batch": "R1", "units": []})
+        dump(out, {"batch": "R1", "units": []})
+    elif defect == "unfinished":
+        data = yaml.safe_load(inp.read_text(encoding="utf-8"))
+        data["batch"] = "R2"
+        dump(inp.with_name("R2.yaml"), data)
+    else:
+        out.unlink()
+    with pytest.raises(ValueError):
+        vu.apply_recheck(bookconf.open_workdir(microbook), microbook, None, False)
+
+
+def test_new_selected_batch_can_replace_legacy_batch_without_digest(microbook):
+    cfg = bookconf.open_workdir(microbook)
+    vu.apply_recheck(cfg, microbook, None, False)
+    (microbook / "verify/recheck/_applied.yaml").unlink()
+    for folder in ("input", "out"):
+        path = microbook / f"verify/recheck/{folder}/R1.yaml"
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+        data["batch"] = "R2"
+        dump(path.with_name("R2.yaml"), data)
+    assert vu.apply_recheck(cfg, microbook, ["R2"], False)
+    ledger = yaml.safe_load((microbook / "verify/recheck/_applied.yaml").read_text(encoding="utf-8"))
+    assert set(ledger) == {"R2"}

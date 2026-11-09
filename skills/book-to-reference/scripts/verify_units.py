@@ -189,7 +189,17 @@ def apply_recheck(cfg, workdir: Path, batches: list[str] | None, dry: bool) -> l
             units[uid] = unit
             where[uid] = group
     paths = sorted(resolve(cfg, workdir, "recheck_out").glob("*.yaml"), key=_natural)
-    records = [(index, path, _read(path)) for index, path in enumerate(paths)]
+    if not paths:
+        raise ValueError("没有复核输出批次可应用")
+    if batches:
+        unknown = set(batches) - {path.stem for path in paths}
+        if unknown:
+            raise ValueError(f"unknown recheck batch: {sorted(unknown)}")
+    else:
+        unfinished = {p.stem for p in resolve(cfg, workdir, "recheck_in").glob("*.yaml")} - {p.stem for p in paths}
+        if unfinished:
+            raise ValueError(f"复核输入缺输出批次: {sorted(unfinished)}")
+    records = [(index, path, _read(path)) for index, path in enumerate(paths) if not batches or path.stem in batches]
     ledger_path = check_work_output(resolve(cfg, workdir, "recheck_out").parent / "_applied.yaml", cfg)
     ledger = _read(ledger_path) if ledger_path.exists() else {}
     fingerprints = {}
@@ -211,6 +221,8 @@ def apply_recheck(cfg, workdir: Path, batches: list[str] | None, dry: bool) -> l
                 found[uid] = row
             return found
         inputs = indexed(inp.get("units"), KEEP)
+        if not inputs:
+            raise ValueError(f"{path.stem}: 空复核批次不能应用")
         outputs = indexed(data.get("units"), ("unit_id", "decision_after", "steps", "narrowing",
                                              "key_judgment", "walkthrough", "must_go_to_boundary", "gaps", "covered_by", "reason"))
         if set(inputs) != set(outputs):
@@ -229,20 +241,15 @@ def apply_recheck(cfg, workdir: Path, batches: list[str] | None, dry: bool) -> l
         if path.stem not in ledger and any((u.get("recheck") or {}).get("batch") == path.stem for u in units.values()):
             raise ValueError(f"{path.stem}: 已应用旧批次缺冻结摘要，请使用新批次")
     applied_through = {}
-    for index, path, data in records:
-        batch = data.get("batch", path.stem)
-        for record in data["units"]:
-            uid = record["unit_id"]
-            if uid in units and (units[uid].get("recheck") or {}).get("batch") == batch:
-                applied_through[uid] = index
-    if batches:
-        unknown = set(batches) - {path.stem for path in paths}
-        if unknown:
-            raise ValueError(f"unknown recheck batch: {sorted(unknown)}")
-        records = [row for row in records if row[1].stem in batches]
+    batch_index = {path.stem: index for index, path in enumerate(paths)}
+    for uid, unit in units.items():
+        batch = (unit.get("recheck") or {}).get("batch")
+        if batch in batch_index:
+            applied_through[uid] = batch_index[batch]
     changes = []
     touched = set()
     changed_ids = set()
+    applied_batches = set()
     for index, path, data in records:
         batch = data.get("batch", path.stem)
         for record in data["units"]:
@@ -274,6 +281,7 @@ def apply_recheck(cfg, workdir: Path, batches: list[str] | None, dry: bool) -> l
                 changed_ids.add(uid)
             narrowed = str(record.get("narrowing") or "无").strip() not in ("无", "", "None")
             changes.append(f"{uid}: {before} -> {after}{'  [narrowed]' if narrowed else ''}")
+            applied_batches.add(path.stem)
     for group, data in groups.items():
         for task, row in (data.get("coverage") or {}).items():
             ids = row.get("units") or []
@@ -295,7 +303,7 @@ def apply_recheck(cfg, workdir: Path, batches: list[str] | None, dry: bool) -> l
             if not backup.exists():
                 shutil.copyfile(path, backup)
             path.write_text(_dump(groups[group]), encoding="utf-8", newline="\n")
-        ledger.update({path.stem: fingerprints[path.stem] for _, path, _ in records})
+        ledger.update({batch: fingerprints[batch] for batch in applied_batches})
         ledger_path.write_text(_dump(ledger), encoding="utf-8", newline="\n")
     return changes
 
