@@ -34,7 +34,7 @@ skill_md:
   table_heading: '## Ribbon Harbor：按任务选卡'
   when_to_use_anchor: '## When to Use This Skill'
   when_to_use_line: '- 纸带港口桌面推演：地点辨认、单泊位风向试验和收尾记录'
-  description_file: null
+  description_file: description.txt
 rulings: []
 residue_allow: []
 convert: {}

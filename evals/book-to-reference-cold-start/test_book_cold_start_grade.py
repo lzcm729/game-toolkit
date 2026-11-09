@@ -107,6 +107,17 @@ def test_prepare_creates_isolated_source(tmp_path, monkeypatch):
     assert result.stdout.strip() == b"1"
 
 
+def test_fixture_description_preserves_books_and_adds_task_signals():
+    config = yaml.safe_load((FIXTURE / "book/book.yaml").read_text(encoding="utf-8"))
+    path = config["skill_md"]["description_file"]
+    assert path
+    description = " ".join((FIXTURE / "book" / path).read_text(encoding="utf-8").split())
+    assert len(description) <= 1024
+    for marker in ("Rouse", "Sylvester", "Schell", "Meadows", "stocks, flows and feedback",
+                   "Ribbon Harbor", "gate identity", "single-berth", "closing records", "闸口辨认"):
+        assert marker in description
+
+
 def test_prepare_rejects_home_before_writing(tmp_path, monkeypatch):
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     with pytest.raises(ValueError, match="主目录"):

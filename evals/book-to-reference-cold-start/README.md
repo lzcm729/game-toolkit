@@ -14,6 +14,8 @@ prepare、日志包装器、评分器及普通 pytest 都不调模型，只有�
 
 准备出的树是 `book/`、`plugin/`、`logs/`。book 里有 source、book.yaml、SETUP.md 和 stops；
 三份 stops 的 target_root 也指向同一个插件副本。skill_md 的插入锚点由执行者在副本中增设，保留原有书籍入口。
+fixture/book/description.txt 是预先给定的入口取舍：压缩四本既有书的主要触发，并加入本微型书的任务信号。
+book.yaml 的 description_file 指向它，只用于评测副本，不修改本仓库的 game-design-theory description。
 完整流程的评审记录保存成 book/review.md，供交接查阅；正文不是自动语义评分的依据。
 如果不能派子代理，照常完成产物并标「未独立验证」；评分器不因此判失败，也不因此判独立验收通过。
 
