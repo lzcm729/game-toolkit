@@ -49,7 +49,29 @@ landing/notes.md
 `when_to_use_anchor` 定位触发说明，`when_to_use_line` 提供新触发句；
 `description_file` 为可选描述文件路径，`null` 表示不替换描述。
 
-`convert` 留给 PDF 字体、页段、页码偏移和说明文字等参数。
+`convert` 不带任何书的排版默认值；只有文本时可为空，调用 PDF convert 时以下字段全部必填。
+start_page 是从 1 起的 PDF 文件页序，stop_page 是不包含的终点，null 表示到末尾；
+page_offset 从 PDF 页序减去得到印刷页，偏移之前输出 fm-N。字体规则按顺序匹配，size 为 null 时不比较字号。
+page_number 仅去掉匹配该字体及整行 pattern 的页码字形；classes 可显式为空，不代表自动识别字体。
+title_min_size 是跳过大标题的字号阈值；header_max_y 是页眉上界；para_indent_x 是段首缩进横坐标。
+outline 明确目录标题的两条匹配规则；不需要目录识别时填永不匹配的 `(?!)`。header 是可选的文件说明前缀。
+
+```yaml
+convert:
+  start_page: 1
+  stop_page: null
+  page_offset: 0
+  title_min_size: 22
+  header_max_y: 30
+  para_indent_x: 90
+  classes:
+    - {kind: h3, font_contains: ExampleBold, size: 14, tol: 0.2}
+  page_number: {font_contains: ExampleRegular, pattern: '\s*\d+\s*'}
+  outline: {part_pattern: '(?!)', chapter_pattern: '^(\d+) (.*)$'}
+  header: '# 编造的灯光手册\n\n'
+```
+
+classes.kind 只支持 h3、h4、callout、vignette、skip，其他排版先显式报错，不推测恢复。
 `answer_compare` 留给冻结的回答对比协议。两者是 mapping，由对应阶段解释。
 回答抽样时 `answer_compare.target_source` 是能力清单里的本书来源，比较时不区分大小写；
 `quotas` 是 `组名: [必测数, 可选数]`，包括本书旧覆盖组、`O-other` 和 `N`。

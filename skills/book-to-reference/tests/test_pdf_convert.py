@@ -30,6 +30,8 @@ def config(**changes):
     return {
         "page_offset": 1, "start_page": 1, "stop_page": None,
         "title_min_size": 18,
+        "header_max_y": 45, "para_indent_x": 84,
+        "outline": {"part_pattern": r"Part (\w+)\s+(.*)", "chapter_pattern": r"^(\d+)\s+(.*)$"},
         "classes": [
             {"kind": "h3", "font_contains": "Helvetica-Bold", "size": 14, "tol": .2},
             {"kind": "skip", "font_contains": "Helvetica-Bold", "size": None, "tol": .2},
@@ -100,3 +102,20 @@ def test_empty_page_still_has_marker(tmp_path):
         doc.new_page()
         doc.save(path)
     assert "[p.fm-1]" in pc.convert(path, config())
+
+
+def test_missing_conversion_contract_fails_before_open(tmp_path):
+    with pytest.raises(ValueError, match="page_offset.*start_page.*stop_page.*classes.*page_number"):
+        pc.convert(tmp_path / "not-opened.pdf", {})
+
+
+@pytest.mark.parametrize("field", pc.REQUIRED)
+def test_conversion_requires_each_explicit_field(tmp_path, field):
+    data = config()
+    del data[field]
+    with pytest.raises(ValueError, match=field):
+        pc.convert(tmp_path / "not-opened.pdf", data)
+
+
+def test_front_page_contract_shared():
+    assert pc.find_page("[p.fm-2] Short preface. [p.1] Body.", "Short preface") == "fm-2"

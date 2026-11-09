@@ -8,6 +8,7 @@ import re
 import sys
 
 from bookconf import open_workdir, resolve
+from page_labels import MARKER, page_value, printed_label
 
 
 @dataclass
@@ -19,14 +20,28 @@ class FontRow:
     pages: list[int]
 
 
-DEFAULT_CLASSES = [
-    {"kind": "skip", "font_contains": "BentonSans-Light", "size": None, "tol": 0},
-    {"kind": "h3", "font_contains": "BentonSansCond-Medium", "size": 12.3, "tol": .3},
-    {"kind": "h4", "font_contains": "BentonSans-Bold", "size": 8.8, "tol": .2},
-    {"kind": "callout", "font_contains": "BentonSansCond-Medium", "size": 9.2, "tol": .2},
-    {"kind": "vignette", "font_contains": "BentonSansCond-Book", "size": 9.2, "tol": .2},
-    {"kind": "skip", "font_contains": "BentonSans-Bold", "size": 7.8, "tol": .2},
-]
+REQUIRED = ("page_offset", "start_page", "stop_page", "title_min_size", "classes", "page_number", "header_max_y", "para_indent_x", "outline")
+
+
+def validate_convert(conv):
+    missing = [name for name in REQUIRED if name not in conv]
+    if missing:
+        raise ValueError("book.yaml convert 缺字段: " + ", ".join(missing))
+    for name in ("font_contains", "pattern"):
+        if name not in conv["page_number"]:
+            raise ValueError(f"convert.page_number 缺 {name}")
+    for name in ("part_pattern", "chapter_pattern"):
+        if name not in conv["outline"]:
+            raise ValueError(f"convert.outline 缺 {name}")
+    if not isinstance(conv["classes"], list):
+        raise ValueError("convert.classes 必须是有序列表，可显式为空")
+    if not isinstance(conv["start_page"], int) or conv["start_page"] < 1:
+        raise ValueError("convert.start_page 必须是从 1 起的 PDF 页序")
+    if conv["stop_page"] is not None and conv["stop_page"] <= conv["start_page"]:
+        raise ValueError("convert.stop_page 必须大于 start_page，或为 null")
+    for rule in conv["classes"]:
+        if not {"kind", "font_contains", "size", "tol"} <= set(rule):
+            raise ValueError("convert.classes 每项须写 kind/font_contains/size/tol")
 
 
 def survey_fonts(pdf: Path) -> list[FontRow]:
@@ -49,19 +64,20 @@ def survey_fonts(pdf: Path) -> list[FontRow]:
 
 
 def convert(pdf: Path, conv: dict) -> str:
+    validate_convert(conv)
     import fitz
 
-    offset = conv.get("page_offset", 8)
-    start = conv.get("start_page", 7)
-    stop = conv.get("stop_page", 395)
-    classes = conv.get("classes", DEFAULT_CLASSES)
+    offset = conv["page_offset"]
+    start = conv["start_page"]
+    stop = conv["stop_page"]
+    classes = conv["classes"]
     for rule in classes:
         if rule["kind"] not in {"h3", "h4", "callout", "vignette", "skip"}:
             raise ValueError(f"未知字体分类: {rule['kind']}")
-    numbers = conv.get("page_number", {"font_contains": "ScalaLF", "pattern": r"\s*[\divxlc]+\s*"})
-    outline = conv.get("outline", {})
-    part_pattern = outline.get("part_pattern", r"Part (\w+)\s+(.*)")
-    chapter_pattern = outline.get("chapter_pattern", r"^(\d+)\s+(.*)$")
+    numbers = conv["page_number"]
+    outline = conv["outline"]
+    part_pattern = outline["part_pattern"]
+    chapter_pattern = outline["chapter_pattern"]
     out = []
     para = []
     para_kind = None
@@ -94,7 +110,7 @@ def convert(pdf: Path, conv: dict) -> str:
             para.append(text)
 
     def classify(font, size):
-        if size >= conv.get("title_min_size", 18):
+        if size >= conv["title_min_size"]:
             return "title"
         for rule in classes:
             if rule["font_contains"] in font and (
@@ -122,7 +138,7 @@ def convert(pdf: Path, conv: dict) -> str:
             for heading in inserts.get(number, []):
                 flush()
                 out.extend([heading, ""])
-            marker = f"[p.{number - offset if number > offset else f'fm-{number}'}]"
+            marker = f"[p.{printed_label(number, offset)}]"
             first_on_page = True
             for block in page.get_text("dict")["blocks"]:
                 for line in block.get("lines", []):
@@ -136,7 +152,7 @@ def convert(pdf: Path, conv: dict) -> str:
                     kind = classify(main["font"], main["size"])
                     if numbers["font_contains"] in main["font"] and re.fullmatch(numbers["pattern"], text):
                         continue
-                    if y < conv.get("header_max_y", 45) and kind in ("body", "skip"):
+                    if y < conv["header_max_y"] and kind in ("body", "skip"):
                         continue
                     if kind in ("skip", "title"):
                         continue
@@ -144,7 +160,7 @@ def convert(pdf: Path, conv: dict) -> str:
                         flush()
                         out.extend([("### " if kind == "h3" else "#### ") + clean(text).strip(), ""])
                         continue
-                    if para_kind != kind or (kind == "body" and x >= conv.get("para_indent_x", 84)):
+                    if para_kind != kind or (kind == "body" and x >= conv["para_indent_x"]):
                         flush()
                         para_kind = kind
                     if first_on_page:
@@ -158,14 +174,14 @@ def convert(pdf: Path, conv: dict) -> str:
     return conv.get("header", "") + re.sub(r"\n{3,}", "\n\n", "\n".join(out))
 
 
-def find_page(source_md: str, phrase: str) -> int | None:
+def find_page(source_md: str, phrase: str) -> int | str | None:
     position = source_md.find(phrase)
     if position < 0:
         return None
-    markers = list(re.finditer(r"\[p\.([\w-]+)\]", source_md[:position]))
-    if not markers or not markers[-1].group(1).isdigit():
+    markers = list(MARKER.finditer(source_md[:position]))
+    if not markers:
         return None
-    return int(markers[-1].group(1))
+    return page_value(markers[-1].group(1))
 
 
 def build_parser():

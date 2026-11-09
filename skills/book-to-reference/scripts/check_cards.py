@@ -13,6 +13,7 @@ from typing import Literal
 import yaml
 
 from bookconf import open_workdir, resolve
+from page_labels import MARKER, cited_pages, page_value
 
 
 SLACK = 0
@@ -24,9 +25,9 @@ UNIT = r"u\d{2}-\d{2}"
 @dataclass
 class QuoteResult:
     card_line: int
-    pages_claimed: frozenset[int]
-    found_on: list[int]
-    status: Literal["OK", "OFFPAGE", "MISS", "NOPAGE"]
+    pages_claimed: frozenset[int | str]
+    found_on: list[int | str]
+    status: str
 
 
 @dataclass
@@ -37,14 +38,7 @@ class StepResult:
 
 
 def pages_of(attribution: str) -> frozenset[int]:
-    allowed = set()
-    pattern = r"pp?\.\s*(\d+)(?:\s*[–-]\s*(\d+))?((?:\s*,\s*\d+(?:\s*[–-]\s*\d+)?)*)"
-    for match in re.finditer(pattern, attribution):
-        spans = [(match.group(1), match.group(2))]
-        spans += re.findall(r"(\d+)(?:\s*[–-]\s*(\d+))?", match.group(3) or "")
-        for first, last in spans:
-            allowed.update(range(int(first), int(last or first) + 1))
-    return frozenset(allowed)
+    return cited_pages(attribution)
 
 
 def _norm(text: str) -> str:
@@ -56,20 +50,24 @@ def _norm(text: str) -> str:
 
 
 def quote_pages(source_md: str, card_md: str) -> list[QuoteResult]:
-    parts = re.split(r"\[p\.(\d+)\]", source_md)
+    parts = MARKER.split(source_md)
     starts = [0]
     pages = [0]
     buffer = [_norm(parts[0]) + " "]
     position = len(buffer[0])
     for index in range(1, len(parts), 2):
         starts.append(position)
-        pages.append(int(parts[index]))
+        pages.append(page_value(parts[index]))
         text = _norm(parts[index + 1]) + " "
         buffer.append(text)
         position += len(text)
     source = "".join(buffer)
     quotes = []
-    lines = card_md.splitlines()
+    section = re.search(r"^## R\b.*?(?=^## [A-Z]\b|\Z)", card_md, re.M | re.S)
+    if not section:
+        return [QuoteResult(0, frozenset(), [], "EMPTY: 缺 R 段")]
+    lines = section.group(0).splitlines()
+    base_line = card_md.count("\n", 0, section.start())
     index = 0
     while index < len(lines):
         if lines[index].startswith(">"):
@@ -79,25 +77,44 @@ def quote_pages(source_md: str, card_md: str) -> list[QuoteResult]:
             block = lines[index:end]
             attribution = " ".join(line for line in block if line.lstrip("> ").startswith(("—", "-- ")))
             allowed = pages_of(attribution)
+            pending = []
+            pending_line = 0
+
+            def flush_quote():
+                if pending:
+                    quotes.append((" ".join(pending), allowed, pending_line))
+                    pending.clear()
+
             for offset, line in enumerate(block):
                 body = line.lstrip("> ").strip()
                 if body.startswith(("—", "-- ", "译")):
+                    flush_quote()
                     continue
-                if len(re.findall(r"[A-Za-z']+", body)) >= 5 and not re.search(r"[一-鿿]", body):
-                    quotes.append((body, allowed, index + offset + 1))
+                if not body:
+                    flush_quote()
+                    continue
+                if not pending:
+                    pending_line = base_line + index + offset + 1
+                pending.append(body)
+            flush_quote()
             index = end
             continue
-        for match in re.finditer(r'["“]([^"”\n]{40,})["”]', lines[index]):
-            if len(re.findall(r"[A-Za-z']+", match.group(1))) >= 8:
-                quotes.append((match.group(1), pages_of(lines[index]), index + 1))
         index += 1
 
     results = []
     for quote, allowed, line in quotes:
-        segments = [_norm(part) for part in re.split(r"…|\.\.\.", quote) if len(_norm(part).split()) >= 3]
+        manual = re.search(r"<!-- quote-manual:\s*(\S.*?)\s*-->", quote)
+        quote = re.sub(r"<!-- quote-manual:.*?-->", "", quote).strip()
+        unsupported = (len(re.findall(r"[A-Za-z']+", quote)) < 5
+                       or any(character.isalpha() and ord(character) > 127 for character in quote))
+        if not allowed or unsupported:
+            status = "NOPAGE" if not allowed else "MANUAL" if manual else "UNSUPPORTED: 非英文或少于五词，须人工核对标记"
+            results.append(QuoteResult(line, allowed, [], status))
+            continue
+        segments = [_norm(part) for part in re.split(r"…|\.\.\.", quote) if _norm(part)]
         status = "OK" if allowed else "NOPAGE"
         found = set()
-        expanded = {page + delta for page in allowed for delta in range(-SLACK, SLACK + 1)}
+        expanded = allowed
         for segment in segments:
             hits = []
             offset = source.find(segment)
@@ -113,8 +130,8 @@ def quote_pages(source_md: str, card_md: str) -> list[QuoteResult]:
                 status = "MISS"
             elif allowed and not any(hit & expanded for hit in hits):
                 status = "OFFPAGE"
-        results.append(QuoteResult(line, allowed, sorted(found), status))
-    return results
+        results.append(QuoteResult(line, allowed, sorted(found, key=str), status))
+    return results or [QuoteResult(base_line + 1, frozenset(), [], "EMPTY: R 段没有块摘句")]
 
 
 def step_pages(card_md: str) -> list[StepResult]:
@@ -209,10 +226,11 @@ def main(argv=None) -> int:
                 quotes = quote_pages(source, path.read_text(encoding="utf-8"))
                 results.extend(quotes)
                 for quote in quotes:
-                    if quote.status != "OK":
-                        print(f"{path.name}:{quote.card_line}: {quote.status}; cited={sorted(quote.pages_claimed)}; found={quote.found_on}")
-            good = sum(quote.status == "OK" for quote in results)
-            print(f"quotes {good}/{len(results)} OK")
+                    if quote.status not in ("OK", "MANUAL"):
+                        print(f"{path.name}:{quote.card_line}: {quote.status}; cited={sorted(quote.pages_claimed, key=str)}; found={quote.found_on}")
+            good = sum(quote.status in ("OK", "MANUAL") for quote in results)
+            manual_count = sum(quote.status == "MANUAL" for quote in results)
+            print(f"quotes {good}/{len(results)} accepted; manual={manual_count}")
             bad |= good != len(results)
         if args.only in (None, "steps"):
             results = []
