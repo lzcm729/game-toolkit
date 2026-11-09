@@ -1,0 +1,34 @@
+group: G2
+units:
+- unit_id: u02-01
+  title: 一次只转一个泊位的风牌
+  type: procedure
+  one_liner: 只用于单个泊位；全港放行由设计者判断（p.10）。
+  task_ids:
+  - t02-01
+  source_evidence:
+  - location: Ch2, p.9
+    quote: Turn one amber vane and copy its previous direction into the ledger.
+  supports: {}
+  V1_source_sufficiency:
+    passed: true
+  V2_executability:
+    passed: true
+  V3_task_utility:
+    passed: true
+  decision: verified
+  decision_reason: 只承诺原文有步骤的局部记录。
+  gaps: []
+  recheck:
+    decision_after: verified
+    narrowing: 只用于单个泊位，不用于全港放行
+    must_go_to_boundary:
+    - 不授权真实港口操作
+    reason: p.10 明确限定为局部试验。
+candidate_disposition:
+  f2-01: u02-01
+coverage:
+  t02-01:
+    units:
+    - u02-01
+    status: covered

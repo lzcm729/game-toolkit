@@ -1,0 +1,7 @@
+slug: single-vane
+title: 一次只转一个泊位的风牌
+units:
+- u02-01
+revision: 1
+intents:
+- 一次只转一个泊位的风牌

@@ -1,0 +1,5 @@
+- task_id: t03-02
+  decision: reference_only
+  reason: 仅有象征观点，交付到 notes
+  pages:
+  - 18

@@ -1,0 +1,41 @@
+book_id: ribbon-harbor
+prefix: ribbon-
+display_author: Nera Sample
+display_title: The Ribbon Harbor Notebook
+target_root: ../plugin
+mask_names:
+  authors:
+  - Nera Sample
+  titles:
+  - The Ribbon Harbor Notebook
+  - Ribbon Harbor
+verify_groups:
+  G1:
+  - '1'
+  G2:
+  - '2'
+  G3:
+  - '3'
+entry_groups:
+  辨认地点:
+  - '01'
+  局部试验:
+  - '02'
+  保留记录:
+  - '03'
+old_files: []
+paths: {}
+skill_md:
+  quick_ref_start: <!-- RIBBON QUICK START -->
+  quick_ref_end: <!-- RIBBON QUICK END -->
+  quick_ref_file: stage2/quick-ref.md
+  table_start: <!-- RIBBON TABLE START -->
+  table_end: <!-- RIBBON TABLE END -->
+  table_heading: '## Ribbon Harbor：按任务选卡'
+  when_to_use_anchor: '## When to Use This Skill'
+  when_to_use_line: '- 纸带港口桌面推演：地点辨认、单泊位风向试验和收尾记录'
+  description_file: null
+rulings: []
+residue_allow: []
+convert: {}
+answer_compare: {}

@@ -1,0 +1,47 @@
+group: G3
+units:
+- unit_id: u03-01
+  title: 留下可回查的收尾记录
+  type: procedure
+  one_liner: 保留最后纸带可见，两人核对记录后签字；不符就停（p.16）。
+  task_ids:
+  - t03-01
+  source_evidence:
+  - location: Ch3, p.16
+    quote: Keep the final ribbon visible until both harbor keepers sign the ledger.
+  supports: {}
+  V1_source_sufficiency:
+    passed: true
+  V2_executability:
+    passed: true
+  V3_task_utility:
+    passed: true
+  decision: verified
+  decision_reason: 只承诺原文有步骤的局部记录。
+  gaps: []
+- unit_id: u03-02
+  title: 空泊位的象征
+  type: viewpoint
+  one_liner: 空泊位可让人想到等待，这是作者观点而非方法。
+  source_evidence:
+  - location: Ch3, p.18
+    quote: An empty cardboard berth can suggest a promise, a departure, or room for an unexpected visitor.
+  task_ids:
+  - t03-02
+  supports: {}
+  decision: reference
+  decision_reason: 只有解释性观点，没有挑选解释的步骤。
+  gaps:
+  - 原书未说明如何判定情绪强度
+candidate_disposition:
+  f3-01: u03-01
+coverage:
+  t03-01:
+    units:
+    - u03-01
+    status: covered
+  t03-02:
+    units:
+    - u03-02
+    status: reference
+    note: 交付到 notes

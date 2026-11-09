@@ -1,0 +1,8 @@
+batch: R1
+units:
+- unit_id: u02-01
+  decision_after: verified
+  narrowing: 只用于单个泊位，不用于全港放行
+  must_go_to_boundary:
+  - 不授权真实港口操作
+  reason: p.10 明确限定为局部试验。
