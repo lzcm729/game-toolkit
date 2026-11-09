@@ -44,7 +44,7 @@ python scripts/pdf_convert.py page <workdir> "Keep the lantern still"
 | 准备 | 原书、目标、报价 | 核配置、转换和抽查 | book.yaml、Paths.source、缺损记录 | bookconf check；pdf_convert page 与原 PDF 抽核 | 路径、页码或材料缺损未解决不提取 | 胃口及必测范围 |
 | 前置淘汰 | 冻结现行版本、宿主 | 按 [宿主说明](references/host.md) 小跑加载/读取；先按 [分组任务书](references/briefs/grouping.md) 列旧能力基准 | 模型/宿主版本、消费记录、能力清单、入口预算 | runner 成功最终事件；chain 激活与成功 Read；独立性和 description 长度 | 插件加载、可观察性、独立上下文或入口容量不足就停 | 新的重大取舍才问 |
 | 0 整书理解与分组 | Paths.source、旧能力清单 | 按 [整书任务书](references/briefs/stage0-notes.md) 完整读，合并任务，再冻结 O/N | Paths.overview、任务表、分组依据 | stage1 tasks；人工核来源和分组全量 | 编号重复、漏读、任务/旧覆盖基准未齐不提取 | 范围和重点 |
-| 1 提取 | 已确认 overview、原文 | 按 [提取任务书](references/briefs/stage1-extract.md) 查五类、回查跨章条件 | Paths.candidates、Paths.glossary、分组输入 | stage1 coverage、split | 坏 YAML、遗漏或无候选先补读；合法参考缺口先处置范围，不造方法过关 | 改范围才问 |
+| 1 提取 | 已确认 overview、原文 | 按 [提取任务书](references/briefs/stage1-extract.md) 查五类、回查跨章条件；补读后无可执行内容的写进 _scope.yaml 并说明原因 | Paths.candidates、Paths.glossary、Paths.scope、分组输入 | stage1 coverage、split；范围处置单列 | 坏 YAML、遗漏或无候选先补读；处置未说明、未展示或检查失败不下推 | 阶段 0 确认范围时或之后给用户看处置，不能静默 |
 | 1.5 验证 | 分组候选、原文、任务 | 按 [验证任务书](references/briefs/stage15-verify.md) 三重验证，逐项定去向 | Paths.verify_out、coverage-audit、flags | verify_units aggregate；人工核具体演练 | 汇总问题、重要缺口未处置或无 verified 时不凑卡 | 新的范围取舍 |
 | 对抗复核 | 精简输入、原文 | 按 [复核任务书](references/briefs/recheck.md) 从头判每一步，应用并汇总 | Paths.recheck_out、收窄与边界 | verify_units apply-recheck、aggregate；独立性 | 记录缺失、未独立或应用失败不拿来放行 | 复核范围/合卡粒度有默认照默认 |
 | 2 写卡 | 采用的单元、原始复核 | 按 [写卡任务书](references/briefs/card-writing.md) 按意图合卡，各分支保留契约 | Paths.card_plan、Paths.cards、Paths.meta | check_cards 的 quotes、steps、plan；人工核摘句词数 | 摘句、步骤标记或计划失败，修后重跑 | 无新取舍不问 |
@@ -56,7 +56,7 @@ python scripts/pdf_convert.py page <workdir> "Keep the lantern still"
 | 6 交付与发版 | 验收过的实际组合 | 记录验证边界、删除/保留的任务和导出提醒；按目标仓库开发回路交付 | 经授权的发布组合与交接 | 相关回归、引用链、全仓库测试及发版校验 | 验收后模型可见修改使相关证据失效，冻结修复后同批重验 | 回归不过的走向；发布按授权 |
 
 失败先修对应输入或实现，再跑同一检查；不能先跳到更贵阶段，也不通过改期望或削必测范围来通过原范围。
-阶段 1 的纯参考任务会触发覆盖警报，书面说明不等于脚本过；先保留缺口并完成范围处置。
+阶段 1 的纯参考任务按 Paths.scope 明示处置后重跑覆盖审计；这不等于内容已经交付，参考材料仍须有读者可达的去处。
 方法口径看 [references/method.md](references/method.md)，五类字段看 [references/candidate-schema.md](references/candidate-schema.md)，
 六段卡、命名、计划和元数据看 [references/card-format.md](references/card-format.md)。
 

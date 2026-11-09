@@ -21,6 +21,9 @@ python scripts/stage1.py split <workdir>
 ```
 
 主执行方汇总全部分段再审计、分组。坏 YAML、重复号、未知任务、未映射章节先修；无可执行候选的任务先补读。
-确实只适合参考的任务如实交回范围缺口与参考去向；审计此时仍退出 1，不造候选、不称通过，范围未处置前不下推。
+补读后确实没有可执行内容的任务，写进 `Paths.scope`（默认 `candidates/_scope.yaml`），
+逐项写 task_id、decision（reference_only 或 out_of_scope）、非空 reason，可加 pages。
+在阶段 0 确认范围时或之后把处置给用户看，不能静默；参考内容写明读者可达的 notes 去处。
+重跑 coverage，确认处置单列且没有问题，再下推；不造方法过关，范围处置不等于已交付。
 合并文件与 parts 的优先规则见 schema，别把旧 parts 留着让审计读到过期内容。
 交回：文件、五类数量、覆盖章节、命令和退出码、补读与剩余缺口。正文保存在文件中。

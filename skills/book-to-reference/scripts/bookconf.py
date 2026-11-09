@@ -21,6 +21,7 @@ class Paths:
     source: str = ""
     overview: str = "BOOK_OVERVIEW.md"
     candidates: str = "candidates"
+    scope: str = "candidates/_scope.yaml"
     verify_in: str = "verify/input"
     verify_out: str = "verify/out"
     recheck_in: str = "verify/recheck/input"

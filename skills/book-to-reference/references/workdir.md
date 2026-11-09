@@ -11,6 +11,7 @@ book.yaml
 source/<book_id>.md
 BOOK_OVERVIEW.md
 candidates/                  # 五类候选和 glossary.md
+candidates/_scope.yaml       # 可选的纯参考/不收范围处置
 verify/input/                # 分组候选
 verify/out/                  # 首轮验证
 verify/recheck/input/        # 独立复核输入
@@ -27,7 +28,7 @@ landing/notes.md
 `display_author`、`display_title` 是必填的非空字符串，明确 notes 标题的作者显示名和书名。
 相对路径以工作目录为起点；路径中的反斜杠按 `/` 处理。
 `paths` 可覆盖上面各路径：`source`、`overview`、`candidates`、`verify_in`、
-`verify_out`、`recheck_in`、`recheck_out`、`card_plan`、`cards`、`meta`、`glossary`、`notes_out`。
+`verify_out`、`recheck_in`、`recheck_out`、`card_plan`、`cards`、`meta`、`glossary`、`notes_out`、`scope`。
 未覆盖的字段取上图默认值。
 
 `mask_names.authors` 和 `mask_names.titles` 列出盲评需要遮蔽的全部作者和书名，含另外三本书。
@@ -58,6 +59,19 @@ landing/notes.md
 除列出的必填字段外，列表默认 `[]`、这两个阶段配置默认 `{}`；未知配置字段报错，避免拼错后静默使用默认值。
 
 ## 内容裁决
+
+`Paths.scope` 默认 `candidates/_scope.yaml`，是可选的列表。补读后确实没有可执行内容的任务，
+每项写 `task_id`、`decision`（`reference_only` 或 `out_of_scope`）、非空 `reason`，可加 `pages`。
+未知任务、重复任务、非法 decision、空 reason 都使 coverage 失败；没有此文件时仍要求可执行候选。
+有效处置单独列在 coverage 输出中，只免除该任务的可执行候选缺口，不免除坏 YAML 等问题。
+在阶段 0 确认范围时或之后把处置给用户看，不能静默缩范围；只作参考的内容仍须落到读者可达的 notes。
+
+```yaml
+- task_id: t03-02
+  decision: reference_only
+  reason: 补读后只有灯的象征观点，没有可执行步骤；交付到 notes
+  pages: [9]
+```
 
 `rulings` 单独保存针对具体内容的文字裁决，每条有 `find`、`replace`、`why`、
 `scope`（`cards`、`notes` 或 `all`）。`why` 必须非空，说明这条转换的来由。

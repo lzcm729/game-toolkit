@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 import re
 import sys
@@ -19,6 +19,7 @@ KINDS = ("framework", "principle", "case", "counter_example", "term")
 class CoverageResult:
     by_task: dict[str, dict[str, int]]
     problems: list[str]
+    scope: dict[str, dict] = field(default_factory=dict)
 
 
 def read_tasks(overview_md: str) -> dict[str, str]:
@@ -82,9 +83,44 @@ def candidates(cfg, workdir: Path) -> tuple[dict[str, list[dict]], list[str]]:
     return data, problems
 
 
+def scope_dispositions(path: Path, tasks: dict[str, str]) -> tuple[dict[str, dict], list[str]]:
+    if not path.exists():
+        return {}, []
+    try:
+        entries = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError) as exc:
+        return {}, [f"scope: {exc}"]
+    if not isinstance(entries, list):
+        return {}, ["scope 必须是 list"]
+    adopted, problems, seen = {}, [], set()
+    for number, item in enumerate(entries, 1):
+        if not isinstance(item, dict):
+            problems.append(f"scope {number}: 必须是 mapping")
+            continue
+        task = item.get("task_id")
+        if not isinstance(task, str) or task not in tasks:
+            problems.append(f"scope {number}: unknown task_id {task}")
+            continue
+        if task in seen:
+            problems.append(f"scope: duplicate task_id {task}")
+            continue
+        seen.add(task)
+        if item.get("decision") not in ("reference_only", "out_of_scope"):
+            problems.append(f"scope {task}: decision 无效")
+            continue
+        if not isinstance(item.get("reason"), str) or not item["reason"].strip():
+            problems.append(f"scope {task}: reason 必须非空")
+            continue
+        adopted[task] = item
+    return adopted, problems
+
+
 def coverage(cfg, workdir: Path) -> CoverageResult:
     tasks = read_tasks(resolve(cfg, workdir, "overview").read_text(encoding="utf-8"))
     data, problems = candidates(cfg, workdir)
+    scope_path = resolve(cfg, workdir, "scope")
+    scope, scope_problems = scope_dispositions(scope_path, tasks)
+    problems.extend(scope_problems)
     columns = ("framework", "principle", "case", "counter", "term")
     by_task = {task: dict.fromkeys(columns, 0) for task in tasks}
     for kind, items in data.items():
@@ -107,15 +143,25 @@ def coverage(cfg, workdir: Path) -> CoverageResult:
             status = "有可执行候选"
         else:
             status = "仅支持材料" if any(counts.values()) else "无候选"
-            problems.append(f"{task}: {status}，没有可执行候选")
+            if task in scope:
+                status = scope[task]["decision"]
+            else:
+                problems.append(f"{task}: {status}，没有可执行候选")
         cells = " | ".join(str(counts[kind]) for kind in columns)
         rows.append(f"| {task} | {tasks[task][:40]} | {cells} | {status} |")
     if not tasks:
         problems.append("任务表为空")
+    if scope_path.exists():
+        rows.extend(["", "## 范围处置（不等于内容已交付）", ""])
+        for task, item in scope.items():
+            reason = item["reason"].replace("|", "／").replace("\n", " ")
+            rows.append(f"- {task}: {item['decision']}；{reason}；pages={item.get('pages', [])}")
+        if not scope:
+            rows.append("无")
     rows.extend(["", "## 问题", "", *(problems or ["无"])])
     destination = resolve(cfg, workdir, "candidates") / "_coverage-stage1.md"
     destination.write_text("\n".join(rows) + "\n", encoding="utf-8", newline="\n")
-    return CoverageResult(by_task, problems)
+    return CoverageResult(by_task, problems, scope)
 
 
 def chapter_key(source_chapter: str) -> str | None:
@@ -182,6 +228,8 @@ def main(argv=None) -> int:
         elif args.command == "coverage":
             result = coverage(cfg, args.workdir)
             print(f"tasks: {len(result.by_task)}; problems: {len(result.problems)}")
+            for task, item in result.scope.items():
+                print(f"scope {task}: {item['decision']}; {item['reason']}; pages={item.get('pages', [])}")
             for problem in result.problems:
                 print(problem)
             return 1 if result.problems else 0
