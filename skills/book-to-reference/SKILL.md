@@ -41,7 +41,7 @@ python scripts/pdf_convert.py page <workdir> "Keep the lantern still"
 
 | 阶段 | 输入 | 做什么 | 产出 | 检查 | 不过就停 | 用户确认 |
 |---|---|---|---|---|---|---|
-| 准备 | 原书、目标、报价 | 核配置、转换和抽查 | book.yaml、Paths.source、缺损记录 | bookconf check；pdf_convert page 与原 PDF 抽核 | 路径、页码或材料缺损未解决不提取 | 胃口及必测范围 |
+| 准备 | 原书、目标、报价 | 核配置、转换和抽查 | book.yaml、Paths.source、缺损记录 | bookconf check；有原 PDF 时与 PDF 抽核；只有文本时核页标记连续、引文能找到，并记录「无 PDF 可核」 | 路径、页码或材料缺损未解决不提取 | 胃口及必测范围 |
 | 前置淘汰 | 冻结现行版本、宿主 | 按 [宿主说明](references/host.md) 小跑加载/读取；先按 [分组任务书](references/briefs/grouping.md) 列旧能力基准 | 模型/宿主版本、消费记录、能力清单、入口预算 | runner 成功最终事件；chain 激活与成功 Read；独立性和 description 长度 | 插件加载、可观察性、独立上下文或入口容量不足就停 | 新的重大取舍才问 |
 | 0 整书理解与分组 | Paths.source、旧能力清单 | 按 [整书任务书](references/briefs/stage0-notes.md) 完整读，合并任务，再冻结 O/N | Paths.overview、任务表、分组依据 | stage1 tasks；人工核来源和分组全量 | 编号重复、漏读、任务/旧覆盖基准未齐不提取 | 范围和重点 |
 | 1 提取 | 已确认 overview、原文 | 按 [提取任务书](references/briefs/stage1-extract.md) 查五类、回查跨章条件；补读后无可执行内容的写进 _scope.yaml 并说明原因 | Paths.candidates、Paths.glossary、Paths.scope、分组输入 | stage1 coverage、split；范围处置单列 | 坏 YAML、遗漏或无候选先补读；处置未说明、未展示或检查失败不下推 | 阶段 0 确认范围时或之后给用户看处置，不能静默 |
