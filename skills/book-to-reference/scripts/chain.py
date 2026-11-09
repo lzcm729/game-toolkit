@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 from dataclasses import dataclass
 import json
+import math
 from pathlib import Path
 import sys
 
@@ -27,7 +28,7 @@ def successful(events: list[dict]) -> bool:
     if not events:
         return False
     final = events[-1]
-    return (final.get("type") == "result" and final.get("subtype") == "success"
+    return (isinstance(final, dict) and final.get("type") == "result" and final.get("subtype") == "success"
             and not final.get("is_error") and isinstance(final.get("result"), str)
             and bool(final["result"].strip()))
 
@@ -41,8 +42,7 @@ def parse_run(jsonl: Path) -> Run:
             if line.strip():
                 event = json.loads(line)
                 if not isinstance(event, dict):
-                    valid = False
-                    break
+                    continue
                 events.append(event)
     except (OSError, ValueError):
         valid = False
@@ -52,28 +52,47 @@ def parse_run(jsonl: Path) -> Run:
     model = version = ""
     for event in events:
         if event.get("type") == "system" and event.get("subtype") == "init":
-            model = event.get("model") or ""
-            version = event.get("claude_code_version") or ""
-        message = event.get("message") or {}
+            model = event.get("model") if isinstance(event.get("model"), str) else ""
+            version = event.get("claude_code_version") if isinstance(event.get("claude_code_version"), str) else ""
+        message = event.get("message")
+        if not isinstance(message, dict):
+            continue
         content = message.get("content", [])
         if not isinstance(content, list):
             continue
         for block in content:
+            if not isinstance(block, dict):
+                continue
             if block.get("type") == "tool_use" and event.get("type") == "assistant":
-                inputs = block.get("input") or {}
+                inputs = block.get("input")
+                if not isinstance(inputs, dict):
+                    continue
                 if block.get("name") == "Skill":
-                    skills.append(inputs.get("skill", ""))
-                elif block.get("name") == "Read" and block.get("id"):
-                    read_calls[block["id"]] = inputs.get("file_path", "").replace("\\", "/")
+                    skill = inputs.get("skill")
+                    if isinstance(skill, str) and skill:
+                        skills.append(skill)
+                elif block.get("name") == "Read":
+                    call_id, path = block.get("id"), inputs.get("file_path")
+                    if isinstance(call_id, str) and call_id and isinstance(path, str):
+                        read_calls[call_id] = path.replace("\\", "/")
             elif block.get("type") == "tool_result":
+                call_id = block.get("tool_use_id")
+                if not isinstance(call_id, str) or not call_id:
+                    continue
                 if not block.get("is_error"):
-                    read_success.add(block.get("tool_use_id"))
+                    read_success.add(call_id)
                 else:
-                    read_success.discard(block.get("tool_use_id"))
+                    read_success.discard(call_id)
     reads = [path for key, path in read_calls.items() if key in read_success and path]
     ok = valid and successful(events)
     final = events[-1] if events and events[-1].get("type") == "result" else {}
-    cost = float(final.get("total_cost_usd") or 0)
+    # 费用元数据的形态变化不能掩盖已经观察到的调用和成功回答。
+    try:
+        cost = float(final.get("total_cost_usd") or 0)
+    except (TypeError, ValueError, OverflowError):
+        cost = 0.0
+    if not math.isfinite(cost):
+        cost = 0.0
     return Run(jsonl, ok, skills, reads, cost, final["result"] if ok else None, model, version)
 
 

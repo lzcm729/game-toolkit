@@ -1,0 +1,2 @@
+{"type":"system","subtype":"permission_denied","message":"Claude requested permissions to read from ../fictional-plugin-parent, but you haven't granted access."}
+{"type":"result","subtype":"success","is_error":false,"result":"Synthetic answer","total_cost_usd":0}

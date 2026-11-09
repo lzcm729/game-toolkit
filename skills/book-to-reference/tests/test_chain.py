@@ -46,3 +46,17 @@ def test_unrelated_skill_is_not_plugin_activation(tmp_path):
     path.write_text(text, encoding="utf-8", newline="\n")
     counts = chain.counts([chain.parse_run(path)], MARKER, "micro-")
     assert counts["skill"] == 0 and counts["no_skill"] == 1
+
+
+def test_parse_run_tolerates_string_message():
+    run = chain.parse_run(RUNS / "string-message.jsonl")
+    assert run.ok
+    assert run.skills == [] and run.reads == []
+
+
+def test_parse_run_tolerates_mixed_event_shapes():
+    run = chain.parse_run(RUNS / "mixed-shapes.jsonl")
+    assert run.ok
+    assert run.skills == ["game-toolkit:design-discuss"]
+    assert run.reads == ["plugin/skills/game-design-theory/references/micro-shutter-test.md"]
+    assert run.cost == 0 and run.model == "" and run.cc_version == ""

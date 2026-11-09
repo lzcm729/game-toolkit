@@ -1,0 +1,13 @@
+null
+17
+"unexpected envelope"
+[]
+{"type":"system","subtype":"init","model":[],"claude_code_version":{}}
+{"type":"assistant","message":17}
+{"type":"assistant","message":[{"content":[]}]}
+{"type":"assistant","message":{"content":"unexpected content"}}
+{"type":"assistant","message":{"content":{"type":"tool_use"}}}
+{"type":"assistant","message":{"content":[null,17,"block",[],{"type":"tool_use","name":"Skill","input":[]},{"type":"tool_use","name":"Skill","input":{"skill":[]}},{"type":"tool_use","name":"Read","id":[],"input":{"file_path":"relative.md"}},{"type":"tool_use","name":"Read","id":"bad-path","input":{"file_path":{}}},{"type":"tool_result","tool_use_id":[]}]}}
+{"type":"assistant","message":{"content":[{"type":"tool_use","name":"Skill","input":{"skill":"game-toolkit:design-discuss"}},{"type":"tool_use","name":"Read","id":"r1","input":{"file_path":"plugin/skills/game-design-theory/references/micro-shutter-test.md"}}]}}
+{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"r1","content":"Synthetic card"}]}}
+{"type":"result","subtype":"success","is_error":false,"result":"Synthetic answer","total_cost_usd":{"unexpected":true}}
