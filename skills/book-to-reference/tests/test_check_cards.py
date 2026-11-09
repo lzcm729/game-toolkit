@@ -100,10 +100,23 @@ def test_every_quote_in_reading_checked():
     assert len(results) == 2 and results[0].status == "OK" and results[1].status.startswith("UNSUPPORTED")
 
 
+def test_each_quote_uses_its_own_attribution():
+    first, second = "A steady lantern makes every shadow easier to compare.", "Turn one panel and write down the result."
+    source = f"[p.1] {first} [p.2] {second}"
+    results = cc.quote_pages(source, f"## R\n> {first}\n> — p.2\n>\n> {second}\n> — p.1\n")
+    assert [r.status for r in results] == ["OFFPAGE", "OFFPAGE"]
+
+
 def test_front_page_quote_checked():
     text = "A steady lantern makes every shadow easier to compare."
     result, = cc.quote_pages("[p.fm-2] " + text, "## R\n> " + text + "\n> — p.fm-2\n")
     assert result.status == "OK" and result.pages_claimed == {"fm-2"}
+
+
+def test_manual_mark_cannot_replace_quote_and_front_page_step_supported():
+    assert cc.quote_pages("[p.1] source", "## R\n> <!-- quote-manual: 人工核对 -->\n> — p.1\n")[0].status.startswith("EMPTY")
+    assert cc.quote_pages("[p.1] source", "## R\n> 译者其实是摘句的一部分\n> — p.1\n")[0].status.startswith("UNSUPPORTED")
+    assert cc.step_pages("## E\n  1. Follow the preface (p.fm-2).\n## B\n")[0].ok
 
 
 def test_plan_missing_meta_and_branch_fail(microbook):

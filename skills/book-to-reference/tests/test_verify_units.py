@@ -153,3 +153,13 @@ def test_coverage_owner_can_reference_other_group(microbook):
     data["coverage"]["t01-01"]["units"].append("u02-01")
     dump(path, data)
     assert vu.aggregate(bookconf.open_workdir(microbook), microbook).problems == []
+
+
+@pytest.mark.parametrize("field", ["key_judgment", "narrowing", "walkthrough", "covered_by", "steps", "must_go_to_boundary", "gaps"])
+def test_recheck_requires_every_contract_field(microbook, field):
+    path = microbook / "verify/recheck/out/R1.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    del data["units"][0][field]
+    dump(path, data)
+    with pytest.raises(ValueError, match="必要字段"):
+        vu.apply_recheck(bookconf.open_workdir(microbook), microbook, None, False)

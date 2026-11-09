@@ -169,6 +169,8 @@ def recheck_input(cfg, workdir: Path, batch: str, ids: list[str]) -> Path:
                     rows.append({key: unit.get(key) for key in KEEP})
     if want - found:
         raise ValueError(f"unknown unit or group: {sorted(want - found)}")
+    if not rows:
+        raise ValueError("没有 verified 单元可复核，不能生成空批次")
     destination = named_yaml(resolve(cfg, workdir, "recheck_in"), batch)
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(_dump({"batch": batch, "units": rows}), encoding="utf-8", newline="\n")
@@ -210,7 +212,7 @@ def apply_recheck(cfg, workdir: Path, batches: list[str] | None, dry: bool) -> l
             return found
         inputs = indexed(inp.get("units"), KEEP)
         outputs = indexed(data.get("units"), ("unit_id", "decision_after", "steps", "narrowing",
-                                             "must_go_to_boundary", "gaps", "reason"))
+                                             "key_judgment", "walkthrough", "must_go_to_boundary", "gaps", "covered_by", "reason"))
         if set(inputs) != set(outputs):
             raise ValueError(f"{path.stem}: 复核输入/输出单元集合不等: {sorted(set(inputs) ^ set(outputs))}")
         for uid, row in outputs.items():

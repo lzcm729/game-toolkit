@@ -155,7 +155,7 @@ answer_compare: {}
 
 跨组任务的 coverage 只归一个组：由主执行方指定 `verify_groups` 顺序中第一个含该任务候选的组为归属组，该行列出跨组的全部单元 ID；其余组保留单元但不重复 coverage 行。汇总仍检查全局引用和唯一归属。
 
-复核应用前要求同名 input/out 的 batch 与文件名一致，单元集合相等、无重复。输入字段为去判断后的六字段；输出至少有 unit_id、decision_after、steps、narrowing、must_go_to_boundary、gaps、reason，后三个列表字段中 steps、must_go_to_boundary、gaps 必须是列表，reason 非空。`verify/recheck/_applied.yaml` 保存输入和输出原始字节的联合摘要；已应用批次任何改动都须换新批次。旧产物若已标应用而没有摘要，不能追认，须建新批次。
+复核应用前要求同名 input/out 的 batch 与文件名一致，单元集合相等、无重复。输入字段为去判断后的六字段；输出需有复核任务书示例的全部字段：unit_id、decision_after、steps、key_judgment、narrowing、walkthrough、must_go_to_boundary、gaps、covered_by、reason；steps、must_go_to_boundary、gaps 必须是列表，reason 非空。`verify/recheck/_applied.yaml` 保存输入和输出原始字节的联合摘要；已应用批次任何改动都须换新批次。旧产物若已标应用而没有摘要，不能追认，须建新批次。
 
 所有显式工作产物输出参数也禁止落在本源码仓库、配置的 target_root 或其他插件源码副本内；接入的公开交付文件由 integrate 单独管理。
 

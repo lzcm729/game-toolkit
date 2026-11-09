@@ -27,12 +27,13 @@ def validate_convert(conv):
     missing = [name for name in REQUIRED if name not in conv]
     if missing:
         raise ValueError("book.yaml convert 缺字段: " + ", ".join(missing))
-    for name in ("font_contains", "pattern"):
-        if name not in conv["page_number"]:
-            raise ValueError(f"convert.page_number 缺 {name}")
-    for name in ("part_pattern", "chapter_pattern"):
-        if name not in conv["outline"]:
-            raise ValueError(f"convert.outline 缺 {name}")
+    missing = []
+    for parent, names in (("page_number", ("font_contains", "pattern")), ("outline", ("part_pattern", "chapter_pattern"))):
+        if not isinstance(conv[parent], dict):
+            raise ValueError(f"convert.{parent} 必须是 mapping")
+        missing.extend(f"{parent}.{name}" for name in names if name not in conv[parent])
+    if missing:
+        raise ValueError("book.yaml convert 缺字段: " + ", ".join(missing))
     if not isinstance(conv["classes"], list):
         raise ValueError("convert.classes 必须是有序列表，可显式为空")
     if not isinstance(conv["start_page"], int) or conv["start_page"] < 1:
@@ -114,7 +115,7 @@ def convert(pdf: Path, conv: dict) -> str:
             return "title"
         for rule in classes:
             if rule["font_contains"] in font and (
-                rule.get("size") is None or abs(size - rule["size"]) < rule.get("tol", .2)
+                rule["size"] is None or abs(size - rule["size"]) < rule["tol"]
             ):
                 return rule["kind"]
         return "body"

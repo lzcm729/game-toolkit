@@ -17,7 +17,7 @@ from page_labels import MARKER, cited_pages, page_value
 
 
 SLACK = 0
-MARK = re.compile(r"p\.\s*\d|约定|原书未说明|由设计者判断|设计者判断|原图缺失|作者的经验估计|本卡|合成演练|交还设计者|由团队")
+MARK = re.compile(r"p\.\s*(?:fm-)?\d|约定|原书未说明|由设计者判断|设计者判断|原图缺失|作者的经验估计|本卡|合成演练|交还设计者|由团队")
 PLAN_ROW = re.compile(r"^\| (\d+) \| ([a-z0-9-]+) \|(?:[^|]*\|){2}([^|]*)\|")
 UNIT = r"u\d{2}-\d{2}"
 
@@ -37,7 +37,7 @@ class StepResult:
     ok: bool
 
 
-def pages_of(attribution: str) -> frozenset[int]:
+def pages_of(attribution: str) -> frozenset[int | str]:
     return cited_pages(attribution)
 
 
@@ -75,19 +75,27 @@ def quote_pages(source_md: str, card_md: str) -> list[QuoteResult]:
             while end < len(lines) and lines[end].startswith(">"):
                 end += 1
             block = lines[index:end]
-            attribution = " ".join(line for line in block if line.lstrip("> ").startswith(("—", "-- ")))
-            allowed = pages_of(attribution)
             pending = []
+            waiting = []
             pending_line = 0
 
             def flush_quote():
                 if pending:
-                    quotes.append((" ".join(pending), allowed, pending_line))
+                    waiting.append((" ".join(pending), pending_line))
                     pending.clear()
+
+            def attribute(text):
+                allowed = pages_of(text)
+                quotes.extend((quote, allowed, line) for quote, line in waiting)
+                waiting.clear()
 
             for offset, line in enumerate(block):
                 body = line.lstrip("> ").strip()
-                if body.startswith(("—", "-- ", "译")):
+                if body.startswith(("—", "-- ")):
+                    flush_quote()
+                    attribute(body)
+                    continue
+                if body.startswith(("译：", "译:")):
                     flush_quote()
                     continue
                 if not body:
@@ -97,6 +105,7 @@ def quote_pages(source_md: str, card_md: str) -> list[QuoteResult]:
                     pending_line = base_line + index + offset + 1
                 pending.append(body)
             flush_quote()
+            attribute("")
             index = end
             continue
         index += 1
@@ -105,7 +114,10 @@ def quote_pages(source_md: str, card_md: str) -> list[QuoteResult]:
     for quote, allowed, line in quotes:
         manual = re.search(r"<!-- quote-manual:\s*(\S.*?)\s*-->", quote)
         quote = re.sub(r"<!-- quote-manual:.*?-->", "", quote).strip()
-        unsupported = (len(re.findall(r"[A-Za-z']+", quote)) < 5
+        if not any(char.isalpha() for char in quote):
+            results.append(QuoteResult(line, allowed, [], "EMPTY: 人工标记不是摘句"))
+            continue
+        unsupported = (len(re.findall(r"[A-Za-z]+(?:'[A-Za-z]+)*", quote)) < 5
                        or any(character.isalpha() and ord(character) > 127 for character in quote))
         if not allowed or unsupported:
             status = "NOPAGE" if not allowed else "MANUAL" if manual else "UNSUPPORTED: 非英文或少于五词，须人工核对标记"
