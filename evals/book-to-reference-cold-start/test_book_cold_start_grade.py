@@ -276,7 +276,8 @@ def good(prepared, monkeypatch):
                 {"type":"result", "subtype":"success", "result":"Synthetic answer"},
             ]
             put(out, "".join(json.dumps(row) + "\n" for row in events))
-            write_json(Path(str(out) + ".meta.json"), {"batch_id":"synthetic", "plugin_dir":plugin.as_posix(), "returncode":0})
+            write_json(Path(str(out) + ".meta.json"), {"batch_id":"synthetic", "plugin_dir":plugin.as_posix(),
+                       "plugin_sha256": grade.runner.plugin_digest(plugin), "returncode":0})
             code = 0
         else:
             raise AssertionError(command)
@@ -439,11 +440,13 @@ def test_grade_requires_stop_order(good):
     assert not checks["stop.02-propagation"].ok
 
 
-@pytest.mark.parametrize("phase", ["cards-integrate", "integrate-runner", "during-runner", "stop-after-check"])
+@pytest.mark.parametrize("phase", ["cards-integrate", "during-integrate", "integrate-runner", "during-runner", "stop-after-check"])
 def test_grade_hash_bindings_reject_changed_inputs(good, phase):
     def change(rows):
         if phase == "cards-integrate":
             rows[1]["before"]["workdir"]["cards/gate-token.md"] = "0" * 64
+        elif phase == "during-integrate":
+            rows[1]["after"]["workdir"]["cards/gate-token.md"] = "0" * 64
         elif phase == "integrate-runner":
             rows[2]["before"]["plugin_copy"]["skills/game-design-theory/references/ribbon-gate-token.md"] = "0" * 64
         elif phase == "during-runner":
@@ -453,7 +456,7 @@ def test_grade_hash_bindings_reject_changed_inputs(good, phase):
         path = good.workdir / "stops/01-quotes/cards/gate-token.md"
         put(path, path.read_text(encoding="utf-8") + "\n改变受检内容\n")
     checks = by_name(good)
-    expected = "flow.integrate" if phase == "cards-integrate" else "stop.01-quotes" if phase == "stop-after-check" else "consumption"
+    expected = "flow.integrate" if phase in ("cards-integrate", "during-integrate") else "stop.01-quotes" if phase == "stop-after-check" else "consumption"
     assert not checks[expected].ok
 
 
@@ -470,14 +473,82 @@ def test_restore_main_after_stops_does_not_change_start(good):
     assert checks["consumption"].ok
 
 
-def test_real_shape_cards_stay_bound_across_notes_config_change(prepared, monkeypatch):
+def test_real_shape_without_paths_cannot_be_bound():
     shape = json.loads((HERE / "fixtures/restore-after-stops.json").read_text(encoding="utf-8"))
     rows = {r["seq"]: r for r in shape}
-    cfg = bookconf.open_workdir(prepared.workdir)
-    monkeypatch.setattr(grade, "open_workdir", lambda work: cfg)
     work, plugin = Path("/fictional/session/book").resolve(), Path("/fictional/session/plugin").resolve()
-    assert not grade._integration_binding(shape, rows[35], work, plugin, work)
-    assert not grade._integration_binding(shape, rows[54], work, plugin, work)
+    assert "旧日志缺新证据" in grade._integration_binding(shape, rows[35], work, plugin, work)
+    assert "旧日志缺新证据" in grade._integration_binding(shape, rows[54], work, plugin, work)
+
+
+def test_logged_paths_record_actual_config_and_allow_unrelated_change(good):
+    rows, _ = grade.read_records(good.log_dir)
+    assert rows[0]["inputs"]["before"]["paths"]["cards"] == (good.workdir / "cards").as_posix()
+    assert set(rows[0]["inputs"]["before"]["paths"]) == set(bookconf.Paths.__dataclass_fields__)
+    # notes 裁定变化不改受检材料；绑定不得依赖整份配置字节相等。
+    rows[1]["before"]["workdir"]["book.yaml"] = "a" * 64
+    assert not grade._integration_binding(rows, rows[1], good.workdir, good.plugin_copy, good.workdir)
+    path = good.workdir / "book.yaml"
+    config = yaml.safe_load(path.read_text(encoding="utf-8"))
+    config.setdefault("paths", {})["cards"] = "cards-B"
+    put(path, yaml.safe_dump(config, allow_unicode=True))
+    command = rows[0]["argv"]
+    evidence = logged.input_paths(command, Path(rows[0]["cwd"]), {"plugin_copy": good.plugin_copy})
+    assert evidence["paths"]["cards"] == (good.workdir / "cards-B").as_posix()
+    assert rows[0]["inputs"]["before"]["paths"]["cards"] != evidence["paths"]["cards"]
+
+
+def test_logged_paths_reject_switch_to_existing_unchecked_cards(good):
+    rows, _ = grade.read_records(good.log_dir)
+    for row in rows[:2]:
+        for phase in ("before", "after"):
+            row[phase]["workdir"]["cards-B/gate-token.md"] = "b" * 64
+    for phase in ("before", "after"):
+        rows[1]["inputs"][phase]["paths"]["cards"] = (good.workdir / "cards-B").as_posix()
+    problem = grade._integration_binding(rows, rows[1], good.workdir, good.plugin_copy, good.workdir)
+    assert "实际输入路径不一致" in problem
+
+
+@pytest.mark.parametrize("option", [["--only", "quotes"], ["--only=quotes"]])
+def test_partial_quotes_not_full_check(good, option):
+    edit_records(good, lambda rows: rows[0]["argv"].extend(option))
+    checks = by_name(good)
+    assert not checks["flow.cards_check"].ok
+    assert not checks["flow.integrate"].ok
+    assert not checks["consumption"].ok
+
+
+@pytest.mark.parametrize("digest", [None, "old-version"])
+def test_consumption_rejects_old_cache_under_new_plugin_snapshot(good, digest):
+    # A 的成功事件和 Read 保留，B 的命令前后快照和文件结束哈希也都真实有效。
+    path = good.log_dir / "runs/new/q1-r1.jsonl.meta.json"
+    meta = json.loads(path.read_text(encoding="utf-8"))
+    if digest is None:
+        meta.pop("plugin_sha256")
+    else:
+        rows, _ = grade.read_records(good.log_dir)
+        old_state = dict(rows[1]["after"]["plugin_copy"])
+        old_state["skills/game-design-theory/references/ribbon-gate-token.md"] = sha256(b"version A card")
+        meta["plugin_sha256"] = grade.runner.plugin_digest_from_snapshot(old_state)
+        assert meta["plugin_sha256"] != grade.runner.plugin_digest(good.plugin_copy)
+        run_path = good.log_dir / "runs/new/q1-r1.jsonl"
+        events = [json.loads(line) for line in run_path.read_text(encoding="utf-8").splitlines()]
+        events[1]["message"]["content"][0]["content"] = "version A card"
+        events[-1]["result"] = "Answer from version A"
+        put(run_path, "".join(json.dumps(event) + "\n" for event in events))
+    write_json(path, meta)
+    edit_records(good, lambda rows: rows[2].update(runs=snapshot(good.log_dir / "runs")))
+    check = by_name(good)["consumption"]
+    assert not check.ok
+    assert ("旧运行缺新证据" if digest is None else "旧缓存") in check.detail
+
+
+def test_missing_paths_never_projects_current_config(good):
+    edit_records(good, lambda rows: [row.pop("inputs", None) for row in rows])
+    checks = by_name(good)
+    for name in ("flow.cards_check", "flow.integrate", "consumption", *(f"stop.{name}" for name in STOP_NAMES)):
+        assert not checks[name].ok
+        assert "旧日志缺新证据" in checks[name].detail
 
 
 def test_eval_output_paths_reject_plugin(prepared):

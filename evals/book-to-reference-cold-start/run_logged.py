@@ -2,13 +2,47 @@
 from __future__ import annotations
 
 import argparse
+from contextlib import redirect_stderr
+from dataclasses import fields
 from datetime import datetime, timezone
+import importlib
+import io
 import json
 from pathlib import Path
 import subprocess
 import sys
 
-from cold_start_common import check_output, read_session, sha256, snapshot
+from cold_start_common import REPO, check_output, read_session, sha256, snapshot
+
+
+def input_paths(command, cwd, session):
+    scripts = REPO / "skills/book-to-reference/scripts"
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    from bookconf import Paths, load_config, resolve
+    if len(command) < 3:
+        return None
+    script = (cwd / command[1]).resolve()
+    allowed = {scripts.resolve(), (session["plugin_copy"] / "skills/book-to-reference/scripts").resolve()}
+    try:
+        if script.parent in allowed and (scripts / script.name).is_file() and script.stem != "page_labels":
+            parser = importlib.import_module(script.stem).build_parser()
+            with redirect_stderr(io.StringIO()):
+                args = parser.parse_args(command[2:])
+            if not hasattr(args, "workdir"):
+                return None
+            workdir = (cwd / args.workdir).resolve()
+        elif script.name == "grade.py" and command[2] == "check-propagation" and script.parent in {
+                REPO / "evals/book-to-reference-cold-start", session["plugin_copy"] / "evals/book-to-reference-cold-start"}:
+            workdir = (cwd / command[3]).resolve()
+        else:
+            return None
+        cfg = load_config(workdir)
+        return {"workdir": workdir.as_posix(),
+                "paths": {field.name: resolve(cfg, workdir, field.name).as_posix() for field in fields(Paths)}}
+    except (OSError, ValueError, TypeError, IndexError, SystemExit) as exc:
+        # 配置失败也要留证，不能为了采集路径阻止实际命令留下失败输出。
+        return {"error": f"{type(exc).__name__}: {exc}"}
 
 
 def run_logged(log_dir: Path, command: list[str], cwd: Path | None = None) -> int:
@@ -29,6 +63,7 @@ def run_logged(log_dir: Path, command: list[str], cwd: Path | None = None) -> in
     before = state()
     start = datetime.now(timezone.utc).isoformat()
     cwd = Path(cwd or Path.cwd()).resolve()
+    inputs_before = input_paths(command, cwd, session)
     error = None
     try:
         process = subprocess.run(command, cwd=cwd, capture_output=True)
@@ -38,10 +73,12 @@ def run_logged(log_dir: Path, command: list[str], cwd: Path | None = None) -> in
         error = {"type": type(exc).__name__, "message": str(exc)}
     end = datetime.now(timezone.utc).isoformat()
     after = state()
+    inputs_after = input_paths(command, cwd, session)
     (log_dir / output).write_bytes(data)
     record = {"seq": sequence, "argv": command, "cwd": cwd.as_posix(), "started_at": start,
               "ended_at": end, "returncode": code, "output": output, "output_sha256": sha256(data),
-              "before": before, "after": after, "runs": snapshot(log_dir / "runs")}
+              "before": before, "after": after, "runs": snapshot(log_dir / "runs"),
+              "inputs": {"before": inputs_before, "after": inputs_after}}
     if error:
         record["error"] = error
     with index.open("a", encoding="utf-8", newline="\n") as stream:

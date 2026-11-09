@@ -19,6 +19,7 @@ if str(SCRIPTS) not in sys.path:
 from bookconf import open_workdir, resolve
 from chain import parse_run
 from check_cards import PLAN_ROW
+import check_cards
 import publicize
 import runner
 from stage1 import read_tasks, scope_dispositions
@@ -180,7 +181,15 @@ def _stop_problem(records, name, workdir, plugin_copy, after_seq):
     changed = last["before"]["workdir"].get(watched)
     if not changed or initial == changed or first["after"]["workdir"].get(watched) != initial:
         return "相关文件没有在失败后、复查前修改", after_seq
-    keys = _card_inputs(open_workdir(stop), stop, workdir) + [prefix + "book.yaml"]
+    try:
+        keys = _logged_inputs(last, "before", stop, workdir)
+        if keys != _logged_inputs(last, "after", stop, workdir):
+            return "成功检查期间实际输入路径变化", after_seq
+        if keys != _logged_inputs(first, "before", stop, workdir) or keys != _logged_inputs(first, "after", stop, workdir):
+            return "失败检查与成功复查的实际输入路径变化", after_seq
+    except ValueError as exc:
+        return str(exc), after_seq
+    keys += [prefix + "book.yaml"]
     checked = _project(last["before"]["workdir"], keys)
     if checked != _project(last["after"]["workdir"], keys) or checked != _project(snapshot(workdir), keys):
         return "本份输入的卡在成功检查中或检查后变化，哈希绑定不成立", after_seq
@@ -192,28 +201,64 @@ def _project(state, prefixes):
             if any(key == prefix or key.startswith(prefix.rstrip("/") + "/") for prefix in prefixes)}
 
 
-def _card_inputs(cfg, workdir, root):
-    # 绑定检查器实际读取的输入；仅改 notes 裁定或入口文案不等于改了受检卡。
-    return [resolve(cfg, workdir, name).relative_to(root).as_posix()
-            for name in ("cards", "meta", "card_plan", "source", "verify_out")]
+CARD_INPUTS = ("cards", "meta", "card_plan", "source", "verify_out")
+
+
+def _logged_inputs(row, phase, workdir, root):
+    evidence = row.get("inputs", {}).get(phase)
+    if not isinstance(evidence, dict):
+        raise ValueError(f"seq {row['seq']} 缺执行时 Paths 证据，不能绑定（旧日志缺新证据）")
+    if evidence.get("error"):
+        raise ValueError(f"seq {row['seq']} 执行时 Paths 解析失败，不能绑定: {evidence['error']}")
+    if evidence.get("workdir") != workdir.as_posix() or not isinstance(evidence.get("paths"), dict):
+        raise ValueError(f"seq {row['seq']} 执行时 Paths 证据无效")
+    keys = []
+    for name in CARD_INPUTS:
+        value = evidence["paths"].get(name)
+        if not isinstance(value, str) or not Path(value).is_absolute():
+            raise ValueError(f"seq {row['seq']} 缺实际 {name} 路径，不能绑定")
+        path = Path(value).resolve()
+        if not path.is_relative_to(root):
+            raise ValueError(f"seq {row['seq']} 的 {name} 在日志快照之外，不能绑定")
+        key = path.relative_to(root).as_posix()
+        if not _project(row[phase]["workdir"], [key]):
+            raise ValueError(f"seq {row['seq']} 缺 {name} 内容快照，不能绑定")
+        keys.append(key)
+    return keys
 
 
 def _plugin_state(state):
     return {key: value for key, value in state.items()
-            if not any(part in (".git", "__pycache__", ".pytest_cache") for part in Path(key).parts)
-            and not key.endswith(".pyc")}
+            if runner.plugin_input_file(key)}
+
+
+def _complete_check(row):
+    try:
+        args = check_cards.build_parser().parse_args(row["argv"][2:])
+        return args.only is None
+    except SystemExit:
+        return False
 
 
 def _integration_binding(records, integration, workdir, plugin_copy, root):
     script = plugin_copy / "skills/book-to-reference/scripts/check_cards.py"
     previous = [row for row in records if row["seq"] < integration["seq"] and
-                command_for(row, script, workdir) and "--only" not in row["argv"]]
+                command_for(row, script, workdir) and _complete_check(row)]
     if not previous or previous[-1]["returncode"] != 0:
         return "接入前缺同一输入的完整 check_cards 成功记录"
     checked = previous[-1]
-    keys = _card_inputs(open_workdir(workdir), workdir, root)
+    try:
+        keys = _logged_inputs(checked, "before", workdir, root)
+        if keys != _logged_inputs(checked, "after", workdir, root) or keys != _logged_inputs(integration, "before", workdir, root):
+            return "check_cards → integrate 实际输入路径不一致"
+        if keys != _logged_inputs(integration, "after", workdir, root):
+            return "integrate 期间实际输入路径变化"
+    except ValueError as exc:
+        return str(exc)
     before = _project(checked["before"]["workdir"], keys)
-    if not before or before != _project(checked["after"]["workdir"], keys) or before != _project(integration["before"]["workdir"], keys):
+    if (not before or before != _project(checked["after"]["workdir"], keys)
+            or before != _project(integration["before"]["workdir"], keys)
+            or before != _project(integration["after"]["workdir"], keys)):
         return f"check_cards seq {checked['seq']} → integrate seq {integration['seq']} 输入哈希不一致"
     return ""
 
@@ -254,6 +299,12 @@ def _consumed(records, workdir, plugin_copy, log_dir, prefix, before_seq):
             meta = json.loads(meta_path.read_text(encoding="utf-8"))
             if not isinstance(meta, dict) or meta.get("plugin_dir") != plugin_copy.as_posix() or not runner.is_success(path, args.batch_id):
                 continue
+            if not meta.get("plugin_sha256"):
+                reasons.append(f"{path.name} meta 缺插件内容摘要，不能绑定（旧运行缺新证据）")
+                continue
+            if meta["plugin_sha256"] != runner.plugin_digest_from_snapshot(frozen):
+                reasons.append(f"{path.name} 执行时插件摘要与本次接入产物不一致，可能是旧缓存")
+                continue
             run = parse_run(path)
             refs = plugin_copy / "skills/game-design-theory/references"
             cards = [file for file in run.reads if _path(file, row["cwd"]).parent == refs
@@ -285,16 +336,23 @@ def grade(workdir: Path, plugin_copy: Path, log_dir: Path) -> list[Check]:
     for filename, name in (("check_cards.py", "flow.cards_check"), ("integrate.py", "flow.integrate")):
         rows = [row for row in records if command_for(row, scripts / filename, workdir)]
         if filename == "check_cards.py":
-            rows = [row for row in rows if "--only" not in row["argv"]]
+            rows = [row for row in rows if _complete_check(row)]
         ok = bool(rows) and rows[-1]["returncode"] == 0
         detail = ""
         if ok and filename == "integrate.py":
             detail = _integration_binding(records, rows[-1], workdir, plugin_copy, workdir)
             ok = not detail
         if ok and filename == "check_cards.py":
-            keys = _card_inputs(open_workdir(workdir), workdir, workdir)
-            if _project(rows[-1]["after"]["workdir"], keys) != _project(snapshot(workdir), keys):
-                ok, detail = False, "主流程输入在最后一次 check_cards 后变化，须重查"
+            try:
+                keys = _logged_inputs(rows[-1], "before", workdir, workdir)
+                current_cfg = open_workdir(workdir)
+                current_keys = [resolve(current_cfg, workdir, name).relative_to(workdir).as_posix() for name in CARD_INPUTS]
+                if (keys != _logged_inputs(rows[-1], "after", workdir, workdir) or keys != current_keys
+                        or _project(rows[-1]["before"]["workdir"], keys) != _project(rows[-1]["after"]["workdir"], keys)
+                        or _project(rows[-1]["after"]["workdir"], keys) != _project(snapshot(workdir), keys)):
+                    ok, detail = False, "主流程输入路径或内容在 check_cards 中或之后变化，须重查"
+            except (OSError, ValueError, TypeError) as exc:
+                ok, detail = False, str(exc)
         main_checks[name] = rows[-1]["seq"] if ok else 0
         prior = [r for r in rows if r["seq"] < stop_start]
         if prior and prior[-1]["returncode"] == 0:
