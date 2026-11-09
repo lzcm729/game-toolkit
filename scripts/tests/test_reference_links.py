@@ -21,14 +21,22 @@ ROOT = Path(__file__).resolve().parents[2]
 REFS = ROOT / "skills" / "game-design-theory" / "references"
 NAMES = {p.name for p in REFS.glob("*.md")}
 ALL_MD = {p.name for p in ROOT.rglob("*.md") if ".git" not in p.parts}
-# the prefixed book families; Rouse's files have no prefix
-PREFIX = r"(?:sylvester|schell|meadows)-"
-FULL = re.compile(rf"(?<![\w-])({PREFIX}[a-z0-9-]+\.md)")
+
+
+def infer_book_prefixes(entry_text):
+    """两份不同的入口直链才成一家，避免把 Rouse 的单个无前缀文件当书姓。"""
+    families = {}
+    links = re.findall(r'\]\(\s*references/([a-z0-9]+-[a-z0-9-]+\.md)(?:#[^\s)]*)?(?:\s+"[^"]*")?\s*\)', entry_text)
+    for name in links:
+        prefix = name.split("-", 1)[0]
+        families.setdefault(prefix, set()).add(name)
+    return {prefix for prefix, names in families.items() if len(names) >= 2}
+
+
+PREFIXES = infer_book_prefixes((REFS.parent / "SKILL.md").read_text(encoding="utf-8"))
 # a reference context: a backtick span, a markdown link target, or an opening backtick that never closes
 # on its line (the generator's cut names lost their closing backtick along with ".md")
 CONTEXT = re.compile(r"`([^`\n]+)`|\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)|`([^`\n]+)$", re.M)  # a link may carry a title
-# inside a context, anything that starts like a family file name, up to whitespace or punctuation
-TOKEN = re.compile(rf"(?<![\w-])({PREFIX}[^\s`'\"()\[\]<>{{}}*，。、；：]*)")
 SOURCES = sorted({*ROOT.glob("agents/*.md"), *ROOT.glob("skills/*/SKILL.md"), *ROOT.glob("skills/*/references/*.md")})
 
 
@@ -36,17 +44,22 @@ def ids(p):
     return p.relative_to(ROOT).as_posix()
 
 
-def problems(text):
-    missing = {n for n in FULL.findall(text) if n not in NAMES}
+def problems(text, names=None, prefixes=None):
+    names = NAMES if names is None else names
+    prefixes = PREFIXES if prefixes is None else prefixes
+    prefix = "(?:" + "|".join(re.escape(name) for name in sorted(prefixes)) + ")-" if prefixes else r"(?!)"
+    full = re.compile(rf"(?<![\w-])({prefix}[a-z0-9-]+\.md)")
+    token = re.compile(rf"(?<![\w-])({prefix}[^\s`'\"()\[\]<>{{}}*，。、；：]*)")
+    missing = {n for n in full.findall(text) if n not in names}
     cut = set()
     for m in CONTEXT.finditer(text):
         span = m.group(1) or m.group(2) or m.group(3)
         if re.search(r"[<>{}*]", span):  # a pattern such as `sylvester-<slug>.md`, not a reference
             continue
-        for tok in TOKEN.findall(span):
+        for tok in token.findall(span):
             tok = tok.split("#")[0].rstrip(".,;:")  # a link may point at a heading: file.md#anchor
             if tok.endswith(".md"):
-                if tok not in NAMES:
+                if tok not in names:
                     missing.add(tok)
             else:
                 cut.add(tok)  # starts like a reference file name, never reaches ".md"
@@ -101,3 +114,38 @@ def test_agent_file_shapes(text, found):
 
 def test_sources_found():
     assert len(SOURCES) > 20 and len(NAMES) > 20
+
+
+@pytest.mark.parametrize("text, missing, cut", [
+    ("见 `aurora-missing.md`", {"aurora-missing.md"}, set()),
+    ("→ `aurora-second…`", set(), {"aurora-second…"}),
+    ("[读卡](references/aurora-third…)", set(), {"aurora-third…"}),
+])
+def test_new_book_prefix_is_checked(text, missing, cut):
+    names = NAMES | {"aurora-first.md", "aurora-second.md", "aurora-third.md"}
+    entry = "\n".join(f"[卡](references/aurora-{slug}.md)" for slug in ("first", "second", "third"))
+    prefixes = infer_book_prefixes(entry)
+    assert prefixes == {"aurora"}
+    assert problems(text, names=names, prefixes=prefixes) == (missing, cut)
+
+
+def test_prefix_inference_ignores_unprefixed_and_skill_links():
+    entry = "\n".join([
+        "[玩家](references/player-psychology.md)",
+        "[重复](references/player-psychology.md)",
+        "[设计](references/design-principles.md)",
+        "[玩法](references/gameplay-elements.md)",
+        "[技能](../design-discuss/SKILL.md)",
+        "[另一个锚点](../design-discuss/SKILL.md#usage)",
+    ])
+    assert infer_book_prefixes(entry) == set()
+
+
+def test_new_book_cut_entry_still_infers_prefix():
+    entry = "\n".join([
+        "[一](references/aurora-first.md)", "[二](references/aurora-second.md)",
+        "[三](references/aurora-thir…)",
+    ])
+    prefixes = infer_book_prefixes(entry)
+    assert prefixes == {"aurora"}
+    assert problems(entry, names={"aurora-first.md", "aurora-second.md"}, prefixes=prefixes) == (set(), {"aurora-thir…"})
