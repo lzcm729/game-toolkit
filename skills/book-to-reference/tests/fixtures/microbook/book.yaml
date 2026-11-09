@@ -1,4 +1,6 @@
 book_id: microbook
+display_author: Mira Example
+display_title: The Lantern Workshop
 prefix: micro-
 target_root: ../plugin
 mask_names:

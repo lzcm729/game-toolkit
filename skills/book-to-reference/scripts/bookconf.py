@@ -57,6 +57,8 @@ class Ruling:
 class BookConfig:
     book_id: str
     prefix: str
+    display_author: str
+    display_title: str
     target_root: Path
     mask_names: MaskNames
     verify_groups: dict[str, list[str]]
@@ -129,7 +131,7 @@ def load_config(workdir: Path) -> BookConfig:
     unknown = set(data) - {field.name for field in fields(BookConfig)}
     if unknown:
         raise ValueError(f"book.yaml 未知字段: {', '.join(sorted(unknown))}")
-    for name in ("book_id", "prefix", "target_root", "mask_names", "verify_groups", "entry_groups", "skill_md"):
+    for name in ("book_id", "prefix", "display_author", "display_title", "target_root", "mask_names", "verify_groups", "entry_groups", "skill_md"):
         if name not in data:
             raise ValueError(f"book.yaml 缺 {name}")
     book_id = _string(data["book_id"], "book_id")
@@ -148,6 +150,8 @@ def load_config(workdir: Path) -> BookConfig:
             raise ValueError(f"rulings.scope 无效: {rule.scope}")
     return BookConfig(
         book_id=book_id, prefix=_string(data["prefix"], "prefix"),
+        display_author=_string(data["display_author"], "display_author"),
+        display_title=_string(data["display_title"], "display_title"),
         target_root=_path(workdir, _string(data["target_root"], "target_root")),
         mask_names=MaskNames(_strings(masks["authors"], "mask_names.authors"),
                              _strings(masks["titles"], "mask_names.titles")),

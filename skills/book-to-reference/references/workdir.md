@@ -24,13 +24,14 @@ landing/notes.md
 ## 机械参数
 
 `book_id` 是默认源文件名，`prefix` 是发布卡文件名前缀，`target_root` 是交付源码。
+`display_author`、`display_title` 是必填的非空字符串，明确 notes 标题的作者显示名和书名。
 相对路径以工作目录为起点；路径中的反斜杠按 `/` 处理。
 `paths` 可覆盖上面各路径：`source`、`overview`、`candidates`、`verify_in`、
 `verify_out`、`recheck_in`、`recheck_out`、`card_plan`、`cards`、`meta`、`glossary`、`notes_out`。
 未覆盖的字段取上图默认值。
 
 `mask_names.authors` 和 `mask_names.titles` 列出盲评需要遮蔽的全部作者和书名，含另外三本书。
-两份列表的首项也分别用于 notes 标题的作者名和书名；其他项可列全名、姓氏和书名别称。
+它们只管遮蔽，可列全名、姓氏和书名别称；顺序不影响 notes 标题。
 `verify_groups` 和 `entry_groups` 按 YAML 文件顺序保留，键空间不同：
 
 - `verify_groups` 的值是候选 `source_chapter` 解析出的章标签：数字章 `"1"` 等，
@@ -68,6 +69,8 @@ landing/notes.md
 
 ```yaml
 book_id: microbook
+display_author: Mira Example
+display_title: The Lantern Workshop
 prefix: micro-
 target_root: ../plugin
 mask_names:

@@ -28,6 +28,20 @@ def test_load_microbook_config(microbook):
     assert bc.resolve(cfg, microbook, "source") == microbook / "source/microbook.md"
 
 
+@pytest.mark.parametrize("field", ["display_author", "display_title"])
+@pytest.mark.parametrize("value", [None, "", 123])
+def test_display_names_required(microbook, field, value):
+    path = microbook / "book.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if value is None:
+        data.pop(field, None)
+    else:
+        data[field] = value
+    path.write_text(yaml.safe_dump(data), encoding="utf-8", newline="\n")
+    with pytest.raises(ValueError, match=field):
+        bc.load_config(microbook)
+
+
 def test_paths_override(microbook):
     update(microbook, paths={"cards": ".cangjie/capabilities/cards"})
     assert bc.open_workdir(microbook).paths.cards == ".cangjie/capabilities/cards"

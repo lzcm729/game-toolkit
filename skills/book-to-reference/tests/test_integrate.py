@@ -86,3 +86,21 @@ def test_integrate_leaves_unrelated_files(microbook, plugin_copy):
     assert unrelated.read_bytes() == content
     assert unrelated not in result.written
     assert not any(path == unrelated for path, _, _ in result.residue)
+
+
+def test_notes_title_uses_display_names(microbook, plugin_copy):
+    prepare(microbook)
+    path = microbook / "book.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data.update(display_author="Mira", display_title="Lantern Trials")
+    data["mask_names"] = {"authors": ["Different Author", "Mira"],
+                          "titles": ["Other Book", "Lantern Trials"]}
+    path.write_text(yaml.safe_dump(data), encoding="utf-8", newline="\n")
+    integrate.run(microbook)
+    notes = microbook / "landing/notes.md"
+    first = notes.read_bytes()
+    assert first.decode("utf-8").startswith("# Mira《Lantern Trials》")
+    data["mask_names"] = {"authors": [], "titles": []}
+    path.write_text(yaml.safe_dump(data), encoding="utf-8", newline="\n")
+    integrate.run(microbook)
+    assert notes.read_bytes() == first

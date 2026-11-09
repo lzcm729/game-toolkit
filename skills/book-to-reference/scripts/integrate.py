@@ -91,8 +91,8 @@ def _notes(cfg, workdir, unit_card):
         match = re.match(r"Ch(\d+)", name)
         return (0, int(match.group(1))) if match else (-1 if "Intro" in name or "Part" in name else 1, 0)
 
-    author = cfg.mask_names.authors[0]
-    title = cfg.mask_names.titles[0]
+    author = cfg.display_author
+    title = cfg.display_title
     lines = [f"# {author}《{title}》：术语与只作参考的观点", "",
              "> 能照着做的方法在能力卡里（见 SKILL.md 的选卡表）。这里放两类卡外的内容：",
              "> 术语的意思，以及原书讲了、但没给出能照着执行的步骤的观点。用它们时说明是作者观点，不当规则。", "", "## 术语", ""]
@@ -168,8 +168,6 @@ def run(workdir: Path) -> IntegrateReport:
     read_tasks(resolve(cfg, workdir, "overview").read_text(encoding="utf-8"))
     if not re.fullmatch(r"[A-Za-z0-9_-]+", cfg.prefix):
         raise ValueError("prefix 必须是文件名前缀")
-    if not cfg.mask_names.authors or not cfg.mask_names.titles:
-        raise ValueError("mask_names 需要本书作者和书名，首项用于 notes 标题")
     gdt = cfg.target_root / "skills/game-design-theory"
     refs = gdt / "references"
 
