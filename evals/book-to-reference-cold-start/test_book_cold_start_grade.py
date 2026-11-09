@@ -475,7 +475,7 @@ def test_real_shape_cards_stay_bound_across_notes_config_change(prepared, monkey
     rows = {r["seq"]: r for r in shape}
     cfg = bookconf.open_workdir(prepared.workdir)
     monkeypatch.setattr(grade, "open_workdir", lambda work: cfg)
-    work, plugin = Path("X:/fictional/session/book"), Path("X:/fictional/session/plugin")
+    work, plugin = Path("/fictional/session/book").resolve(), Path("/fictional/session/plugin").resolve()
     assert not grade._integration_binding(shape, rows[35], work, plugin, work)
     assert not grade._integration_binding(shape, rows[54], work, plugin, work)
 

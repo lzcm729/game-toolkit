@@ -3,10 +3,10 @@
     "seq": 31,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
-      "X:/fictional/session/book"
+      "/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
+      "/fictional/session/book"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -51,10 +51,10 @@
     "seq": 32,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
-      "X:/fictional/session/book"
+      "/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "/fictional/session/book"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -99,10 +99,10 @@
     "seq": 33,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
-      "X:/fictional/session/book"
+      "/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "/fictional/session/book"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -147,11 +147,11 @@
     "seq": 34,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/bookconf.py",
+      "/fictional/session/plugin/skills/book-to-reference/scripts/bookconf.py",
       "check",
-      "X:/fictional/session/book"
+      "/fictional/session/book"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -196,10 +196,10 @@
     "seq": 35,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
-      "X:/fictional/session/book"
+      "/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "/fictional/session/book"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -252,7 +252,7 @@
       "scripts/tests/test_reference_links.py",
       "scripts/tests/test_skill_files.py"
     ],
-    "cwd": "X:/fictional/session/plugin",
+    "cwd": "/fictional/session/plugin",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -297,17 +297,17 @@
     "seq": 37,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/grading.py",
+      "/fictional/session/plugin/skills/book-to-reference/scripts/grading.py",
       "prompts",
-      "X:/fictional/session/book",
+      "/fictional/session/book",
       "--items",
-      "X:/fictional/session/book/reach/items.json",
+      "/fictional/session/book/reach/items.json",
       "--prompts-raw",
-      "X:/fictional/session/book/reach/prompts-raw.yaml",
+      "/fictional/session/book/reach/prompts-raw.yaml",
       "--out-dir",
-      "X:/fictional/session/book/reach"
+      "/fictional/session/book/reach"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -352,11 +352,11 @@
     "seq": 38,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/runner.py",
-      "X:/fictional/session/book/reach/prompts.tsv",
-      "X:/fictional/session/logs/runs/reach",
+      "/fictional/session/plugin/skills/book-to-reference/scripts/runner.py",
+      "/fictional/session/book/reach/prompts.tsv",
+      "/fictional/session/logs/runs/reach",
       "--variant",
-      "candidate=X:/fictional/session/plugin",
+      "candidate=/fictional/session/plugin",
       "--reps",
       "1",
       "--lanes",
@@ -364,13 +364,13 @@
       "--budget",
       "1",
       "--runs-root",
-      "X:/fictional/session/logs/hosts",
+      "/fictional/session/logs/hosts",
       "--batch-id",
       "reach-candidate-frozen-1",
       "--model",
       "claude-opus-5-5"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -415,20 +415,20 @@
     "seq": 39,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/reach.py",
+      "/fictional/session/plugin/skills/book-to-reference/scripts/reach.py",
       "score",
-      "X:/fictional/session/book",
+      "/fictional/session/book",
       "--runs-dir",
-      "X:/fictional/session/logs/runs/reach/candidate",
+      "/fictional/session/logs/runs/reach/candidate",
       "--id-map",
-      "X:/fictional/session/book/reach/id_map.json",
+      "/fictional/session/book/reach/id_map.json",
       "--expected",
-      "X:/fictional/session/book/reach/expected.json",
-      "X:/fictional/session/book/reach/protected.json",
+      "/fictional/session/book/reach/expected.json",
+      "/fictional/session/book/reach/protected.json",
       "--out",
-      "X:/fictional/session/book/reach/score.json"
+      "/fictional/session/book/reach/score.json"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -473,13 +473,13 @@
     "seq": 40,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/chain.py",
+      "/fictional/session/plugin/skills/book-to-reference/scripts/chain.py",
       "counts",
-      "X:/fictional/session/logs/runs/reach/candidate",
+      "/fictional/session/logs/runs/reach/candidate",
       "--card-prefix",
       "ribbon-"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -524,13 +524,13 @@
     "seq": 41,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/chain.py",
+      "/fictional/session/plugin/skills/book-to-reference/scripts/chain.py",
       "per-question",
-      "candidate=X:/fictional/session/logs/runs/reach/candidate",
+      "candidate=/fictional/session/logs/runs/reach/candidate",
       "--card-prefix",
       "ribbon-"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -575,10 +575,10 @@
     "seq": 42,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
-      "X:/fictional/session/book/stops/01-quotes"
+      "/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
+      "/fictional/session/book/stops/01-quotes"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 1,
     "before": {
       "workdir": {
@@ -623,10 +623,10 @@
     "seq": 43,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
-      "X:/fictional/session/book/stops/01-quotes"
+      "/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
+      "/fictional/session/book/stops/01-quotes"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -671,14 +671,14 @@
     "seq": 44,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/verify_units.py",
+      "/fictional/session/plugin/skills/book-to-reference/scripts/verify_units.py",
       "show",
-      "X:/fictional/session/book/stops/02-propagation",
+      "/fictional/session/book/stops/02-propagation",
       "u01-01",
       "u02-01",
       "u03-01"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -723,11 +723,11 @@
     "seq": 45,
     "argv": [
       "python",
-      "X:/fictional/source/evals/book-to-reference-cold-start/grade.py",
+      "/fictional/source/evals/book-to-reference-cold-start/grade.py",
       "check-propagation",
-      "X:/fictional/session/book/stops/02-propagation"
+      "/fictional/session/book/stops/02-propagation"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 1,
     "before": {
       "workdir": {
@@ -772,10 +772,10 @@
     "seq": 46,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
-      "X:/fictional/session/book/stops/02-propagation"
+      "/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
+      "/fictional/session/book/stops/02-propagation"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -820,11 +820,11 @@
     "seq": 47,
     "argv": [
       "python",
-      "X:/fictional/source/evals/book-to-reference-cold-start/grade.py",
+      "/fictional/source/evals/book-to-reference-cold-start/grade.py",
       "check-propagation",
-      "X:/fictional/session/book/stops/02-propagation"
+      "/fictional/session/book/stops/02-propagation"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -869,10 +869,10 @@
     "seq": 48,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
-      "X:/fictional/session/book/stops/03-entry"
+      "/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "/fictional/session/book/stops/03-entry"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 1,
     "before": {
       "workdir": {
@@ -917,11 +917,11 @@
     "seq": 49,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/bookconf.py",
+      "/fictional/session/plugin/skills/book-to-reference/scripts/bookconf.py",
       "check",
-      "X:/fictional/session/book/stops/03-entry"
+      "/fictional/session/book/stops/03-entry"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -966,10 +966,10 @@
     "seq": 50,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
-      "X:/fictional/session/book/stops/03-entry"
+      "/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
+      "/fictional/session/book/stops/03-entry"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -1014,10 +1014,10 @@
     "seq": 51,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
-      "X:/fictional/session/book/stops/03-entry"
+      "/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "/fictional/session/book/stops/03-entry"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -1062,10 +1062,10 @@
     "seq": 52,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
-      "X:/fictional/session/book/stops/03-entry"
+      "/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "/fictional/session/book/stops/03-entry"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -1118,7 +1118,7 @@
       "scripts/tests/test_reference_links.py",
       "scripts/tests/test_skill_files.py"
     ],
-    "cwd": "X:/fictional/session/plugin",
+    "cwd": "/fictional/session/plugin",
     "returncode": 0,
     "before": {
       "workdir": {
@@ -1163,10 +1163,10 @@
     "seq": 54,
     "argv": [
       "python",
-      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
-      "X:/fictional/session/book"
+      "/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "/fictional/session/book"
     ],
-    "cwd": "X:/fictional/source",
+    "cwd": "/fictional/source",
     "returncode": 0,
     "before": {
       "workdir": {
