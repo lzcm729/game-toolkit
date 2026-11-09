@@ -47,6 +47,7 @@ landing/notes.md
 `skill_md` 描述目标 SKILL.md 的替换位置：`quick_ref_start/end` 包围旧速查，
 `quick_ref_file` 提供新速查；`table_start/end` 包围选卡表，`table_heading` 提供标题；
 `when_to_use_anchor` 和 `when_to_use_end` 是本书触发行槽位的前后锚点，`when_to_use_line` 提供替换行；
+这些字段在加载配置及 `bookconf check` 时就必须齐全、非空，不等到接入才检查缺字段。
 `description_file` 为可选描述文件路径，`null` 表示不替换描述。
 
 `convert` 不带任何书的排版默认值；只有文本时可为空，调用 PDF convert 时以下字段全部必填。
@@ -68,7 +69,7 @@ convert:
     - {kind: h3, font_contains: ExampleBold, size: 14, tol: 0.2}
   page_number: {font_contains: ExampleRegular, pattern: '\s*\d+\s*'}
   outline: {part_pattern: '(?!)', chapter_pattern: '^(\d+) (.*)$'}
-  header: '# 编造的灯光手册\n\n'
+  header: "# 编造的灯光手册\n\n"
 ```
 
 classes.kind 只支持 h3、h4、callout、vignette、skip，其他排版先显式报错，不推测恢复。

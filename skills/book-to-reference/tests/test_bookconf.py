@@ -55,6 +55,27 @@ def test_missing_required_field(microbook):
         bc.load_config(microbook)
 
 
+@pytest.mark.parametrize("value", [None, "", 123, "missing"])
+def test_entry_end_required_at_config_check(microbook, value, capsys):
+    path = microbook / "book.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    if value == "missing":
+        data["skill_md"].pop("when_to_use_end")
+    else:
+        data["skill_md"]["when_to_use_end"] = value
+    path.write_text(yaml.safe_dump(data), encoding="utf-8")
+    with pytest.raises(ValueError, match="when_to_use_end"):
+        bc.load_config(microbook)
+    assert bc.main(["check", str(microbook)]) == 1
+    assert "when_to_use_end" in capsys.readouterr().err
+
+
+def test_documented_header_produces_newlines():
+    text = (Path(bc.__file__).parents[1] / "references/workdir.md").read_text(encoding="utf-8")
+    example = text.split("```yaml\n", 1)[1].split("```", 1)[0]
+    assert yaml.safe_load(example)["convert"]["header"] == "# 编造的灯光手册\n\n"
+
+
 def test_ruling_requires_why(microbook):
     update(microbook, rulings=[{"find": "旧说法", "replace": "新说法", "scope": "cards"}])
     with pytest.raises(ValueError, match="why"):

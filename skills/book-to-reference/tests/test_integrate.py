@@ -237,5 +237,5 @@ def test_missing_entry_end_fails_explicitly(microbook):
     data = yaml.safe_load(path.read_text(encoding="utf-8"))
     del data["skill_md"]["when_to_use_end"]
     path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
-    with pytest.raises(ValueError, match="缺 when_to_use_end"):
+    with pytest.raises(ValueError, match="when_to_use_end"):
         integrate.run(microbook)
