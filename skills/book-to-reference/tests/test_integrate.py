@@ -54,7 +54,7 @@ def test_integrate_microbook_end_to_end(microbook, plugin_copy):
     assert not result.residue
     refs = plugin_copy / "skills/game-design-theory/references"
     assert (refs / "micro-steady-shadow.md").is_file()
-    assert retained.read_bytes() == b"# Retained\n\nExisting text.\n"
+    assert retained.read_bytes() == b"# Retained\r\n\r\nExisting text.\r\n"
     assert not (refs / "old.md").exists()
     skill = (refs.parent / "SKILL.md").read_text(encoding="utf-8")
     table = skill.split("<!-- TABLE START -->")[1].split("<!-- TABLE END -->")[0]
@@ -74,3 +74,15 @@ def test_description_limit_precedes_writes(microbook, plugin_copy):
     path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8", newline="\n")
     with pytest.raises(ValueError, match="1024"):
         integrate.run(microbook)
+
+
+def test_integrate_leaves_unrelated_files(microbook, plugin_copy):
+    prepare(microbook)
+    unrelated = plugin_copy / "skills/game-design-theory/references/unrelated.md"
+    # 其他书的合法用语不能被本书的残留清单误报；连换行也不归本次接入管。
+    content = "# Other book\r\n\r\n分析单元与参考单元。\r\n".encode("utf-8")
+    unrelated.write_bytes(content)
+    result = integrate.run(microbook)
+    assert unrelated.read_bytes() == content
+    assert unrelated not in result.written
+    assert not any(path == unrelated for path, _, _ in result.residue)

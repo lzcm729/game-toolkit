@@ -256,13 +256,6 @@ def run(workdir: Path) -> IntegrateReport:
     old_paths = [destination(name) for name in cfg.old_files]
     if set(old_paths) & set(generated):
         raise ValueError("old_files 包含本次生成的文件")
-    # Windows checkout 可能把未改的参考检出为 CRLF；交付树仍须匹配 tag 的原始字节。
-    # 只规范换行，不公开化或重写这些既有资料的正文。
-    for path in sorted(gdt.rglob("*.md")):
-        if path not in generated and path not in old_paths:
-            if not path.resolve().is_relative_to(cfg.target_root):
-                raise ValueError(f"既有资料逃出交付源码: {path}")
-            generated[path] = path.read_text(encoding="utf-8")
     notes_path = resolve(cfg, workdir, "notes_out")
     notes_path.parent.mkdir(parents=True, exist_ok=True)
     notes_path.write_text(notes, encoding="utf-8", newline="\n")

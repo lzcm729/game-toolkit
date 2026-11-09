@@ -18,7 +18,7 @@
 - 每本书的配置 `book.yaml` 和工作目录都在仓库外。`book.yaml` 写明交付目标 `target_root`（本插件的源码副本）；工作目录本身，以及 `Paths` 解析出来的每个路径，都不能落在 `target_root` 里，也不能落在脚本所在的仓库里。
 - 交付目标必须是源码副本：有 `.git`、`.claude-plugin/plugin.json`、`skills/game-design-theory/`，路径里不含 `plugins/cache` 或 `plugins/marketplaces`。
 - 确定性：遍历一律排序；平票规则写明；新写的文件一律 `encoding="utf-8", newline="\n"`；同样的输入逐字节相同的输出（写回稿原则 10）。
-- **对照检查的比较规则**：作者本地的旧产物是 CRLF，比较前两边都规范成 UTF-8 加 LF，记下原始和规范化后的 sha256；和 tag `v4.18.0` 的发布文件比，用 `git show v4.18.0:<路径>` 的原始字节严格比，并核对文件集合（不多不少）。期望和快照先锁住，不一致就修脚本，不改期望。
+- **对照检查的比较规则**：作者本地的旧产物是 CRLF，比较前两边都规范成 UTF-8 加 LF，记下原始和规范化后的 sha256；和 tag `v4.18.0` 的发布文件比，比较提交后的形式：暂存 `skills/game-design-theory`，确认 `git diff --cached --quiet v4.18.0 -- skills/game-design-theory` 退出 0，暂存后的文件集合与 tag 一致，比完撤销暂存并重置该目录。本次生成的文件另外用 `git show v4.18.0:<路径>` 的原始字节严格比。期望和快照先锁住，不一致就修脚本，不改期望。**审核方 2026-11-09 改，用户未拍板。**
 - 脚本只从参数和 `book.yaml` 取路径，不写死任何路径；Windows 和 POSIX 都要能跑；工具调用里的路径先把 `\` 换成 `/`。
 - 每个脚本都有 CLI，任务书和 SKILL.md 里写的命令只能用本计划定义的 CLI。审计类脚本发现问题就退出 1，不只打印。
 - pytest 里不联网、不调模型、不花钱；要调模型的只在 `runner.py` 和 `evals/book-to-reference-cold-start/` 里，不进普通测试。
