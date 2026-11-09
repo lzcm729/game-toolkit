@@ -26,7 +26,7 @@ PREFIX = r"(?:sylvester|schell|meadows)-"
 FULL = re.compile(rf"(?<![\w-])({PREFIX}[a-z0-9-]+\.md)")
 # a reference context: a backtick span, a markdown link target, or an opening backtick that never closes
 # on its line (the generator's cut names lost their closing backtick along with ".md")
-CONTEXT = re.compile(r"`([^`\n]+)`|\]\(([^)\s]+)\)|`([^`\n]+)$", re.M)
+CONTEXT = re.compile(r"`([^`\n]+)`|\]\(([^)\s]+)(?:\s+\"[^\"]*\")?\)|`([^`\n]+)$", re.M)  # a link may carry a title
 # inside a context, anything that starts like a family file name, up to whitespace or punctuation
 TOKEN = re.compile(rf"(?<![\w-])({PREFIX}[^\s`'\"()\[\]<>{{}}*，。、；：]*)")
 SOURCES = sorted({*ROOT.glob("agents/*.md"), *ROOT.glob("skills/*/SKILL.md"), *ROOT.glob("skills/*/references/*.md")})
@@ -44,7 +44,7 @@ def problems(text):
         if re.search(r"[<>{}*]", span):  # a pattern such as `sylvester-<slug>.md`, not a reference
             continue
         for tok in TOKEN.findall(span):
-            tok = tok.rstrip(".,;:")
+            tok = tok.split("#")[0].rstrip(".,;:")  # a link may point at a heading: file.md#anchor
             if tok.endswith(".md"):
                 if tok not in NAMES:
                     missing.add(tok)
@@ -71,6 +71,8 @@ def test_reference_mentions_resolve(src):
     ("| → `sylvester-overplanni… |", set(), {"sylvester-overplanni…"}),  # cut with its closing backtick
     ("见 sylvester-no-such-card.md", {"sylvester-no-such-card.md"}, set()),
     ("[卡](references/sylvester-no-such-card.md)", {"sylvester-no-such-card.md"}, set()),
+    ("[卡](references/sylvester-balance-target.md#b-边界-boundary)", set(), set()),  # anchor on a valid file
+    ('[卡](references/sylvester-… "标题")', set(), {"sylvester-…"}),  # cut target behind a link title
 ])
 def test_problem_shapes(text, missing, cut):
     assert problems(text) == (missing, cut)
