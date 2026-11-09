@@ -55,6 +55,41 @@ def _write_json(path, data):
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8", newline="\n")
 
 
+PLUGIN_IGNORED_DIRS = frozenset({".git", "__pycache__", ".pytest_cache"})
+
+
+def plugin_input_file(name: str) -> bool:
+    parts = Path(name).parts
+    return (not any(part in PLUGIN_IGNORED_DIRS or part.startswith(".env") for part in parts)
+            and Path(name).suffix not in (".pyc", ".pyo"))
+
+
+def plugin_digest_from_snapshot(state: dict[str, str]) -> str:
+    # 相对文件名也参与摘要；副本换位置不改版本，增删或改名则会改版本。
+    inputs = {name: digest for name, digest in state.items() if plugin_input_file(name)}
+    data = json.dumps(inputs, sort_keys=True, ensure_ascii=False, separators=(",", ":"))
+    return hashlib.sha256(data.encode("utf-8")).hexdigest()
+
+
+def plugin_digest(directory: Path) -> str:
+    directory = Path(directory).resolve()
+    if not directory.is_dir():
+        raise ValueError(f"插件目录不存在: {directory}")
+    state = {}
+    for root, dirs, files in os.walk(directory):
+        dirs[:] = sorted(name for name in dirs if name not in PLUGIN_IGNORED_DIRS and not name.startswith(".env"))
+        for name in sorted(files):
+            path = Path(root) / name
+            key = path.relative_to(directory).as_posix()
+            if plugin_input_file(key):
+                if path.is_symlink():
+                    raise ValueError(f"插件摘要不跟随符号链接: {path}")
+                state[key] = hashlib.sha256(path.read_bytes()).hexdigest()
+        if any((Path(root) / name).is_symlink() for name in dirs):
+            raise ValueError("插件摘要不跟随目录符号链接")
+    return plugin_digest_from_snapshot(state)
+
+
 def _execute(command, cwd, env, timeout):
     options = {"creationflags": subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
     process = subprocess.Popen(command, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
@@ -106,10 +141,11 @@ def run_batch(jobs, out_dir: Path, runs_root: Path, batch_id: str, lanes: int,
         try:
             plugin = job.plugin_dir.resolve().as_posix()
             prompt_sha = hashlib.sha256(job.prompt.encode("utf-8")).hexdigest()
-            meta.update(plugin_dir=plugin, prompt_sha256=prompt_sha)
+            digest = plugin_digest(job.plugin_dir)
+            meta.update(plugin_dir=plugin, prompt_sha256=prompt_sha, plugin_sha256=digest)
             if is_success(path, batch_id):
                 old = json.loads(meta_path.read_text(encoding="utf-8"))
-                if (old.get("prompt_sha256"), old.get("requested_model"), old.get("plugin_dir")) == (prompt_sha, model, plugin):
+                if (old.get("prompt_sha256"), old.get("requested_model"), old.get("plugin_dir"), old.get("plugin_sha256")) == (prompt_sha, model, plugin, digest):
                     return path
             path.parent.mkdir(parents=True, exist_ok=True)
             if path.exists() or meta_path.exists():

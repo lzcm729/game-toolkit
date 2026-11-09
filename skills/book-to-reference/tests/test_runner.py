@@ -11,6 +11,14 @@ import runner
 FIXTURES = Path(__file__).parent / "fixtures"
 
 
+@pytest.fixture
+def plugin(tmp_path):
+    directory = tmp_path / "plugin"
+    directory.mkdir()
+    (directory / "SKILL.md").write_text("version A", encoding="utf-8")
+    return directory
+
+
 def test_plan_jobs_interleaves(tmp_path):
     jobs = runner.plan_jobs([("q1", "one"), ("q2", "two")], {"a": tmp_path, "b": tmp_path}, 2)
     assert [job.variant for job in jobs[:4]] == ["a", "b", "a", "b"]
@@ -41,7 +49,22 @@ def test_runs_root_under_home_rejected():
         runner.check_runs_root(Path.home() / "runs")
 
 
-def test_rerun_replaces_partial(tmp_path, monkeypatch):
+def test_plugin_digest_exclusions_and_snapshot_agree(plugin):
+    import hashlib
+    baseline = runner.plugin_digest(plugin)
+    for name in (".git/config", "nested/__pycache__/x.pyc", ".pytest_cache/state", "loose.pyc", "loose.pyo"):
+        path = plugin / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("volatile", encoding="utf-8")
+    # 这里只传虚构的敏感文件名，不创建或读取 .env。
+    state = {"SKILL.md": hashlib.sha256(b"version A").hexdigest(),
+             ".env.secret": "0" * 64, ".env-dir/secret": "1" * 64, ".git/config": "2" * 64}
+    assert runner.plugin_digest(plugin) == runner.plugin_digest_from_snapshot(state) == baseline
+    (plugin / "SKILL.md").rename(plugin / "RENAMED.md")
+    assert runner.plugin_digest(plugin) != baseline
+
+
+def test_rerun_replaces_partial(tmp_path, monkeypatch, plugin):
     # pytest 的默认临时目录在真实主目录里；假进程测试用一个明确的模拟主目录。
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
     log = tmp_path / "fake.log"
@@ -50,7 +73,7 @@ def test_rerun_replaces_partial(tmp_path, monkeypatch):
     (out_dir / "a").mkdir(parents=True)
     partial = out_dir / "a/q1-r1.jsonl"
     shutil.copyfile(FIXTURES / "runs/partial.jsonl", partial)
-    jobs = runner.plan_jobs([("q1", "answer")], {"a": tmp_path, "b": tmp_path}, 1)
+    jobs = runner.plan_jobs([("q1", "answer")], {"a": plugin, "b": plugin}, 1)
     paths = runner.run_batch(jobs, out_dir, tmp_path / "runs", "batch", 1, .1, "fake-model",
                              [sys.executable, str(FIXTURES / "fake_claude.py")])
     assert Path(str(partial) + ".stale-1").is_file()
@@ -68,15 +91,22 @@ def test_rerun_replaces_partial(tmp_path, monkeypatch):
                      [sys.executable, str(FIXTURES / "fake_claude.py")])
     assert len(log.read_text(encoding="utf-8").splitlines()) == 2
 
+    (plugin / "SKILL.md").write_text("version B", encoding="utf-8")
+    runner.run_batch(jobs, out_dir, tmp_path / "runs", "batch", 1, .1, "fake-model",
+                     [sys.executable, str(FIXTURES / "fake_claude.py")])
+    assert len(log.read_text(encoding="utf-8").splitlines()) == 4
+    changed = json.loads(Path(str(paths[0]) + ".meta.json").read_text(encoding="utf-8"))
+    assert changed["plugin_sha256"] == runner.plugin_digest(plugin) != meta["plugin_sha256"]
 
-def test_batch_continues_after_job_error(tmp_path, monkeypatch, capsys):
+
+def test_batch_continues_after_job_error(tmp_path, monkeypatch, capsys, plugin):
     monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
     log = tmp_path / "fake.log"
     monkeypatch.setenv("FAKE_CLAUDE_LOG", str(log))
     prompts = tmp_path / "prompts.tsv"
     prompts.write_text("q1\tx\tinvalid-once\nq2\tx\tanswer\n", encoding="utf-8", newline="\n")
     out = tmp_path / "out"
-    args = [str(prompts), str(out), "--variant", f"a={tmp_path}", "--variant", f"b={tmp_path}",
+    args = [str(prompts), str(out), "--variant", f"a={plugin}", "--variant", f"b={plugin}",
             "--reps", "1", "--lanes", "1", "--budget", ".1", "--batch-id", "batch",
             "--runs-root", str(tmp_path / "runs"), "--claude",
             f'"{sys.executable}" "{FIXTURES / "fake_claude.py"}"']
