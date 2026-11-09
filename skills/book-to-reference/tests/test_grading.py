@@ -186,3 +186,15 @@ def test_b_requires_frozen_scope_and_explicit_empty_reason():
     assert grading.aggregate(*inputs, "B", requirements=frozen).status == "incomplete"
     frozen["empty_groups"] = {"N": "本书冻结范围没有新增任务"}
     assert grading.aggregate(*inputs, "B", requirements=frozen).status == "pass"
+
+
+def test_b_checks_each_frozen_old_subgroup_not_only_total():
+    inputs = grades_for([("O-book", "same", True, "none"), ("O-book", "same", True, "none"), ("N", "same", True, "none")])
+    frozen = {"quotas": {"O-book": [1, 0], "O-other": [1, 0], "N": [1, 0]}}
+    result = grading.aggregate(*inputs, "B", requirements=frozen)
+    assert result.status == "incomplete" and any("O-other" in p for p in result.problems)
+
+
+def test_b_rejects_malformed_frozen_manifest():
+    inputs = grades_for([("O", "same", True, "none"), ("N", "same", True, "none")])
+    assert grading.aggregate(*inputs, "B", requirements={"required_items": []}).status == "incomplete"

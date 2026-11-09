@@ -324,16 +324,29 @@ def aggregate(grades: list[dict], key: dict, id_map: dict, meta: dict, protocol:
         required_items = frozen.get("required_items")
         if required_items is None and not quotas:
             problems.append("B requires frozen required_items or quotas in answer_compare")
+        if required_items is not None and not isinstance(required_items, dict):
+            problems.append("required_items 必须是按 O/N 分组的 mapping")
+        if required_items is None and quotas:
+            if not isinstance(quotas, dict):
+                problems.append("quotas 必须是 mapping")
+                quotas = {}
+            for label, quota in quotas.items():
+                if not isinstance(quota, list) or len(quota) != 2 or any(type(n) is not int or n < 0 for n in quota):
+                    problems.append(f"{label}: quota 必须是两个非负整数")
+                    continue
+                count = sum(row.required and row.group == label for row in rows)
+                if count != quota[0]:
+                    problems.append(f"{label}: frozen quota {quota[0]} != required {count}")
+                reason = (frozen.get("empty_groups") or {}).get(label)
+                if not count and (not isinstance(reason, str) or not reason.strip()):
+                    problems.append(f"{label}: 零必测组缺显式空组理由")
+            if {row.group for row in rows if row.required} - set(quotas):
+                problems.append("required items 包含冻结配额之外的分组")
         for group in ("O", "N"):
             if isinstance(required_items, dict):
                 expected = required_items.get(group)
                 if not isinstance(expected, list) or len(expected) != len(set(expected)) or set(expected) != actual[group]:
                     problems.append(f"{group}: frozen required_items mismatch")
-            elif quotas:
-                expected_count = sum(value[0] for key, value in quotas.items()
-                                     if ("O" if key.startswith("O") else key) == group)
-                if expected_count != len(actual[group]):
-                    problems.append(f"{group}: frozen required quota {expected_count} != {len(actual[group])}")
             if not actual[group]:
                 reason = frozen.get("empty_groups", {}).get(group)
                 if not isinstance(reason, str) or not reason.strip():
