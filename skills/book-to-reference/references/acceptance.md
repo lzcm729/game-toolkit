@@ -20,6 +20,8 @@ TSV 的提示词压成单行，冻结后两个版本使用相同文件，不能�
 `protocol=B` 用于新书验收和今后回归：必测 O、N 两组分别要求 worse ≤ better；
 任何必测 worse 写了实质退步类型都进 substantive 并判 fail，交给人核实，脚本不替人豁免。
 缺评分、重复评分、无效身份或未决判 incomplete；可选题保留逐题记录，不能抵消必测退步。
+汇总另核 book.yaml 中冻结的 answer_compare.required_items（O/N 必测 item_id），或 quotas 的必测数量；
+漏题、某组零必测但没有 empty_groups 非空理由、成绩缺非空 difference/regression，均 incomplete。
 四项 0–3 分只作记录，不替代更好/持平/更差与差异说明。
 
 `protocol=pooled-required` 只复现历史回归的必测合计数量规则，不能作为今后的验收口径。

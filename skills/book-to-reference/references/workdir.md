@@ -73,10 +73,15 @@ convert:
 
 classes.kind 只支持 h3、h4、callout、vignette、skip，其他排版先显式报错，不推测恢复。
 `answer_compare` 留给冻结的回答对比协议。两者是 mapping，由对应阶段解释。
-回答抽样时 `answer_compare.target_source` 是能力清单里的本书来源，比较时不区分大小写；
+回答抽样默认按冻结 O/O-partial 任务取旧池；`answer_compare.target_source` 只作来源信息。
+`grading pick --old-pool migration` 才按 target_source（不区分大小写）过滤，专供历史迁移复现，不能作为新书默认。
 `quotas` 是 `组名: [必测数, 可选数]`，包括本书旧覆盖组、`O-other` 和 `N`。
 `exclude_items` 可用通配符，`other_books` 指定其他书的最少题数。
 输入 YAML 清单顺序和 seed 一起冻结；目标书和其他书没有在抽样脚本里写死。
+口径 B 汇总必须从冻结的 answer_compare 核必测范围：可用 quotas，或用更严格的
+`required_items: {O: [t01-01], N: [t02-01]}` 写必测 item_id 清单（含 p- 保护题）。
+某组必测为零时须有 `empty_groups: {N: 本书冻结范围没有新增任务}` 这样的非空理由，否则 incomplete。
+不能从已收到的成绩反推配额或空组理由；看到答案前冻结配置，缺 difference/regression 的成绩不放行。
 `residue_allow` 列出允许保留的书内短语，扫描只豁免命中的片段。
 除列出的必填字段外，列表默认 `[]`、这两个阶段配置默认 `{}`；未知配置字段报错，避免拼错后静默使用默认值。
 

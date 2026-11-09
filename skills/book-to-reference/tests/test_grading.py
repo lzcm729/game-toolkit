@@ -58,22 +58,31 @@ def grades_for(rows):
     return grades, key, idmap, meta
 
 
+def aggregate(grades, key, idmap, meta, protocol, chain=None):
+    frozen = {group: [item for item, info in meta.items() if info["required"] and
+                     ("O" if info["group"].startswith("O") else info["group"]) == group] for group in ("O", "N")}
+    # 合成测试有时只考一个组；缺省组明确声明为空，有可选题的组仍须接受完整性检查。
+    present = {"O" if info["group"].startswith("O") else info["group"] for info in meta.values()}
+    requirements = {"required_items": frozen, "empty_groups": {group: "本合成测试明确不设此组" for group in ("O", "N") if group not in present}}
+    return grading.aggregate(grades, key, idmap, meta, protocol, chain, requirements=requirements)
+
+
 def test_b_protocol_groups_separate():
     inputs = grades_for([("O", "better", True, "none")] * 3 + [("N", "worse", True, "none")])
-    assert grading.aggregate(*inputs, "B").status == "fail"
-    assert grading.aggregate(*inputs, "pooled-required").status == "pass"
+    assert aggregate(*inputs, "B").status == "fail"
+    assert aggregate(*inputs, "pooled-required").status == "pass"
 
 
 def test_attribution_invariant():
     inputs = grades_for([("N", "worse", True, "漏了必要步骤")])
-    results = [grading.aggregate(*inputs, "B", info) for info in
+    results = [aggregate(*inputs, "B", info) for info in
                (None, {"a001": {"baseline": [True], "candidate": [True]}},
                 {"a001": {"baseline": [False], "candidate": [False]}})]
     assert all((r.counts, r.substantive, r.status) == (results[0].counts, results[0].substantive, results[0].status) for r in results)
 
 
 def test_substantive_fails_b():
-    result = grading.aggregate(*grades_for([("O-other", "worse", True, "漏了必要步骤"), ("O", "better", True, "none")]), "B")
+    result = aggregate(*grades_for([("O-other", "worse", True, "漏了必要步骤"), ("O", "better", True, "none")]), "B")
     assert result.status == "fail" and result.substantive == ["a001"]
 
 
@@ -81,16 +90,16 @@ def test_substantive_fails_b():
 def test_missing_or_duplicate_grade_incomplete(duplicate):
     grades, key, idmap, meta = grades_for([("O", "same", True, "none")])
     grades = grades * 2 if duplicate else []
-    assert grading.aggregate(grades, key, idmap, meta, "B").status == "incomplete"
+    assert aggregate(grades, key, idmap, meta, "B").status == "incomplete"
 
 
 def test_undecided_incomplete():
-    assert grading.aggregate(*grades_for([("N", "undecided", True, "none")]), "B").status == "incomplete"
+    assert aggregate(*grades_for([("N", "undecided", True, "none")]), "B").status == "incomplete"
 
 
 def test_optional_not_counted():
-    result = grading.aggregate(*grades_for([("O", "same", True, "none"), ("N", "worse", False, "漏了必要步骤")]), "B")
-    assert result.status == "pass" and not result.substantive
+    result = aggregate(*grades_for([("O", "same", True, "none"), ("N", "worse", False, "漏了必要步骤")]), "B")
+    assert result.status == "incomplete" and not result.substantive
     assert result.counts.get(("N", "worse"), 0) == 0
 
 
@@ -146,3 +155,34 @@ def test_pick_items_respects_quotas_and_book_minima():
     assert len(selected) == 6 and sum(row["required"] for row in selected.values()) == 4
     assert selected["p-other-b"]["source"] == "Other B"
     assert selected == grading.pick_items(groups, caps, tasks, set(), config, 42)
+
+
+def test_old_tasks_supported_only_by_other_book_are_eligible():
+    groups = {"tasks": [{"task_id": "t01-01", "group": "O", "capabilities": ["other"]}]}
+    caps = {"capabilities": [{"id": "other", "source": "Other", "supports": "原来已能做"}]}
+    cfg = {"target_source": "New", "quotas": {"O": [1, 0], "N": [0, 0], "O-other": [0, 0]}}
+    assert "t01-01" in grading.pick_items(groups, caps, {"t01-01": "任务"}, set(), cfg, 1)
+    with pytest.raises(ValueError, match="eligible pool"):
+        grading.pick_items(groups, caps, {"t01-01": "任务"}, set(), cfg, 1, old_pool="migration")
+
+
+@pytest.mark.parametrize("field", ["difference", "regression"])
+def test_missing_judgment_details_incomplete(field):
+    inputs = grades_for([("O", "same", True, "none"), ("N", "same", True, "none")])
+    del inputs[0][0]["cmp1"][field]
+    assert aggregate(*inputs, "B").status == "incomplete"
+
+
+def test_frozen_required_manifest_detects_missing_item():
+    grades, key, idmap, meta = grades_for([("O", "same", True, "none"), ("N", "same", True, "none")])
+    frozen = {"required_items": {"O": ["t01-01", "t09-01"], "N": ["t02-01"]}}
+    assert grading.aggregate(grades, key, idmap, meta, "B", requirements=frozen).status == "incomplete"
+
+
+def test_b_requires_frozen_scope_and_explicit_empty_reason():
+    inputs = grades_for([("O", "same", True, "none")])
+    assert grading.aggregate(*inputs, "B").status == "incomplete"
+    frozen = {"quotas": {"O": [1, 0], "N": [0, 0]}}
+    assert grading.aggregate(*inputs, "B", requirements=frozen).status == "incomplete"
+    frozen["empty_groups"] = {"N": "本书冻结范围没有新增任务"}
+    assert grading.aggregate(*inputs, "B", requirements=frozen).status == "pass"

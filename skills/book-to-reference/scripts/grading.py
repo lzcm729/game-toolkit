@@ -60,12 +60,17 @@ def leaks(packet_md: str, names: MaskNames) -> int:
     return sum(len(re.findall(pattern, packet_md)) for pattern in patterns)
 
 
-def pick_items(groups: dict, capabilities: dict, tasks: dict, used: set[str], cfg_answer: dict, seed: int) -> dict[str, dict]:
+def pick_items(groups: dict, capabilities: dict, tasks: dict, used: set[str], cfg_answer: dict, seed: int,
+               old_pool: str = "all") -> dict[str, dict]:
+    if old_pool not in ("all", "migration"):
+        raise ValueError("old_pool 必须是 all 或 migration")
     rng = random.Random(seed)
     group_rows = groups["tasks"] if isinstance(groups, dict) and "tasks" in groups else groups
     cap_rows = capabilities["capabilities"]
     caps = {cap["id"]: cap for cap in cap_rows}
-    target = cfg_answer["target_source"].casefold()
+    target = str(cfg_answer.get("target_source", "")).casefold()
+    if old_pool == "migration" and not target:
+        raise ValueError("历史 migration 抽样须写 answer_compare.target_source")
     quotas = cfg_answer["quotas"]
     old_group = next(group for group in quotas if group not in ("N", "O-other"))
     exclude = cfg_answer.get("exclude_items", [])
@@ -103,10 +108,10 @@ def pick_items(groups: dict, capabilities: dict, tasks: dict, used: set[str], cf
         return picked
 
     # YAML 中的清单顺序是冻结输入的一部分；shuffle 只使用局部随机数生成器。
-    old_pool = [row for row in group_rows if row["group"] in ("O", "O-partial") and not excluded(row["task_id"])
-                and any(has_target(cid) for cid in row.get("capabilities") or [] if cid in caps)]
+    eligible_old = [row for row in group_rows if row["group"] in ("O", "O-partial") and not excluded(row["task_id"])
+                    and (old_pool == "all" or any(has_target(cid) for cid in row.get("capabilities") or [] if cid in caps))]
     new_pool = [row for row in group_rows if row["group"] == "N" and not excluded(row["task_id"])]
-    old = spread(old_pool, sum(quotas[old_group]), lambda row: row["task_id"][:3])
+    old = spread(eligible_old, sum(quotas[old_group]), lambda row: row["task_id"][:3])
     new = spread(new_pool, sum(quotas["N"]), lambda row: row["task_id"][:3])
     books = cfg_answer.get("other_books", {})
     used_caps = {item[2:] for item in used if item.startswith("p-")}
@@ -247,7 +252,8 @@ def _arm(name):
 
 
 def aggregate(grades: list[dict], key: dict, id_map: dict, meta: dict, protocol: Literal["B", "pooled-required"],
-              chain_by_q: dict[str, dict[str, list[bool]]] | None = None) -> AggregateResult:
+              chain_by_q: dict[str, dict[str, list[bool]]] | None = None,
+              requirements: dict | None = None) -> AggregateResult:
     if protocol not in ("B", "pooled-required"):
         raise ValueError(f"unknown protocol: {protocol}")
     problems = []
@@ -279,6 +285,9 @@ def aggregate(grades: list[dict], key: dict, id_map: dict, meta: dict, protocol:
             problems.append(f"{qid}: {'missing' if not candidates else 'duplicate'} grade")
         else:
             comparison = candidates[0].get("cmp1") or {}
+            for field in ("difference", "regression"):
+                if not isinstance(comparison.get(field), str) or not comparison[field].strip():
+                    problems.append(f"{qid}: missing or invalid {field}")
             regression = str(comparison.get("regression") or "none")
             difference = str(comparison.get("difference") or "")
             try:
@@ -307,6 +316,28 @@ def aggregate(grades: list[dict], key: dict, id_map: dict, meta: dict, protocol:
                 substantive.append(qid)
     if not id_map:
         problems.append("empty id_map")
+    if protocol == "B":
+        frozen = requirements or {}
+        actual = {group: {row.item_id for row in rows if row.required and
+                          ("O" if row.group.startswith("O") else row.group) == group} for group in ("O", "N")}
+        quotas = frozen.get("quotas", {})
+        required_items = frozen.get("required_items")
+        if required_items is None and not quotas:
+            problems.append("B requires frozen required_items or quotas in answer_compare")
+        for group in ("O", "N"):
+            if isinstance(required_items, dict):
+                expected = required_items.get(group)
+                if not isinstance(expected, list) or len(expected) != len(set(expected)) or set(expected) != actual[group]:
+                    problems.append(f"{group}: frozen required_items mismatch")
+            elif quotas:
+                expected_count = sum(value[0] for key, value in quotas.items()
+                                     if ("O" if key.startswith("O") else key) == group)
+                if expected_count != len(actual[group]):
+                    problems.append(f"{group}: frozen required quota {expected_count} != {len(actual[group])}")
+            if not actual[group]:
+                reason = frozen.get("empty_groups", {}).get(group)
+                if not isinstance(reason, str) or not reason.strip():
+                    problems.append(f"{group}: zero required questions without explicit empty-group reason")
     if problems:
         status = "incomplete"
     elif protocol == "B":
@@ -332,6 +363,8 @@ def build_parser():
     pick.add_argument("--used", type=Path, action="append", default=[])
     pick.add_argument("--seed", type=int, required=True)
     pick.add_argument("--out-dir", type=Path, required=True)
+    pick.add_argument("--old-pool", choices=["all", "migration"], default="all",
+                      help="migration 仅用于历史迁移抽样复现")
     prompts = commands.add_parser("prompts")
     prompts.add_argument("workdir", type=Path)
     prompts.add_argument("--items", type=Path, required=True)
@@ -373,7 +406,7 @@ def main(argv=None) -> int:
                 data = _load(path)
                 used.update(data.values() if isinstance(data, dict) else data)
             tasks = read_tasks(resolve(cfg, args.workdir, "overview").read_text(encoding="utf-8"))
-            items = pick_items(_load(args.groups), _load(args.capabilities), tasks, used, cfg.answer_compare, args.seed)
+            items = pick_items(_load(args.groups), _load(args.capabilities), tasks, used, cfg.answer_compare, args.seed, args.old_pool)
             args.out_dir.mkdir(parents=True, exist_ok=True)
             _json(args.out_dir / "items.json", items)
             # 出题者只收到任务文字；分组和必测标记在后续 make_prompts 固定。
@@ -413,7 +446,7 @@ def main(argv=None) -> int:
                 for file in paths:
                     grades.extend(_load(file))
             result = aggregate(grades, _load(args.key), _load(args.id_map), _load(args.items_meta), args.protocol,
-                               _load(args.chain) if args.chain else None)
+                               _load(args.chain) if args.chain else None, requirements=cfg.answer_compare)
             data = {"per_question": [asdict(row) for row in result.per_question], "counts": {},
                     "substantive": result.substantive, "status": result.status, "problems": result.problems}
             for (group, verdict), count in sorted(result.counts.items()):
