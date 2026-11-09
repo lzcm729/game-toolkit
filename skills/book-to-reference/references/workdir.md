@@ -37,6 +37,8 @@ landing/notes.md
 - `entry_groups` 的值是单元号的两位章号，如 `"00"`、`"01"`。它用于发布选卡表。
 
 同一套分组里一个章标签只能出现一次。数字标签必须加引号，以免 YAML 读成整数。
+复核批次按文件名自然排序，后面的批次生效；`batches` 只筛选、不重排，重跑旧批次不回滚新结论。
+覆盖 `verify_in` 时，判宽信号文件写到 `verify_in.parent/_flags.md`。
 `old_files` 是待接替参考文件名的列表。
 
 `skill_md` 描述目标 SKILL.md 的替换位置：`quick_ref_start/end` 包围旧速查，

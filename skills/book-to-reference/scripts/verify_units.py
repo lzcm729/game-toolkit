@@ -145,8 +145,7 @@ def aggregate(cfg, workdir: Path) -> AggregateResult:
     (workdir / "coverage-audit.md").write_text("\n".join(rows) + "\n", encoding="utf-8", newline="\n")
     lines = ["# 待复核：判了 verified、但自述理由里有存疑信号的单元（脚本按关键词筛出）", ""]
     for unit in flags:
-        matches = DOUBT.findall(_doubt_text(unit))
-        signals = sorted(set(match if isinstance(match, str) else match[0] for match in matches))
+        signals = sorted({match.group(0) for match in DOUBT.finditer(_doubt_text(unit))})
         lines.append(f"- {unit['unit_id']}（{unit['_group']}，{unit.get('importance')}）{unit.get('title')} — 信号：{signals}")
     # _flags 属于 verify 这一阶段，不跟随首轮输出目录的最后一层名称。
     flags_path = inputs.parent / "_flags.md"

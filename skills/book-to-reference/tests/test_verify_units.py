@@ -109,3 +109,14 @@ def test_recheck_overlapping_batches_are_idempotent(microbook):
     assert vu.apply_recheck(cfg, microbook, None, False) == []
     assert vu.apply_recheck(cfg, microbook, ["R1"], False) == []
     assert path.read_bytes() == before
+
+
+def test_doubt_flags_show_matched_words(microbook):
+    path = microbook / "verify/out/G1.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["units"][0]["decision_reason"] = "偏宽，需要收窄；原图缺失，也可以改判。"
+    dump(path, data)
+    vu.aggregate(bookconf.open_workdir(microbook), microbook)
+    flags = (microbook / "verify/_flags.md").read_text(encoding="utf-8")
+    assert "信号：" + str(sorted(["偏宽", "收窄", "原图缺失", "也可以改判"])) in flags
+    assert "['']" not in flags
