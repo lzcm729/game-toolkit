@@ -29,3 +29,8 @@ def test_scan_allow_is_fragment_only():
 
 def test_header_comment_only_is_skipped():
     assert publicize.scan("<!-- units: u01-01 -->\n正文 u01-01", []) == [(2, "正文 u01-01")]
+
+
+def test_scope_process_language_flagged_without_normal_delivery_false_positive():
+    assert publicize.scan("补读后进入交付流程", [])
+    assert publicize.scan("玩家需要把货物交付给港口。", []) == []

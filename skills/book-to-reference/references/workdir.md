@@ -158,3 +158,11 @@ answer_compare: {}
 复核应用前要求同名 input/out 的 batch 与文件名一致，单元集合相等、无重复。输入字段为去判断后的六字段；输出至少有 unit_id、decision_after、steps、narrowing、must_go_to_boundary、gaps、reason，后三个列表字段中 steps、must_go_to_boundary、gaps 必须是列表，reason 非空。`verify/recheck/_applied.yaml` 保存输入和输出原始字节的联合摘要；已应用批次任何改动都须换新批次。旧产物若已标应用而没有摘要，不能追认，须建新批次。
 
 所有显式工作产物输出参数也禁止落在本源码仓库、配置的 target_root 或其他插件源码副本内；接入的公开交付文件由 integrate 单独管理。
+
+### 公开 notes 与入口重跑
+
+`notes` 是保留 slug，不能用作卡名。notes 的显示标题也经过 scope 为 notes/all 的 rulings。参考条目完整保留公开摘要和独立的处置理由，不按第一句或字数截断适用限制。范围处置的 reason 也需写成公开语言；「补读」等流程残留会失败，可用带 why 的 rulings 改写，不能以删掉适用限制消除问题。
+
+`_scope.yaml` 的 reference_only 项可写 `related: [steady-shadow]`，只能引用计划中的卡 slug；未提供时相关卡写「—」。范围条目没有单元，不承诺自动推导相关卡。
+
+接入在 notes_out 同目录保存 `.entry.yaml` 私有记录，以锚点和上次生成的 when_to_use_line 定位替换；重复运行不累积。此记录须随工作目录保留；锚点与已记录的旧行被手改后会报错，先恢复再接入。它不交付到插件。新工作目录首次接入已有改版入口时，应先把配置行设为现场已有行接入一次，再修改配置，避免把旧行当作其他书的内容。

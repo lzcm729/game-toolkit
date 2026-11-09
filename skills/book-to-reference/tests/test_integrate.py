@@ -173,3 +173,59 @@ def test_intents_skip_blank_entries(microbook, plugin_copy):
     integrate.run(microbook)
     skill = (plugin_copy / "skills/game-design-theory/SKILL.md").read_text(encoding="utf-8")
     assert "| 每次应该只动哪片挡板 |" in skill
+
+
+def test_notes_slug_rejected_before_writes(microbook):
+    prepare(microbook)
+    path = microbook / "stage2/CARD-PLAN.md"
+    path.write_text(path.read_text(encoding="utf-8").replace("steady-shadow", "notes"), encoding="utf-8")
+    with pytest.raises(ValueError, match="保留的 notes"):
+        integrate.run(microbook)
+    assert not (microbook / "landing/notes.md").exists()
+
+
+def test_scope_publication_related_and_title_ruling(microbook):
+    prepare(microbook)
+    path = microbook / "candidates/_scope.yaml"
+    scope = yaml.safe_load(path.read_text(encoding="utf-8"))
+    scope[0].update(reason="补读后仅供交付检查。限制不能省略。", related=["steady-shadow"])
+    path.write_text(yaml.safe_dump(scope, allow_unicode=True), encoding="utf-8")
+    config = microbook / "book.yaml"
+    data = yaml.safe_load(config.read_text(encoding="utf-8"))
+    data["rulings"] = [{"find": "补读后仅供交付检查。", "replace": "原书仅有象征性描述。", "why": "公开说明来源性质", "scope": "notes"},
+                       {"find": "术语与只作参考的观点", "replace": "术语与观点", "why": "明确显示标题", "scope": "notes"}]
+    config.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    result = integrate.run(microbook)
+    text = (microbook / "landing/notes.md").read_text(encoding="utf-8")
+    assert text.splitlines()[0].endswith("术语与观点")
+    assert "原因：原书仅有象征性描述。限制不能省略。 相关：`micro-steady-shadow.md`" in text
+    assert not result.residue
+
+
+def test_notes_retains_full_summary_and_reason(microbook):
+    prepare(microbook)
+    path = microbook / "verify/out/G1.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    data["units"][0].update(decision="reference", one_liner="只是比较。第二句是适用限制。", decision_reason="只有观点。不得推为操作标准。")
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    integrate.run(microbook)
+    text = (microbook / "landing/notes.md").read_text(encoding="utf-8")
+    assert "第二句是适用限制。 原因：只有观点。不得推为操作标准。" in text
+
+
+def test_when_to_use_replaced_and_existing_usage_not_duplicated(microbook, plugin_copy):
+    prepare(microbook)
+    card = microbook / "cards/steady-shadow.md"
+    card.write_text(card.read_text(encoding="utf-8").replace("# 比较影子", "# 比较影子\n\n> **怎么用这张卡**：已有的用法句。"), encoding="utf-8")
+    integrate.run(microbook)
+    config = microbook / "book.yaml"
+    data = yaml.safe_load(config.read_text(encoding="utf-8"))
+    old = data["skill_md"]["when_to_use_line"]
+    data["skill_md"]["when_to_use_line"] = "新的灯光试验触发句。"
+    config.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    integrate.run(microbook)
+    skill = (plugin_copy / "skills/game-design-theory/SKILL.md").read_text(encoding="utf-8")
+    assert old not in skill and skill.count("新的灯光试验触发句。") == 1
+    text = (plugin_copy / "skills/game-design-theory/references/micro-steady-shadow.md").read_text(encoding="utf-8")
+    assert text.count("**怎么用这张卡**") == 1
+    assert "已有的用法句。" in text

@@ -15,9 +15,7 @@ import publicize
 from stage1 import read_tasks, scope_dispositions
 
 
-USAGE = ("> **怎么用这张卡**：它是方法和书中依据的来源之一，不是回答的模板。回答围绕用户的处境：先给你自己的专业判断和具体做法，"
-         "书外的实操（算一个例子、查数据、估成本）照常给；再用这张卡补方法、校正判断。不要按卡的分段复述这本书；卡里没写的，不等于不能答。"
-         "书名和页码只在用户要出处时给。")
+USAGE = (Path(__file__).parent.parent / "references/card-usage.md").read_text(encoding="utf-8").strip()
 
 
 @dataclass
@@ -44,22 +42,6 @@ def safe_cut(text: str, limit: int) -> str:
             cut = match.end()
             break
     return text if cut >= len(text) else text[:cut].rstrip("，；、 ") + "…"
-
-
-def _first_sentence(text, limit=160):
-    text = " ".join(str(text or "").split())
-    for stop in ("。", "；"):
-        index = text.find(stop)
-        if 0 < index < limit:
-            return text[:index + 1]
-    if len(text) <= limit:
-        return text
-    cut = limit
-    for match in re.finditer(r"`[^`]*`", text):
-        if match.start() < cut < match.end():
-            cut = match.end()
-            break
-    return text[:cut] + ("…" if cut < len(text) else "")
 
 
 def _notes(cfg, workdir, unit_card):
@@ -93,7 +75,7 @@ def _notes(cfg, workdir, unit_card):
 
     author = cfg.display_author
     title = cfg.display_title
-    lines = [f"# {author}《{title}》：术语与只作参考的观点", "",
+    lines = [public(f"# {author}《{title}》：术语与只作参考的观点"), "",
              "> 能照着做的方法在能力卡里（见 SKILL.md 的选卡表）。这里放两类卡外的内容：",
              "> 术语的意思，以及原书讲了、但没给出能照着执行的步骤的观点。用它们时说明是作者观点，不当规则。", "", "## 术语", ""]
     glossary = resolve(cfg, workdir, "glossary").read_text(encoding="utf-8")
@@ -147,8 +129,9 @@ def _notes(cfg, workdir, unit_card):
                     if page not in pages:
                         pages.append(page)
             status = "依据不足" if unit["decision"] == "needs_review" else "只作参考"
-            line = (f"- **{unit['title']}**（{status}，{', '.join(pages)}）：{_first_sentence(public(readable(unit.get('one_liner'))))}"
-                    f" 原因：{_first_sentence(reason, 140)} 相关：{cards}")
+            summary = " ".join(public(readable(unit.get("one_liner"))).split())
+            line = (f"- **{unit['title']}**（{status}，{', '.join(pages)}）：{summary}"
+                    f" 原因：{' '.join(reason.split())} 相关：{cards}")
             lines.append(public(line))
         lines.append("")
     tasks = read_tasks(resolve(cfg, workdir, "overview").read_text(encoding="utf-8"))
@@ -166,7 +149,11 @@ def _notes(cfg, workdir, unit_card):
             location = ", ".join(f"p.{str(page).removeprefix('p.').strip()}" for page in pages) or "页码未提供"
             title = public(readable(tasks[task]))
             reason = public(readable(" ".join(item["reason"].split())))
-            lines.append(f"- **{title}**（只作参考，{location}）：{reason}")
+            related = item.get("related") or []
+            if not isinstance(related, list) or any(slug not in unit_card.values() for slug in related):
+                raise ValueError(f"scope {task}: related 必须是计划内卡的 slug 列表")
+            cards = "、".join(f"`{cfg.prefix}{slug}.md`" for slug in related) or "—"
+            lines.append(f"- **{title}**（只作参考，{location}）：原因：{reason} 相关：{cards}")
         lines.append("")
     return "\n".join(lines)
 
@@ -199,8 +186,8 @@ def run(workdir: Path) -> IntegrateReport:
     plan = resolve(cfg, workdir, "card_plan").read_text(encoding="utf-8")
     rows = re.findall(r"^\| \d+ \| ([a-z0-9-]+) \|[^|]*\|[^|]*\| ([^|]+) \|", plan, re.M)
     slugs = [slug for slug, _ in rows]
-    if not slugs or len(set(slugs)) != len(slugs):
-        raise ValueError("卡片计划为空或 slug 重复")
+    if not slugs or len(set(slugs)) != len(slugs) or "notes" in slugs:
+        raise ValueError("卡片计划为空、slug 重复或使用了保留的 notes")
     unit_card = {uid: slug for slug, cell in rows for uid in re.findall(r"u\d\d-\d\d", cell.split("（")[0])}
     known = set(slugs)
 
@@ -231,7 +218,7 @@ def run(workdir: Path) -> IntegrateReport:
         if chapter not in chapter_group:
             continue
         lines = rewrite(card).split("\n")
-        if USAGE not in card:
+        if not re.search(r"(?m)^> \*\*怎么用这张卡\*\*：", card):
             index = next(index for index, line in enumerate(lines) if line.startswith("# "))
             lines = lines[:index + 1] + ["", USAGE] + lines[index + 1:]
         generated[destination(f"{cfg.prefix}{slug}.md")] = public("\n".join(lines))
@@ -268,7 +255,16 @@ def run(workdir: Path) -> IntegrateReport:
     extra = cfg.skill_md.when_to_use_line.rstrip("\n") + "\n"
     if anchor not in text:
         raise ValueError("when_to_use_anchor 未找到")
-    if extra not in text:
+    notes_path = resolve(cfg, workdir, "notes_out")
+    entry_state = notes_path.with_suffix(".entry.yaml")
+    previous = yaml.safe_load(entry_state.read_text(encoding="utf-8")) if entry_state.exists() else {}
+    old_line = previous.get("when_to_use_line", extra)
+    # 上次生成的行由锚点及私有记录共同定位，不能误删旁边其他书的触发句。
+    if anchor + old_line in text:
+        text = text.replace(anchor + old_line, anchor + extra, 1)
+    elif extra not in text:
+        if previous:
+            raise ValueError("上次生成的 When to Use 行不在锚点后；请恢复锚点和该行再接入")
         text = text.replace(anchor, anchor + extra, 1)
     if cfg.skill_md.description_file:
         description = " ".join((workdir / cfg.skill_md.description_file).read_text(encoding="utf-8").split())
@@ -283,9 +279,9 @@ def run(workdir: Path) -> IntegrateReport:
     old_paths = [destination(name) for name in cfg.old_files]
     if set(old_paths) & set(generated):
         raise ValueError("old_files 包含本次生成的文件")
-    notes_path = resolve(cfg, workdir, "notes_out")
     notes_path.parent.mkdir(parents=True, exist_ok=True)
     notes_path.write_text(notes, encoding="utf-8", newline="\n")
+    entry_state.write_text(yaml.safe_dump({"when_to_use_line": extra}, allow_unicode=True), encoding="utf-8", newline="\n")
     refs.mkdir(parents=True, exist_ok=True)
     for path, content in generated.items():
         path.write_text(content, encoding="utf-8", newline="\n")
