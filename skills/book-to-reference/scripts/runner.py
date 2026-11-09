@@ -37,8 +37,10 @@ def plan_jobs(prompts: list[tuple[str, str]], variants: dict[str, Path], reps: i
 def is_success(out: Path, batch_id: str) -> bool:
     try:
         meta = json.loads(Path(str(out) + ".meta.json").read_text(encoding="utf-8"))
-        return meta.get("batch_id") == batch_id and parse_run(out).ok
-    except (OSError, ValueError, AttributeError):
+        return (isinstance(meta, dict) and meta.get("batch_id") == batch_id
+                and not meta.get("error") and meta.get("returncode", 0) == 0 and parse_run(out).ok)
+    except Exception:
+        # 旧输出也可能触发新解析器错误；不跳过它，交给本次 job 留下诊断。
         return False
 
 
@@ -73,43 +75,55 @@ def run_batch(jobs, out_dir: Path, runs_root: Path, batch_id: str, lanes: int,
 
     def run_one(pair):
         job, path = pair
-        plugin = job.plugin_dir.resolve().as_posix()
-        prompt_sha = hashlib.sha256(job.prompt.encode("utf-8")).hexdigest()
         meta_path = Path(str(path) + ".meta.json")
-        if is_success(path, batch_id):
-            old = json.loads(meta_path.read_text(encoding="utf-8"))
-            if (old.get("prompt_sha256"), old.get("requested_model"), old.get("plugin_dir")) == (prompt_sha, model, plugin):
-                return path
-        path.parent.mkdir(parents=True, exist_ok=True)
-        if path.exists() or meta_path.exists():
-            number = 1
-            while Path(str(path) + f".stale-{number}").exists() or Path(str(meta_path) + f".stale-{number}").exists():
-                number += 1
-            for existing in (path, meta_path):
-                if existing.exists():
-                    existing.rename(Path(str(existing) + f".stale-{number}"))
-        cwd = Path(tempfile.mkdtemp(prefix="cwd-", dir=runs_root))
         meta = {"batch_id": batch_id, "variant": job.variant, "prompt_id": job.prompt_id, "rep": job.rep,
-                "prompt_sha256": prompt_sha, "requested_model": model, "model": model,
-                "cc_version": "", "plugin_dir": plugin, "cwd": cwd.as_posix(),
-                "config_dir": config.as_posix()}
-        _write_json(meta_path, meta)
-        command = [*claude_cmd, "-p", "--plugin-dir", plugin, "--add-dir", plugin,
-                   "--model", model, "--tools", "Read,Glob,Grep,Skill", "--output-format", "stream-json",
-                   "--verbose", "--no-session-persistence", "--max-budget-usd", str(budget_usd), job.prompt]
-        env = {**os.environ, "CLAUDE_CONFIG_DIR": config.as_posix()}
+                "requested_model": model, "model": model, "cc_version": "", "config_dir": config.as_posix()}
         try:
+            plugin = job.plugin_dir.resolve().as_posix()
+            prompt_sha = hashlib.sha256(job.prompt.encode("utf-8")).hexdigest()
+            meta.update(plugin_dir=plugin, prompt_sha256=prompt_sha)
+            if is_success(path, batch_id):
+                old = json.loads(meta_path.read_text(encoding="utf-8"))
+                if (old.get("prompt_sha256"), old.get("requested_model"), old.get("plugin_dir")) == (prompt_sha, model, plugin):
+                    return path
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if path.exists() or meta_path.exists():
+                number = 1
+                while Path(str(path) + f".stale-{number}").exists() or Path(str(meta_path) + f".stale-{number}").exists():
+                    number += 1
+                for existing in (path, meta_path):
+                    if existing.exists():
+                        existing.rename(Path(str(existing) + f".stale-{number}"))
+            cwd = Path(tempfile.mkdtemp(prefix="cwd-", dir=runs_root))
+            meta["cwd"] = cwd.as_posix()
+            _write_json(meta_path, meta)
+            command = [*claude_cmd, "-p", "--plugin-dir", plugin, "--add-dir", plugin,
+                       "--model", model, "--tools", "Read,Glob,Grep,Skill", "--output-format", "stream-json",
+                       "--verbose", "--no-session-persistence", "--max-budget-usd", str(budget_usd), job.prompt]
+            env = {**os.environ, "CLAUDE_CONFIG_DIR": config.as_posix()}
             process = subprocess.run(command, cwd=cwd, env=env, stdin=subprocess.DEVNULL,
                                      capture_output=True, text=True, encoding="utf-8", errors="replace")
             path.write_text(process.stdout, encoding="utf-8", newline="\n")
             Path(str(path) + ".err").write_text(process.stderr, encoding="utf-8", newline="\n")
+            meta["returncode"] = process.returncode
             run = parse_run(path)
-            meta.update(model=run.model or model, cc_version=run.cc_version, returncode=process.returncode)
-        except OSError as exc:
-            path.write_text("", encoding="utf-8", newline="\n")
-            Path(str(path) + ".err").write_text(str(exc), encoding="utf-8", newline="\n")
-            meta.update(returncode=1, process_error=str(exc))
-        _write_json(meta_path, meta)
+            meta.update(model=run.model or model, cc_version=run.cc_version)
+            if process.returncode:
+                raise RuntimeError(f"Claude process exited {process.returncode}")
+            if not run.ok:
+                raise ValueError("运行输出无效或没有成功的最终回答")
+            _write_json(meta_path, meta)
+        except Exception as exc:
+            # 异常属于这个 job；不能从 pool.map 传出而丢掉整批后续证据。
+            meta["error"] = {"type": type(exc).__name__, "message": str(exc)}
+            meta.setdefault("returncode", 1)
+            try:
+                path.parent.mkdir(parents=True, exist_ok=True)
+                if not path.exists():
+                    path.write_text("", encoding="utf-8", newline="\n")
+                _write_json(meta_path, meta)
+            except OSError as write_error:
+                print(f"{path.as_posix()}: 无法保存失败诊断: {write_error}", file=sys.stderr)
         return path
 
     # submit 的顺序保持 plan_jobs 的题→重复→版本；并发只改变完成时间。

@@ -11,6 +11,11 @@ log = {"args": args, "cwd": Path.cwd().as_posix(),
 path = Path(os.environ["FAKE_CLAUDE_LOG"])
 with path.open("a", encoding="utf-8", newline="\n") as stream:
     stream.write(json.dumps(log) + "\n")
+if args[-1] == "invalid-once":
+    previous = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
+    if sum(call["args"][-1] == "invalid-once" for call in previous) == 1:
+        print("synthetic non-JSON output")
+        sys.exit(0)
 print(json.dumps({"type": "system", "subtype": "init", "model": "fake-model", "claude_code_version": "0.fake"}))
 if args[-1] == "partial":
     sys.exit(0)

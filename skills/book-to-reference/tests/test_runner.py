@@ -67,3 +67,62 @@ def test_rerun_replaces_partial(tmp_path, monkeypatch):
     runner.run_batch(jobs, out_dir, tmp_path / "runs", "batch", 1, .1, "fake-model",
                      [sys.executable, str(FIXTURES / "fake_claude.py")])
     assert len(log.read_text(encoding="utf-8").splitlines()) == 2
+
+
+def test_batch_continues_after_job_error(tmp_path, monkeypatch, capsys):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    log = tmp_path / "fake.log"
+    monkeypatch.setenv("FAKE_CLAUDE_LOG", str(log))
+    prompts = tmp_path / "prompts.tsv"
+    prompts.write_text("q1\tx\tinvalid-once\nq2\tx\tanswer\n", encoding="utf-8", newline="\n")
+    out = tmp_path / "out"
+    args = [str(prompts), str(out), "--variant", f"a={tmp_path}", "--variant", f"b={tmp_path}",
+            "--reps", "1", "--lanes", "1", "--budget", ".1", "--batch-id", "batch",
+            "--runs-root", str(tmp_path / "runs"), "--claude",
+            f'"{sys.executable}" "{FIXTURES / "fake_claude.py"}"']
+    assert runner.main(args) == 1
+    paths = [out / variant / f"{qid}-r1.jsonl" for qid in ("q1", "q2") for variant in ("a", "b")]
+    assert all(path.is_file() for path in paths)
+    assert [runner.is_success(path, "batch") for path in paths] == [False, True, True, True]
+    meta = json.loads(Path(str(paths[0]) + ".meta.json").read_text(encoding="utf-8"))
+    assert meta["error"]["type"] == "ValueError" and meta["error"]["message"]
+    assert "synthetic non-JSON" in paths[0].read_text(encoding="utf-8")
+    printed = capsys.readouterr().out
+    assert "failed: 1" in printed and paths[0].as_posix() in printed
+    untouched = {path: (path.read_bytes(), path.stat().st_mtime_ns) for path in paths[1:]}
+    assert runner.main(args) == 0
+    assert all(runner.is_success(path, "batch") for path in paths)
+    assert len(log.read_text(encoding="utf-8").splitlines()) == 5
+    assert all((path.read_bytes(), path.stat().st_mtime_ns) == state for path, state in untouched.items())
+
+
+def test_batch_records_parser_exception(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    monkeypatch.setenv("FAKE_CLAUDE_LOG", str(tmp_path / "fake.log"))
+    original = runner.parse_run
+
+    def parse(path):
+        if path.name == "q1-r1.jsonl":
+            raise RuntimeError("synthetic parser failure")
+        return original(path)
+
+    monkeypatch.setattr(runner, "parse_run", parse)
+    jobs = runner.plan_jobs([("q1", "answer"), ("q2", "answer")], {"a": tmp_path}, 1)
+    paths = runner.run_batch(jobs, tmp_path / "out", tmp_path / "runs", "batch", 2, .1,
+                             "fake-model", [sys.executable, str(FIXTURES / "fake_claude.py")])
+    meta = json.loads(Path(str(paths[0]) + ".meta.json").read_text(encoding="utf-8"))
+    assert meta["error"] == {"type": "RuntimeError", "message": "synthetic parser failure"}
+    assert not runner.is_success(paths[0], "batch")
+    assert runner.is_success(paths[1], "batch")
+
+
+def test_batch_records_launch_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "home")
+    jobs = runner.plan_jobs([("q1", "answer"), ("q2", "answer")], {"a": tmp_path}, 1)
+    paths = runner.run_batch(jobs, tmp_path / "out", tmp_path / "runs", "batch", 1, .1,
+                             "fake-model", [str(tmp_path / "missing-executable")])
+    assert len(paths) == 2
+    for path in paths:
+        meta = json.loads(Path(str(path) + ".meta.json").read_text(encoding="utf-8"))
+        assert meta["error"]["type"] == "FileNotFoundError"
+        assert not runner.is_success(path, "batch")
