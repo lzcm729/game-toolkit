@@ -293,7 +293,7 @@ def show(cfg, workdir: Path, ids: list[str]) -> str:
     return "\n".join(out)
 
 
-def main(argv=None) -> int:
+def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     aggregation = commands.add_parser("aggregate")
@@ -309,7 +309,11 @@ def main(argv=None) -> int:
     display = commands.add_parser("show")
     display.add_argument("workdir", type=Path)
     display.add_argument("ids", nargs="+")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv=None) -> int:
+    args = build_parser().parse_args(argv)
     try:
         cfg = open_workdir(args.workdir)
         if args.command == "aggregate":

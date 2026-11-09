@@ -207,11 +207,15 @@ def open_workdir(workdir: Path) -> BookConfig:
     return cfg
 
 
-def main(argv=None) -> int:
+def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["check"])
     parser.add_argument("workdir", type=Path)
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv=None) -> int:
+    args = build_parser().parse_args(argv)
     try:
         cfg = open_workdir(args.workdir)
     except ValueError as exc:

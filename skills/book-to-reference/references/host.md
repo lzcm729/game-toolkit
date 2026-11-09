@@ -3,6 +3,9 @@
 运行器只负责调度和记录，不把存在输出文件当作完成。最终事件必须是成功的 result，
 没有错误且回答非空，meta 的 batch_id 还必须属于本批。失败或半截输出归档为
 `.stale-<n>` 再跑；模型、提示词或插件路径变化也不能沿用旧回答。
+运行器不哈希插件目录的内容。每次比较都使用冻结的基线与候选快照；目录内容、入口、
+卡片、消费方指令或运行条件有变化，就换新的 `batch_id`，两版同批重跑。
+不能在原路径改完内容后沿用旧 batch_id 的成功输出；同一路径不代表同一版本。
 
 使用支持 Skill、stream-json 和 init 中模型及版本字段的 Claude Code。
 旧流程实测的版本是 2.1.319；其他版本先做加载与读取冒烟，再记录实际版本。
@@ -20,9 +23,9 @@ API key 只从环境变量继承，不读取凭证文件，不把环境变量值
 命令路径在 Windows 也使用 `/`，含空格的命令路径要放在引号里。
 
 ```text
-python runner.py prompts.tsv runs --variant baseline=baseline --variant candidate=candidate --reps 2 --lanes 2 --budget 1 --runs-root isolated-runs --batch-id frozen-batch --model MODEL
-python chain.py counts runs/baseline runs/candidate --card-prefix book-
-python chain.py per-question baseline=runs/baseline candidate=runs/candidate --card-prefix book-
+python scripts/runner.py <workdir>/compare/prompts.tsv <workdir>/compare/runs --variant baseline=<baseline> --variant candidate=<candidate> --reps 2 --lanes 2 --budget 1 --runs-root <runs-root> --batch-id frozen-batch --model MODEL
+python scripts/chain.py counts <workdir>/compare/runs/baseline <workdir>/compare/runs/candidate --card-prefix micro-
+python scripts/chain.py per-question baseline=<workdir>/compare/runs/baseline candidate=<workdir>/compare/runs/candidate --card-prefix micro-
 ```
 
 顺序是每道题→每个重复→每个版本；两版本同批交错，减少日期造成的混淆，不能消除随机性。

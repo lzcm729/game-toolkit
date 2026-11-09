@@ -162,11 +162,15 @@ def split_candidates(cfg, workdir: Path) -> dict[str, dict[str, list]]:
     return buckets
 
 
-def main(argv=None) -> int:
+def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("command", choices=["tasks", "coverage", "split"])
     parser.add_argument("workdir", type=Path)
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv=None) -> int:
+    args = build_parser().parse_args(argv)
     try:
         cfg = open_workdir(args.workdir)
         if args.command == "tasks":

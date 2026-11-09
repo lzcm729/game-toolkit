@@ -168,7 +168,7 @@ def find_page(source_md: str, phrase: str) -> int | None:
     return int(markers[-1].group(1))
 
 
-def main(argv=None) -> int:
+def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
     survey = commands.add_parser("survey")
@@ -179,7 +179,11 @@ def main(argv=None) -> int:
     page = commands.add_parser("page")
     page.add_argument("workdir", type=Path)
     page.add_argument("phrase")
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv=None) -> int:
+    args = build_parser().parse_args(argv)
     try:
         if args.command == "survey":
             for row in survey_fonts(args.pdf):

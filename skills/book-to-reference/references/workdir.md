@@ -102,3 +102,8 @@ answer_compare: {}
 
 先运行 `python scripts/bookconf.py check <workdir>`（脚本路径相对本 skill）。
 检查失败退出 1，不创建任何文件。
+
+随包命令示例从本 skill 目录执行；`scripts/` 指随包脚本，`<workdir>` 替换成仓库外的工作目录。
+任务书中的 `compare/`、`reach/`、`grouping/` 等材料都在该工作目录下，命令参数显式带 `<workdir>/`。
+`<baseline>`、`<candidate>` 是隔离并冻结的插件源码快照；含空格的路径加引号。
+这些占位参数要先替换，不能把示例路径当真实交付目标。

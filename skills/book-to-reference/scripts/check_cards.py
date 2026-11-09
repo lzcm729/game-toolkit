@@ -186,11 +186,15 @@ def plan_problems(cfg, workdir: Path) -> list[str]:
     return problems
 
 
-def main(argv=None) -> int:
+def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("workdir", type=Path)
     parser.add_argument("--only", choices=["quotes", "steps", "plan"])
-    args = parser.parse_args(argv)
+    return parser
+
+
+def main(argv=None) -> int:
+    args = build_parser().parse_args(argv)
     bad = False
     try:
         cfg = open_workdir(args.workdir)
