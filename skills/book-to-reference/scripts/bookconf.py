@@ -44,6 +44,7 @@ class SkillMdConfig:
     when_to_use_anchor: str
     when_to_use_line: str
     description_file: str | None = None
+    when_to_use_end: str | None = None
 
 
 @dataclass
@@ -100,7 +101,7 @@ def _record(cls, value, name: str):
         raise ValueError(f"{name}: {exc}") from exc
     for field in fields(result):
         item = getattr(result, field.name)
-        if field.name == "description_file" and item is None:
+        if field.name in ("description_file", "when_to_use_end") and item is None:
             continue
         _string(item, f"{name}.{field.name}", empty=field.name == "replace")
     return result

@@ -46,7 +46,7 @@ landing/notes.md
 
 `skill_md` 描述目标 SKILL.md 的替换位置：`quick_ref_start/end` 包围旧速查，
 `quick_ref_file` 提供新速查；`table_start/end` 包围选卡表，`table_heading` 提供标题；
-`when_to_use_anchor` 定位触发说明，`when_to_use_line` 提供新触发句；
+`when_to_use_anchor` 和 `when_to_use_end` 是本书触发行槽位的前后锚点，`when_to_use_line` 提供替换行；
 `description_file` 为可选描述文件路径，`null` 表示不替换描述。
 
 `convert` 不带任何书的排版默认值；只有文本时可为空，调用 PDF convert 时以下字段全部必填。
@@ -133,6 +133,7 @@ skill_md:
   table_end: '<!-- TABLE END -->'
   table_heading: '## 按任务选卡'
   when_to_use_anchor: '## 何时使用'
+  when_to_use_end: '旧触发句。'
   when_to_use_line: '需要做灯光试验时使用。'
   description_file: null
 rulings: []
@@ -165,4 +166,4 @@ answer_compare: {}
 
 `_scope.yaml` 的 reference_only 项可写 `related: [steady-shadow]`，只能引用计划中的卡 slug；未提供时相关卡写「—」。范围条目没有单元，不承诺自动推导相关卡。
 
-接入在 notes_out 同目录保存 `.entry.yaml` 私有记录，以锚点和上次生成的 when_to_use_line 定位替换；重复运行不累积。此记录须随工作目录保留；锚点与已记录的旧行被手改后会报错，先恢复再接入。它不交付到插件。新工作目录首次接入已有改版入口时，应先把配置行设为现场已有行接入一次，再修改配置，避免把旧行当作其他书的内容。
+`skill_md.when_to_use_anchor` 与必填的 `when_to_use_end` 指定本书触发行槽位前后保留的完整行，必须各自唯一且按此顺序出现。接入替换两锚点之间的整段，首次槽位可空，重复接入或改文案都不累积。两锚点之间只能有本书那一行，不能夹其他书的触发项。例：前锚点 `- Compare lantern shadows`，后锚点 `- Plan a playtest`，生成的微型书行放在它们之间。缺字段或锚点时明确失败；不猜哪行属于本书。

@@ -16,7 +16,7 @@ import sys
 
 import yaml
 
-from bookconf import open_workdir, resolve
+from bookconf import check_work_output, open_workdir, resolve
 from stage1 import candidate_sources, named_yaml, read_tasks
 
 
@@ -190,7 +190,7 @@ def apply_recheck(cfg, workdir: Path, batches: list[str] | None, dry: bool) -> l
             where[uid] = group
     paths = sorted(resolve(cfg, workdir, "recheck_out").glob("*.yaml"), key=_natural)
     records = [(index, path, _read(path)) for index, path in enumerate(paths)]
-    ledger_path = resolve(cfg, workdir, "recheck_out").parent / "_applied.yaml"
+    ledger_path = check_work_output(resolve(cfg, workdir, "recheck_out").parent / "_applied.yaml", cfg)
     ledger = _read(ledger_path) if ledger_path.exists() else {}
     fingerprints = {}
     for _, path, data in records:

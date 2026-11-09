@@ -22,6 +22,7 @@ skill_md:
   table_end: '<!-- TABLE END -->'
   table_heading: '## 按任务选卡'
   when_to_use_anchor: '## 何时使用'
+  when_to_use_end: '旧触发句。'
   when_to_use_line: '需要做灯光试验时使用。'
   description_file: null
 rulings: []

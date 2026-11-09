@@ -256,16 +256,14 @@ def run(workdir: Path) -> IntegrateReport:
     if anchor not in text:
         raise ValueError("when_to_use_anchor 未找到")
     notes_path = resolve(cfg, workdir, "notes_out")
-    entry_state = notes_path.with_suffix(".entry.yaml")
-    previous = yaml.safe_load(entry_state.read_text(encoding="utf-8")) if entry_state.exists() else {}
-    old_line = previous.get("when_to_use_line", extra)
-    # 上次生成的行由锚点及私有记录共同定位，不能误删旁边其他书的触发句。
-    if anchor + old_line in text:
-        text = text.replace(anchor + old_line, anchor + extra, 1)
-    elif extra not in text:
-        if previous:
-            raise ValueError("上次生成的 When to Use 行不在锚点后；请恢复锚点和该行再接入")
-        text = text.replace(anchor, anchor + extra, 1)
+    if not cfg.skill_md.when_to_use_end:
+        raise ValueError("book.yaml skill_md 缺 when_to_use_end；须显式划定本书触发行的前后锚点")
+    end_anchor = cfg.skill_md.when_to_use_end.rstrip("\n")
+    if text.count(anchor) != 1 or text.count(end_anchor) != 1:
+        raise ValueError("When to Use 前后锚点必须各自唯一")
+    first = text.index(anchor) + len(anchor)
+    last = text.index(end_anchor, first)
+    text = text[:first] + extra + text[last:]
     if cfg.skill_md.description_file:
         description = " ".join((workdir / cfg.skill_md.description_file).read_text(encoding="utf-8").split())
         if len(description) > 1024:
@@ -281,7 +279,6 @@ def run(workdir: Path) -> IntegrateReport:
         raise ValueError("old_files 包含本次生成的文件")
     notes_path.parent.mkdir(parents=True, exist_ok=True)
     notes_path.write_text(notes, encoding="utf-8", newline="\n")
-    entry_state.write_text(yaml.safe_dump({"when_to_use_line": extra}, allow_unicode=True), encoding="utf-8", newline="\n")
     refs.mkdir(parents=True, exist_ok=True)
     for path, content in generated.items():
         path.write_text(content, encoding="utf-8", newline="\n")

@@ -229,3 +229,13 @@ def test_when_to_use_replaced_and_existing_usage_not_duplicated(microbook, plugi
     text = (plugin_copy / "skills/game-design-theory/references/micro-steady-shadow.md").read_text(encoding="utf-8")
     assert text.count("**怎么用这张卡**") == 1
     assert "已有的用法句。" in text
+
+
+def test_missing_entry_end_fails_explicitly(microbook):
+    prepare(microbook)
+    path = microbook / "book.yaml"
+    data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    del data["skill_md"]["when_to_use_end"]
+    path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+    with pytest.raises(ValueError, match="缺 when_to_use_end"):
+        integrate.run(microbook)
