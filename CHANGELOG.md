@@ -3,6 +3,24 @@
 `game-toolkit` Claude Code plugin — game design contracts, design-doc workflows, and a Godot asset pipeline.
 （3.0.0 起不再提供 slash command；历史版本的记载保持原样。）
 
+## 4.18.0 (2026-11-09)
+
+game-design-theory：Sylvester《Designing Games》的 7 份摘要换成 47 张按任务分的能力卡，加一份 `sylvester-notes.md`。
+
+- **删掉的文件**：`sylvester-decisions.md`、`sylvester-elegance.md`、`sylvester-experience.md`、`sylvester-iteration.md`、`sylvester-motivation.md`、`sylvester-narrative.md`、`sylvester-skill.md`。项目里自己写了这些路径的，改成指向 SKILL.md 选卡表里对口的卡。
+- **导出过 Codex agent 的项目要重新导出**：插件升级不会同步项目里的 `.codex/agents/*.toml`，旧副本还指着已删的文件。运行 `python <新版插件根>/scripts/export_codex_agents.py <项目根>`（会覆盖同名文件），再开新会话。
+- **卡**：一张卡管一类任务，写原文摘句（英文原文加翻译）、方法骨架、书中案例、触发场景、分支化的执行步骤和边界。执行步骤带原书页码，写卡时补的组织步骤标「约定」。原书讲了、但没给可照做步骤的观点，以及术语，在 `sylvester-notes.md`。每张卡和选卡表开头写了用法：先按用户的处境给自己的判断和做法，卡用来补方法、校正判断、提供依据；不按卡复述这本书，书名和页码只在要出处时给。
+- **SKILL.md**：description 新增覆盖平衡、多人、界面信号、市场定位、团队与开发过程。Sylvester 速查换成 7 条核心原则；选卡表分 12 组、47 行，每行写「和近邻怎么分」。原来的决策时长表去掉了，那些秒数是作者的经验估计，现在放在卡里，注明受玩家水平影响、5–10 秒原书没有归属。
+- **消费方**：framework、content、game-designer 和 design-discuss 的 theory-framework 改成直接指向卡。game-designer 的决策表改两处：Profound 的说明从「影响深远的道德/战略决策」改成「要想很久的决策」，秒数标成作者经验估计。两处强化循环补了条件：叠加多条循环要错开低谷，玩家能把各条循环逐个清空时，低谷会重新同步。
+- **测试**：新加 `scripts/tests/test_reference_links.py`。agents 和各 skill 里提到的参考文件名都要存在，被截断的文件名也会被抓到；agents 提到的每个 `.md` 都要能在仓库里找到。
+- book-to-reference 的模板注明 `player-psychology.md` 是 Rouse 旧文件的命名例外。README 不再写死参考文件的份数。
+- **验证**（在仓库外做，书的全文不进仓库）：
+  - 142 条摘句逐条核对，都落在标注的页码上。
+  - 在无界面 Claude Code 里加载插件副本，和 4.17.1 做了两轮盲评回答对比，判据跑前冻结。第一轮不通过：读了卡的回答变成在复述这本书。改了卡的用法后，第二轮用新题通过：旧版已覆盖的 12 题 4 好、8 平、0 差，新增覆盖的 6 题 1 好、5 平、0 差。
+  - 发版前 codex 评审了分支三轮，按意见修了截断的文件名、核心原则的适用范围、导入流程留下的说法和测试。改完又做了验收后回归。前两次拿验收版前一天的答案比改后版本当天的答案，按冻结判据不通过；查下来是那一天插件整体被调用得少，验收版自己当天重跑也一样。第三次让两个版本在同一批里交错跑，必测 18 题 3 好、14 平、1 差，没有实质退步，通过。
+  - pytest 1198 条通过。
+- 已知：约一半的设计问题插件根本没被调用，4.17.1 也一样，见 issue #2。
+
 ## 4.17.1 (2026-11-06)
 
 `model-predict-verify` 按独立复核（codex，gpt-6-astra · xhigh，只读）修订，skill 的形状不变、补的是会教错方法的几处：
