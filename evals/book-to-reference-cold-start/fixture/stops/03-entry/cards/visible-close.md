@@ -6,7 +6,7 @@
 
 > Keep the final ribbon visible until both harbor keepers sign the ledger.
 >
-> 译：保留最后纸带可见，两人核对记录后签字；不符就停（p.16）。
+> 译：在两位港口看守都签署记录簿之前，让最后一条纸带保持可见。
 >
 > — Nera Sample, The Ribbon Harbor Notebook, p.16
 
@@ -20,7 +20,12 @@
 
 ## A2 — 触发场景
 
-需要核对这一步的输入和输出时使用。
+- 推演要结束了，怎样保留没解决的观察？
+- 纸带和记录对不上，还能签字收尾吗？
+
+**与相邻卡的区分**
+
+- 与 `gate-token` 区分：前者建立动作前的地点身份，本卡在收尾时核对最终纸带与记录并保留未决观察。
 
 ## E — 执行
 

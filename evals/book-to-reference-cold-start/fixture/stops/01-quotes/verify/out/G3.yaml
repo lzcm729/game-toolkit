@@ -9,7 +9,9 @@ units:
   source_evidence:
   - location: Ch3, p.16
     quote: Keep the final ribbon visible until both harbor keepers sign the ledger.
-  supports: {}
+  supports:
+    terms:
+    - g-04
   V1_source_sufficiency:
     passed: true
   V2_executability:
@@ -28,7 +30,9 @@ units:
     quote: An empty cardboard berth can suggest a promise, a departure, or room for an unexpected visitor.
   task_ids:
   - t03-02
-  supports: {}
+  supports:
+    terms:
+    - g-01
   decision: reference
   decision_reason: 只有解释性观点，没有挑选解释的步骤。
   gaps:

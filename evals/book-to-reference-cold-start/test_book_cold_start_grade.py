@@ -89,7 +89,7 @@ def repair_stop(workdir, name):
     elif name == "02-propagation":
         card = workdir / "cards/single-vane.md"
         put(card, card.read_text(encoding="utf-8").replace(
-            "对齐后即可开放整个港口（p.10）。", "只用于单个泊位；全港放行由设计者判断（p.10）。"))
+            "对齐后即可开放整个港口（p.10）。", "只用于单个泊位，不构成全港放行许可（p.10）。"))
     else:
         config = yaml.safe_load((workdir / "book.yaml").read_text(encoding="utf-8"))
         config["entry_groups"]["保留记录"] = ["03"]
@@ -116,6 +116,39 @@ def test_fixture_description_preserves_books_and_adds_task_signals():
     for marker in ("Rouse", "Sylvester", "Schell", "Meadows", "stocks, flows and feedback",
                    "Ribbon Harbor", "gate identity", "single-berth", "closing records", "闸口辨认"):
         assert marker in description
+
+
+@pytest.mark.parametrize("name", STOP_NAMES)
+def test_fixture_quotes_have_actual_translations(name):
+    expected = {
+        "gate-token": ("Place the blue token beside the gate before moving a ribbon.", "移动纸带之前，先把蓝色标记放在闸口旁。"),
+        "single-vane": ("Turn one amber vane and copy its previous direction into the ledger.", "转动一个琥珀色风牌，并把它原先的方向抄入记录簿。"),
+        "visible-close": ("Keep the final ribbon visible until both harbor keepers sign the ledger.", "在两位港口看守都签署记录簿之前，让最后一条纸带保持可见。"),
+    }
+    for slug, (quote, translation) in expected.items():
+        text = (FIXTURE / "stops" / name / "cards" / f"{slug}.md").read_text(encoding="utf-8")
+        reading = text.split("## R", 1)[1].split("## I", 1)[0]
+        assert f"> {quote}\n" in reading
+        assert f"> 译：{translation}\n" in reading
+
+
+@pytest.mark.parametrize("name", STOP_NAMES)
+def test_fixture_normal_scope_and_terms(name):
+    work = FIXTURE / "stops" / name
+    text = (work / "cards/single-vane.md").read_text(encoding="utf-8")
+    assert "全港放行由设计者判断" not in text
+    assert ("对齐后即可开放整个港口" in text) == (name == "02-propagation")
+    glossary = (work / "candidates/glossary.md").read_text(encoding="utf-8")
+    terms = yaml.safe_load(glossary.split("```yaml\n", 1)[1].split("```", 1)[0])
+    ids = {term["id"] for term in terms}
+    assert all(term.get("key_distinction") for term in terms)
+    for path in sorted((work / "verify/out").glob("*.yaml")):
+        units = yaml.safe_load(path.read_text(encoding="utf-8"))["units"]
+        assert all(unit.get("supports", {}).get("terms") for unit in units)
+        assert all(set(unit["supports"]["terms"]) <= ids for unit in units)
+    for path in sorted((work / "meta").glob("*.yaml")):
+        meta = yaml.safe_load(path.read_text(encoding="utf-8"))
+        assert len(meta["intents"]) >= 2 and all(question != meta["title"] for question in meta["intents"])
 
 
 def test_prepare_rejects_home_before_writing(tmp_path, monkeypatch):

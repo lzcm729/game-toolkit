@@ -9,7 +9,9 @@ units:
   source_evidence:
   - location: Ch1, p.2
     quote: Place the blue token beside the gate before moving a ribbon.
-  supports: {}
+  supports:
+    terms:
+    - g-02
   V1_source_sufficiency:
     passed: true
   V2_executability:

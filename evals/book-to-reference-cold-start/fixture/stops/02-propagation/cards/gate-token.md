@@ -6,7 +6,7 @@
 
 > Place the blue token beside the gate before moving a ribbon.
 >
-> 译：先放蓝筹并让两人指向同一闸口；不同就停（p.2）。
+> 译：移动纸带之前，先把蓝色标记放在闸口旁。
 >
 > — Nera Sample, The Ribbon Harbor Notebook, p.2
 
@@ -20,7 +20,12 @@
 
 ## A2 — 触发场景
 
-需要核对这一步的输入和输出时使用。
+- 两个人指的不是同一个闸口，先怎么核对？
+- 地点名字太像，移动纸带前该确认什么？
+
+**与相邻卡的区分**
+
+- 与 `single-vane` 区分：本卡先确认闸口身份；只有身份一致后，才用后者改变一个泊位的风牌并记录观察。
 
 ## E — 执行
 

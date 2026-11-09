@@ -6,7 +6,7 @@
 
 > Turn one amber vane and copy its previous direction into the ledger.
 >
-> 译：对齐后即可开放整个港口（p.10）。
+> 译：转动一个琥珀色风牌，并把它原先的方向抄入记录簿。
 >
 > — Nera Sample, The Ribbon Harbor Notebook, p.9
 
@@ -20,7 +20,12 @@
 
 ## A2 — 触发场景
 
-需要核对这一步的输入和输出时使用。
+- 只想试一个泊位的风牌，怎么保留改动前后的记录？
+- 观察者认错风牌指向的闸口时怎么办？
+
+**与相邻卡的区分**
+
+- 与 `gate-token` 区分：前者核对地点名称，本卡在地点已确认后试一个局部信号；身份不一致先回前者。
 
 ## E — 执行
 
