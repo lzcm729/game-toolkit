@@ -11,7 +11,7 @@ import sys
 
 import yaml
 
-from cold_start_common import FIXTURE, HERE, REPO, STOP_NAMES, configured_bytes, read_session, sha256
+from cold_start_common import FIXTURE, HERE, REPO, STOP_NAMES, configured_bytes, read_session, sha256, snapshot
 
 SCRIPTS = REPO / "skills/book-to-reference/scripts"
 if str(SCRIPTS) not in sys.path:
@@ -149,6 +149,7 @@ def _stop_records(records, name, workdir, plugin_copy):
 
 
 def _stop_problem(records, name, workdir, plugin_copy, after_seq):
+    stop = workdir / "stops" / name
     checks = _stop_records(records, name, workdir, plugin_copy)
     if len(checks) < 2:
         return "缺少首次失败或修改后的同一检查", after_seq
@@ -159,13 +160,19 @@ def _stop_problem(records, name, workdir, plugin_copy, after_seq):
     if signature(first) != signature(last):
         return "复查不是同一条检查命令", after_seq
     prefix = f"stops/{name}/"
-    for source in sorted((FIXTURE / "stops" / name).rglob("*")):
+    frozen = plugin_copy / "evals/book-to-reference-cold-start/fixture"
+    frozen = frozen if frozen.is_dir() else FIXTURE
+    for source in sorted((frozen / "stops" / name).rglob("*")):
         if not source.is_file():
             continue
         data = source.read_bytes()
+        if frozen != FIXTURE:
+            frozen_key = source.relative_to(plugin_copy).as_posix()
+            if records[0]["before"]["plugin_copy"].get(frozen_key) != sha256(data):
+                return f"原始夹具版本变化或缺哈希: {frozen_key}", after_seq
         if source.name == "book.yaml":
             data = configured_bytes(data, plugin_copy)
-        key = prefix + source.relative_to(FIXTURE / "stops" / name).as_posix()
+        key = prefix + source.relative_to(frozen / "stops" / name).as_posix()
         if first["before"]["workdir"].get(key) != sha256(data):
             return f"首次失败前已修改或缺少采用输入: {key}", after_seq
     watched = prefix + WATCH[name]
@@ -173,12 +180,50 @@ def _stop_problem(records, name, workdir, plugin_copy, after_seq):
     changed = last["before"]["workdir"].get(watched)
     if not changed or initial == changed or first["after"]["workdir"].get(watched) != initial:
         return "相关文件没有在失败后、复查前修改", after_seq
+    keys = _card_inputs(open_workdir(stop), stop, workdir) + [prefix + "book.yaml"]
+    checked = _project(last["before"]["workdir"], keys)
+    if checked != _project(last["after"]["workdir"], keys) or checked != _project(snapshot(workdir), keys):
+        return "本份输入的卡在成功检查中或检查后变化，哈希绑定不成立", after_seq
     return "采用输入未提前修；失败后相关文件变化，同一检查复查通过", last["seq"]
 
 
-def _consumed(records, workdir, plugin_copy, log_dir, prefix):
+def _project(state, prefixes):
+    return {key: value for key, value in state.items()
+            if any(key == prefix or key.startswith(prefix.rstrip("/") + "/") for prefix in prefixes)}
+
+
+def _card_inputs(cfg, workdir, root):
+    # 绑定检查器实际读取的输入；仅改 notes 裁定或入口文案不等于改了受检卡。
+    return [resolve(cfg, workdir, name).relative_to(root).as_posix()
+            for name in ("cards", "meta", "card_plan", "source", "verify_out")]
+
+
+def _plugin_state(state):
+    return {key: value for key, value in state.items()
+            if not any(part in (".git", "__pycache__", ".pytest_cache") for part in Path(key).parts)
+            and not key.endswith(".pyc")}
+
+
+def _integration_binding(records, integration, workdir, plugin_copy, root):
+    script = plugin_copy / "skills/book-to-reference/scripts/check_cards.py"
+    previous = [row for row in records if row["seq"] < integration["seq"] and
+                command_for(row, script, workdir) and "--only" not in row["argv"]]
+    if not previous or previous[-1]["returncode"] != 0:
+        return "接入前缺同一输入的完整 check_cards 成功记录"
+    checked = previous[-1]
+    keys = _card_inputs(open_workdir(workdir), workdir, root)
+    before = _project(checked["before"]["workdir"], keys)
+    if not before or before != _project(checked["after"]["workdir"], keys) or before != _project(integration["before"]["workdir"], keys):
+        return f"check_cards seq {checked['seq']} → integrate seq {integration['seq']} 输入哈希不一致"
+    return ""
+
+
+def _consumed(records, workdir, plugin_copy, log_dir, prefix, before_seq):
     script = plugin_copy / "skills/book-to-reference/scripts/runner.py"
+    reasons = []
     for row in records:
+        if row["seq"] >= before_seq:
+            continue
         argv = row["argv"]
         if len(argv) < 4 or _path(argv[1], row["cwd"]) != script:
             continue
@@ -189,6 +234,17 @@ def _consumed(records, workdir, plugin_copy, log_dir, prefix):
         directory = _path(str(args.out_dir), row["cwd"])
         runs = log_dir / "runs"
         if not directory.is_relative_to(runs):
+            continue
+        integrations = [r for r in records if r["seq"] < row["seq"] and r["returncode"] == 0
+                        and command_for(r, script.with_name("integrate.py"), workdir)]
+        if not integrations:
+            reasons.append("消费前没有主流程成功接入")
+            continue
+        integrated = integrations[-1]
+        problem = _integration_binding(records, integrated, workdir, plugin_copy, workdir)
+        frozen = _plugin_state(integrated["after"]["plugin_copy"])
+        if problem or frozen != _plugin_state(row["before"]["plugin_copy"]) or frozen != _plugin_state(row["after"]["plugin_copy"]):
+            reasons.append(problem or f"integrate seq {integrated['seq']} → runner seq {row['seq']} 插件哈希不一致")
             continue
         for path in sorted(directory.glob("*/*.jsonl")):
             meta_path = Path(str(path) + ".meta.json")
@@ -205,7 +261,7 @@ def _consumed(records, workdir, plugin_copy, log_dir, prefix):
                      and _path(file, row["cwd"]).is_file()]
             if run.ok and any(skill.startswith("game-toolkit:") for skill in run.skills) and cards:
                 return True, row["seq"], f"{path.relative_to(log_dir)}: 成功调用本插件并读到 {Path(cards[0]).name}"
-    return False, 0, "日志目录/runs 没有带本批 meta、成功插件调用和成功新卡 Read 的完整运行"
+    return False, 0, "; ".join(dict.fromkeys(reasons)) or "日志目录/runs 没有带本批 meta、成功插件调用和成功新卡 Read 的完整运行"
 
 
 def grade(workdir: Path, plugin_copy: Path, log_dir: Path) -> list[Check]:
@@ -224,13 +280,26 @@ def grade(workdir: Path, plugin_copy: Path, log_dir: Path) -> list[Check]:
     checks.append(Check("flow.artifacts", not missing, ", ".join(missing) or "约定的各阶段产物在场；不判断其内容质量或独立性"))
     scripts = plugin_copy / "skills/book-to-reference/scripts"
     main_checks = {}
+    stop_start = min((row["seq"] for name in STOP_NAMES for row in _stop_records(records, name, workdir, plugin_copy)), default=float("inf"))
+    main_before_stops = []
     for filename, name in (("check_cards.py", "flow.cards_check"), ("integrate.py", "flow.integrate")):
         rows = [row for row in records if command_for(row, scripts / filename, workdir)]
         if filename == "check_cards.py":
             rows = [row for row in rows if "--only" not in row["argv"]]
         ok = bool(rows) and rows[-1]["returncode"] == 0
+        detail = ""
+        if ok and filename == "integrate.py":
+            detail = _integration_binding(records, rows[-1], workdir, plugin_copy, workdir)
+            ok = not detail
+        if ok and filename == "check_cards.py":
+            keys = _card_inputs(open_workdir(workdir), workdir, workdir)
+            if _project(rows[-1]["after"]["workdir"], keys) != _project(snapshot(workdir), keys):
+                ok, detail = False, "主流程输入在最后一次 check_cards 后变化，须重查"
         main_checks[name] = rows[-1]["seq"] if ok else 0
-        checks.append(Check(name, ok, f"完整流程最后一次 {filename}: " + (str(rows[-1]["returncode"]) if rows else "未运行")))
+        prior = [r for r in rows if r["seq"] < stop_start]
+        if prior and prior[-1]["returncode"] == 0:
+            main_before_stops.append(prior[-1]["seq"])
+        checks.append(Check(name, ok, detail or f"完整流程最后一次 {filename}: " + (str(rows[-1]["returncode"]) if rows else "未运行")))
     try:
         # 三份续跑会再次接入同一书；最终副本按最近一次采用输入核文件和选卡直链。
         integrations = [row for row in records if len(row["argv"]) == 3 and _path(row["argv"][1], row["cwd"]) == scripts / "integrate.py" and row["returncode"] == 0]
@@ -238,6 +307,14 @@ def grade(workdir: Path, plugin_copy: Path, log_dir: Path) -> list[Check]:
         if not final_work.is_relative_to(workdir):
             raise ValueError("接入输入逃出本次工作目录")
         detail = _integrated(final_work, plugin_copy)
+        final_cfg = open_workdir(final_work)
+        plan = resolve(final_cfg, final_work, "card_plan").read_text(encoding="utf-8")
+        names = [f"skills/game-design-theory/references/{final_cfg.prefix}{match.group(2)}.md"
+                 for line in plan.splitlines() if (match := PLAN_ROW.match(line))]
+        names += [f"skills/game-design-theory/references/{final_cfg.prefix}notes.md", "skills/game-design-theory/SKILL.md"]
+        current = snapshot(plugin_copy)
+        if not integrations or any(integrations[-1]["after"]["plugin_copy"].get(name) != current.get(name) for name in names):
+            raise ValueError("最终发布文件不等于最近一次成功接入产生的版本")
         checks.append(Check("flow.integrated", True, detail))
     except (OSError, ValueError, KeyError, TypeError, yaml.YAMLError) as exc:
         checks.append(Check("flow.integrated", False, str(exc)))
@@ -252,13 +329,16 @@ def grade(workdir: Path, plugin_copy: Path, log_dir: Path) -> list[Check]:
     except (OSError, ValueError, KeyError, TypeError, yaml.YAMLError) as exc:
         checks.append(Check("flow.scope", False, str(exc)))
     try:
-        consumed, consumption_seq, detail = _consumed(records, workdir, plugin_copy, log_dir, prefix)
+        consumed, consumption_seq, detail = _consumed(records, workdir, plugin_copy, log_dir, prefix, stop_start)
     except (OSError, ValueError, KeyError, TypeError) as exc:
         consumed, consumption_seq, detail = False, 0, str(exc)
     checks.append(Check("consumption", consumed, detail))
-    after_seq = max([consumption_seq, *main_checks.values()])
+    after_seq = max([consumption_seq, *main_before_stops])
     for name in STOP_NAMES:
-        problem, last = _stop_problem(records, name, workdir, plugin_copy, after_seq)
+        try:
+            problem, last = _stop_problem(records, name, workdir, plugin_copy, after_seq)
+        except (OSError, ValueError, KeyError, TypeError, yaml.YAMLError) as exc:
+            problem, last = str(exc), after_seq
         ok = last > after_seq
         checks.append(Check(f"stop.{name}", ok, problem))
         after_seq = last

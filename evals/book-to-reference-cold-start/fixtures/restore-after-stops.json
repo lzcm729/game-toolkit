@@ -1,0 +1,1210 @@
+[
+  {
+    "seq": 31,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
+      "X:/fictional/session/book"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 32,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "X:/fictional/session/book"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 33,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "X:/fictional/session/book"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 34,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/bookconf.py",
+      "check",
+      "X:/fictional/session/book"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 35,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "X:/fictional/session/book"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 36,
+    "argv": [
+      "python",
+      "-m",
+      "pytest",
+      "-q",
+      "-p",
+      "no:cacheprovider",
+      "scripts/tests/test_reference_links.py",
+      "scripts/tests/test_skill_files.py"
+    ],
+    "cwd": "X:/fictional/session/plugin",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 37,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/grading.py",
+      "prompts",
+      "X:/fictional/session/book",
+      "--items",
+      "X:/fictional/session/book/reach/items.json",
+      "--prompts-raw",
+      "X:/fictional/session/book/reach/prompts-raw.yaml",
+      "--out-dir",
+      "X:/fictional/session/book/reach"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 38,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/runner.py",
+      "X:/fictional/session/book/reach/prompts.tsv",
+      "X:/fictional/session/logs/runs/reach",
+      "--variant",
+      "candidate=X:/fictional/session/plugin",
+      "--reps",
+      "1",
+      "--lanes",
+      "2",
+      "--budget",
+      "1",
+      "--runs-root",
+      "X:/fictional/session/logs/hosts",
+      "--batch-id",
+      "reach-candidate-frozen-1",
+      "--model",
+      "claude-opus-5-5"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 39,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/reach.py",
+      "score",
+      "X:/fictional/session/book",
+      "--runs-dir",
+      "X:/fictional/session/logs/runs/reach/candidate",
+      "--id-map",
+      "X:/fictional/session/book/reach/id_map.json",
+      "--expected",
+      "X:/fictional/session/book/reach/expected.json",
+      "X:/fictional/session/book/reach/protected.json",
+      "--out",
+      "X:/fictional/session/book/reach/score.json"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 40,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/chain.py",
+      "counts",
+      "X:/fictional/session/logs/runs/reach/candidate",
+      "--card-prefix",
+      "ribbon-"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 41,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/chain.py",
+      "per-question",
+      "candidate=X:/fictional/session/logs/runs/reach/candidate",
+      "--card-prefix",
+      "ribbon-"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 42,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
+      "X:/fictional/session/book/stops/01-quotes"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 1,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 43,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
+      "X:/fictional/session/book/stops/01-quotes"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 44,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/verify_units.py",
+      "show",
+      "X:/fictional/session/book/stops/02-propagation",
+      "u01-01",
+      "u02-01",
+      "u03-01"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 45,
+    "argv": [
+      "python",
+      "X:/fictional/source/evals/book-to-reference-cold-start/grade.py",
+      "check-propagation",
+      "X:/fictional/session/book/stops/02-propagation"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 1,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 46,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
+      "X:/fictional/session/book/stops/02-propagation"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 47,
+    "argv": [
+      "python",
+      "X:/fictional/source/evals/book-to-reference-cold-start/grade.py",
+      "check-propagation",
+      "X:/fictional/session/book/stops/02-propagation"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 48,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "X:/fictional/session/book/stops/03-entry"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 1,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 49,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/bookconf.py",
+      "check",
+      "X:/fictional/session/book/stops/03-entry"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 50,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/check_cards.py",
+      "X:/fictional/session/book/stops/03-entry"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 51,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "X:/fictional/session/book/stops/03-entry"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 52,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "X:/fictional/session/book/stops/03-entry"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 53,
+    "argv": [
+      "python",
+      "-m",
+      "pytest",
+      "-q",
+      "-p",
+      "no:cacheprovider",
+      "scripts/tests/test_reference_links.py",
+      "scripts/tests/test_skill_files.py"
+    ],
+    "cwd": "X:/fictional/session/plugin",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  },
+  {
+    "seq": 54,
+    "argv": [
+      "python",
+      "X:/fictional/session/plugin/skills/book-to-reference/scripts/integrate.py",
+      "X:/fictional/session/book"
+    ],
+    "cwd": "X:/fictional/source",
+    "returncode": 0,
+    "before": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    },
+    "after": {
+      "workdir": {
+        "cards/gate-token.md": "6829bedbe4a007783fbd2c6343e675ba5d1fcc519379f4cc15160b2bf72e92e9",
+        "cards/single-berth-vane.md": "b4c439f1cdc2b828c243b80ce70d8fbe1e07b6eb77ba4096a30240cc1ca7caf3",
+        "cards/visible-closing.md": "b33a10c8b719cfaf767a363fbd458697542c81230bfb74a813f8c80aaa1834a4",
+        "meta/gate-token.yaml": "349f35bfb70c474a8a2eef1e2bec11860ea10698113783a5171fff09cbb04cbc",
+        "meta/single-berth-vane.yaml": "d4ecbddb6cc38debfeb2d3cd04b0260855b49320ea6cd4254cbc0bd995450812",
+        "meta/visible-closing.yaml": "e4e771d2e7dd952f4233ab2887df3a31cf92a9d6d7f8dc3219281ba2c08ae3f5",
+        "source/ribbon-harbor.md": "de380f0ac3abba5690673188fd15c3814f304bfcfe2538d4a9eb4dd238ecfa9d",
+        "stage2/CARD-PLAN.md": "4ce4f9a2309371189f6b3cb5d1ad6b2ae2a9e5c3d671849ef65cf91414b1abb7",
+        "stage2/quick-ref.md": "553c89777c22eb574070eb376a6ffd933df3fa6769651842054b512b8613d7ae",
+        "verify/out/G1.yaml": "22f31e9de065140b2d650b50679ea1217bb96f898f5f1b24e972a0117999a19e",
+        "verify/out/G1.yaml.pre-recheck.bak": "5c1e8f74ad470f7de4cd5d09897aaaae47077113c7afd8d14d4564880c5489c4",
+        "verify/out/G2.yaml": "6f713277fbadefed18515469ff30e820ee613107854071e7b8474d2a6f086226",
+        "verify/out/G2.yaml.pre-recheck.bak": "58a5b754ccfd80e86667430478b257f4e9361ebf19296f4cf907f33300db02e7",
+        "verify/out/G3.yaml": "b2f6f54032e7ce5b5076896cda89df0a367ddb29914739fcecd77dba6252b3ba",
+        "verify/out/G3.yaml.pre-recheck.bak": "03afc26b082d093bb6f0935efbbf55ec34267232c84a88ff55e610e7b8e41801"
+      }
+    }
+  }
+]

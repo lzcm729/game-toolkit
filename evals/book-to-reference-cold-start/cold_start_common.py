@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import sys
 
 import yaml
 
@@ -12,6 +13,14 @@ HERE = Path(__file__).resolve().parent
 REPO = HERE.parents[1]
 FIXTURE = HERE / "fixture"
 STOP_NAMES = ("01-quotes", "02-propagation", "03-entry")
+
+
+def check_output(path: Path) -> Path:
+    scripts = REPO / "skills/book-to-reference/scripts"
+    if str(scripts) not in sys.path:
+        sys.path.insert(0, str(scripts))
+    from bookconf import check_work_output
+    return check_work_output(path)
 
 
 def sha256(data: bytes) -> str:

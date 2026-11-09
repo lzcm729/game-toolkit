@@ -8,7 +8,7 @@ import shutil
 import subprocess
 import sys
 
-from cold_start_common import FIXTURE, REPO, configured_bytes, snapshot, write_json
+from cold_start_common import FIXTURE, REPO, check_output, configured_bytes, snapshot, write_json
 
 
 @dataclass
@@ -32,6 +32,7 @@ def prepare(parent: Path, repo: Path = REPO) -> Prepared:
         raise ValueError("父目录不能在用户主目录下面，祖先配置会污染实验")
     if parent.is_relative_to(repo):
         raise ValueError("评测父目录必须在被复制的源码仓库外")
+    check_output(parent)
     result = Prepared(parent / "book", parent / "plugin", parent / "logs")
     if any(path.exists() for path in (result.workdir, result.plugin_copy, result.log_dir)):
         raise ValueError("book、plugin、logs 必须都是新目录，不能覆盖旧证据")

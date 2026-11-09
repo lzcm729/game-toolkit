@@ -8,13 +8,13 @@ from pathlib import Path
 import subprocess
 import sys
 
-from cold_start_common import read_session, sha256, snapshot
+from cold_start_common import check_output, read_session, sha256, snapshot
 
 
 def run_logged(log_dir: Path, command: list[str], cwd: Path | None = None) -> int:
     if not command:
         raise ValueError("缺少 -- 后的命令")
-    log_dir = Path(log_dir).resolve()
+    log_dir = check_output(log_dir)
     session = read_session(log_dir)
     index = log_dir / "commands.jsonl"
     previous = index.read_text(encoding="utf-8").splitlines() if index.exists() else []

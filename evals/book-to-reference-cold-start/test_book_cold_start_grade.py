@@ -55,6 +55,7 @@ description: Synthetic source
 ---
 # Synthetic source
 ## When to Use This Skill
+- Evaluating game concepts for player appeal
 <!-- RIBBON QUICK START -->
 <!-- RIBBON QUICK END -->
 <!-- RIBBON TABLE START -->
@@ -116,6 +117,14 @@ def test_fixture_description_preserves_books_and_adds_task_signals():
     for marker in ("Rouse", "Sylvester", "Schell", "Meadows", "stocks, flows and feedback",
                    "Ribbon Harbor", "gate identity", "single-berth", "closing records", "闸口辨认"):
         assert marker in description
+
+
+def test_fixture_uses_vane_signal_and_peer_heading_level():
+    for path in FIXTURE.rglob("book.yaml"):
+        config = yaml.safe_load(path.read_text(encoding="utf-8"))
+        assert "风向试验" not in config["skill_md"]["when_to_use_line"]
+        assert "风牌试验" in config["skill_md"]["when_to_use_line"]
+        assert config["skill_md"]["table_heading"].startswith("### ")
 
 
 @pytest.mark.parametrize("name", STOP_NAMES)
@@ -262,8 +271,8 @@ def good(prepared, monkeypatch):
             out = logs / "runs/new/q1-r1.jsonl"
             card = plugin / "skills/game-design-theory/references/ribbon-gate-token.md"
             events = [
-                {"type":"assistant", "message":{"content":[{"type":"tool_use", "name":"Skill", "input":{"skill":"game-toolkit:design-discuss"}}, {"type":"tool_use", "name":"Read", "id":"r1", "input":{"file_path":card.as_posix()}}]}},
-                {"type":"user", "message":{"content":[{"type":"tool_result", "tool_use_id":"r1", "content":"Synthetic card"}]}},
+                {"type":"assistant", "message":{"content":[{"type":"tool_use", "name":"Skill", "id":"s1", "input":{"skill":"game-toolkit:design-discuss"}}, {"type":"tool_use", "name":"Read", "id":"r1", "input":{"file_path":card.as_posix()}}]}},
+                {"type":"user", "message":{"content":[{"type":"tool_result", "tool_use_id":"r1", "content":"Synthetic card"}, {"type":"tool_result", "tool_use_id":"s1", "content":"Launching skill"}]}},
                 {"type":"result", "subtype":"success", "result":"Synthetic answer"},
             ]
             put(out, "".join(json.dumps(row) + "\n" for row in events))
@@ -428,3 +437,56 @@ def test_grade_requires_stop_order(good):
     checks = by_name(good)
     assert checks["logs.valid"].ok
     assert not checks["stop.02-propagation"].ok
+
+
+@pytest.mark.parametrize("phase", ["cards-integrate", "integrate-runner", "during-runner", "stop-after-check"])
+def test_grade_hash_bindings_reject_changed_inputs(good, phase):
+    def change(rows):
+        if phase == "cards-integrate":
+            rows[1]["before"]["workdir"]["cards/gate-token.md"] = "0" * 64
+        elif phase == "integrate-runner":
+            rows[2]["before"]["plugin_copy"]["skills/game-design-theory/references/ribbon-gate-token.md"] = "0" * 64
+        elif phase == "during-runner":
+            rows[2]["after"]["plugin_copy"]["skills/game-design-theory/references/ribbon-gate-token.md"] = "0" * 64
+    edit_records(good, change)
+    if phase == "stop-after-check":
+        path = good.workdir / "stops/01-quotes/cards/gate-token.md"
+        put(path, path.read_text(encoding="utf-8") + "\n改变受检内容\n")
+    checks = by_name(good)
+    expected = "flow.integrate" if phase == "cards-integrate" else "stop.01-quotes" if phase == "stop-after-check" else "consumption"
+    assert not checks[expected].ok
+
+
+def test_restore_main_after_stops_does_not_change_start(good):
+    # 真实第二次日志的顺序是 42→43、45→47、48→51/52，54 再接入主流程。
+    shape = json.loads((HERE / "fixtures/restore-after-stops.json").read_text(encoding="utf-8"))
+    assert [(r["seq"], r["returncode"]) for r in shape if r["seq"] in (42, 43, 45, 47, 48, 51, 52, 54)] == [
+        (42, 1), (43, 0), (45, 1), (47, 0), (48, 1), (51, 0), (52, 0), (54, 0)]
+    scripts = good.plugin_copy / "skills/book-to-reference/scripts"
+    assert logged.run_logged(good.log_dir, [sys.executable, str(scripts / "integrate.py"), str(good.workdir)]) == 0
+    checks = by_name(good)
+    assert checks["flow.integrate"].ok
+    assert all(checks[f"stop.{name}"].ok for name in STOP_NAMES)
+    assert checks["consumption"].ok
+
+
+def test_real_shape_cards_stay_bound_across_notes_config_change(prepared, monkeypatch):
+    shape = json.loads((HERE / "fixtures/restore-after-stops.json").read_text(encoding="utf-8"))
+    rows = {r["seq"]: r for r in shape}
+    cfg = bookconf.open_workdir(prepared.workdir)
+    monkeypatch.setattr(grade, "open_workdir", lambda work: cfg)
+    work, plugin = Path("X:/fictional/session/book"), Path("X:/fictional/session/plugin")
+    assert not grade._integration_binding(shape, rows[35], work, plugin, work)
+    assert not grade._integration_binding(shape, rows[54], work, plugin, work)
+
+
+def test_eval_output_paths_reject_plugin(prepared):
+    with pytest.raises(ValueError, match="输出"):
+        logged.run_logged(prepared.plugin_copy / "logs", ["fake"])
+    assert not (prepared.plugin_copy / "logs").exists()
+
+
+def test_integrated_card_must_be_the_generated_version(good):
+    path = good.plugin_copy / "skills/game-design-theory/references/ribbon-gate-token.md"
+    put(path, path.read_text(encoding="utf-8") + "\n合法文字但未经接入。\n")
+    assert not by_name(good)["flow.integrated"].ok
